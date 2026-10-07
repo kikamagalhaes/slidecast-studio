@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SlideCast Studio - Crie Vídeos de Slides e Áudio com IA</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header -->
+  <header class="navbar">
+    <div class="container nav-content">
+      <div class="brand">
+        <span class="brand-icon">🎬</span>
+        <div>
+          <h1 class="brand-title">SlideCast Studio</h1>
+          <p class="brand-sub">Transforme slides em PDF e narrações em vídeos com IA</p>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <button id="btnOpenKeyModal" class="btn btn-outline">
+          🔑 <span id="keyStatusText">Chave Gemini API</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <!-- Step 1: Upload -->
+    <section class="card upload-section">
+      <h2 class="section-title">1. Selecione os Arquivos de Entrada</h2>
+      <div class="drop-grid">
+        <!-- PDF Drop -->
+        <div id="pdfDropZone" class="drop-box">
+          <input type="file" id="pdfInput" accept=".pdf" style="display:none;">
+          <div class="drop-content" id="pdfEmptyView">
+            <span class="drop-icon">📊</span>
+            <h3>Apresentação de Slides (PDF)</h3>
+            <p>Arraste e solte o arquivo .pdf aqui</p>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('pdfInput').click()">Procurar PDF...</button>
+          </div>
+          <div class="drop-loaded" id="pdfLoadedView" style="display:none;">
+            <span class="drop-icon">✓</span>
+            <h4 id="pdfFileName" class="file-name">slides.pdf</h4>
+            <span id="pdfFileBadge" class="badge badge-success">0 slides</span>
+            <button type="button" class="btn-link" onclick="document.getElementById('pdfInput').click()">Alterar</button>
+          </div>
+        </div>
+
+        <!-- Audio Drop -->
+        <div id="audioDropZone" class="drop-box">
+          <input type="file" id="audioInput" accept=".mp3,.wav,.m4a,.aac,.ogg,.flac" style="display:none;">
+          <div class="drop-content" id="audioEmptyView">
+            <span class="drop-icon">🎙️</span>
+            <h3>Arquivo de Áudio / Narração</h3>
+            <p>Arraste e solte seu áudio (.mp3, .wav, etc.)</p>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('audioInput').click()">Procurar Áudio...</button>
+          </div>
+          <div class="drop-loaded" id="audioLoadedView" style="display:none;">
+            <span class="drop-icon">✓</span>
+            <h4 id="audioFileName" class="file-name">narracao.mp3</h4>
+            <span id="audioFileBadge" class="badge badge-success">00:00</span>
+            <button type="button" class="btn-link" onclick="document.getElementById('audioInput').click()">Alterar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="upload-action-row" id="uploadActionRow" style="display:none;">
+        <button id="btnProcessUpload" class="btn btn-primary btn-lg">
+          Processar Arquivos e Iniciar
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 2: Timeline & Slides Sync -->
+    <section class="card sync-section" id="syncSection" style="display:none;">
+      <div class="sync-header">
+        <div>
+          <h2 class="section-title">2. Sincronização dos Slides</h2>
+          <p class="section-desc">Defina os segundos de cada slide ou deixe a IA sincronizar com a fala</p>
+        </div>
+        <div class="sync-controls">
+          <button id="btnAiSync" class="btn btn-ai">
+            ✨ Sincronizar com IA (Gemini)
+          </button>
+          <button id="btnAutoBalance" class="btn btn-secondary">
+            🔄 Igualar ao Áudio
+          </button>
+        </div>
+      </div>
+
+      <div class="stats-bar">
+        <span class="badge" id="badgeSlideCount">Slides: 0</span>
+        <span class="badge" id="badgeAudioDuration">Áudio: --:--</span>
+        <span class="badge" id="badgeTotalSlideDuration">Total dos Slides: 0.0s</span>
+        <span id="aiSyncStatus" class="ai-status-text"></span>
+      </div>
+
+      <div class="slides-timeline-scroll">
+        <div class="slides-timeline" id="slidesTimeline">
+          <!-- Dynamic slide cards -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3: Export Options & Render -->
+    <section class="card export-section" id="exportSection" style="display:none;">
+      <h2 class="section-title">3. Exportar Vídeo Final</h2>
+      <div class="export-grid">
+        <div class="form-group">
+          <label for="selectResolution">Resolução:</label>
+          <select id="selectResolution" class="form-control">
+            <option value="1920x1080" selected>1080p Full HD (1920x1080)</option>
+            <option value="1280x720">720p HD (1280x720)</option>
+            <option value="3840x2160">4K Ultra HD (3840x2160)</option>
+            <option value="1080x1080">Quadrado 1:1 (1080x1080)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="selectFps">Taxa de Quadros:</label>
+          <select id="selectFps" class="form-control">
+            <option value="30" selected>30 FPS (Padrão)</option>
+            <option value="24">24 FPS (Cinemático)</option>
+            <option value="60">60 FPS</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="render-action-row">
+        <button id="btnRenderVideo" class="btn btn-primary btn-xl">
+          🎬 Gerar Vídeo MP4
+        </button>
+      </div>
+
+      <!-- Render Progress Container -->
+      <div id="renderProgressContainer" class="progress-box" style="display:none;">
+        <div class="progress-header">
+          <span id="renderStatusText">Iniciando renderização...</span>
+          <span id="renderProgressPercent">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="renderProgressBar" class="progress-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4: Finished Video Player -->
+    <section class="card result-section" id="resultSection" style="display:none;">
+      <h2 class="section-title">🎉 Seu Vídeo Está Pronto!</h2>
+      <div class="video-preview-wrapper">
+        <video id="videoPlayer" controls class="video-element"></video>
+      </div>
+      <div class="result-actions">
+        <a id="btnDownloadVideo" href="#" class="btn btn-primary btn-lg" download="slidecast_video.mp4">
+          ⬇ Baixar Vídeo MP4
+        </a>
+        <button id="btnNewProject" class="btn btn-secondary btn-lg" onclick="location.reload()">
+          Novo Projeto
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Gemini Key Modal -->
+  <div id="keyModal" class="modal" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Chave de API do Google Gemini</h3>
+        <button type="button" class="btn-close" id="btnCloseKeyModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>A chave é necessária para a sincronização inteligente dos slides com IA. Ela é gratuita no <strong>Google AI Studio</strong>.</p>
+        <div class="form-group" style="margin-top: 12px;">
+          <label for="inputApiKey">Chave de API (começa com AIzaSy...):</label>
+          <input type="text" id="inputApiKey" class="form-control" placeholder="Cole sua chave aqui...">
+        </div>
+        <p class="modal-help">
+          Não tem uma chave? <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Criar chave gratuita no AI Studio</a>
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btnCancelKey">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnSaveKey">Salvar Chave</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

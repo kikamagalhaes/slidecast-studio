@@ -1,0 +1,21 @@
+name: slidecast
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN:-slidecast-179-199-133-126.sslip.io}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - TZ=America/Sao_Paulo
+    volumes:
+      - ./storage:/app/storage
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.slidecast.rule=Host(`${APP_DOMAIN:-slidecast-179-199-133-126.sslip.io}`)"
+      - "traefik.http.routers.slidecast.entrypoints=websecure"
+      - "traefik.http.routers.slidecast.tls=true"
+      - "traefik.http.routers.slidecast.tls.certresolver=letsencrypt"
+      - "traefik.http.services.slidecast.loadbalancer.server.port=8000"

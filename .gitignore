@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output videos / temp test files
+*.mp4
+tmp_slides/
+
+# Secrets (never commit real keys)
+.env
+.env.*
+!.env.example
