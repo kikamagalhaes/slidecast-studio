@@ -6,12 +6,12 @@
 set -e
 
 WORKERS="${UVICORN_WORKERS:-1}"
-ARGS="app.web.server:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WORKERS}"
+# NOTE: positional params on purpose — a flat string would glob-expand '*' in
+# FORWARDED_ALLOW_IPS into filenames (this crash-looped production once).
+set -- app.web.server:app --host 0.0.0.0 --port "${PORT:-8000}" --workers "${WORKERS}"
 
 if [ "${PROXY_HEADERS:-0}" = "1" ]; then
-  # shellcheck disable=SC2086
-  ARGS="${ARGS} --proxy-headers --forwarded-allow-ips ${FORWARDED_ALLOW_IPS:-*}"
+  set -- "$@" --proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-*}"
 fi
 
-# shellcheck disable=SC2086
-exec uvicorn $ARGS
+exec uvicorn "$@"

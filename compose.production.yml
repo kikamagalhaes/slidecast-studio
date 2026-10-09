@@ -37,7 +37,7 @@ services:
   worker:
     build: .
     restart: unless-stopped
-    command: ["sh", "-c", "rq worker --url \"$REDIS_URL\" slidecast"]
+    command: ["sh", "-c", "rq worker --url \"$$REDIS_URL\" slidecast"]
     environment:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - PYTHONPATH=/app
