@@ -42,7 +42,7 @@ Chaves de API podem ir em variáveis de ambiente (`GEMINI_API_KEY`, `OPENAI_API_
 
 Na página [Releases](https://github.com/kikamagalhaes/slidecast-studio/releases) há pacotes prontos, gerados automaticamente a cada tag `v*`:
 
-- **Linux**: `SlideCastStudio-linux-x64.tar.gz` — extraia e rode `./SlideCastStudio/SlideCastStudio` (em sistemas mínimos pode faltar Qt/OpenGL: `sudo apt install libgl1 libegl1 libxkbcommon0 libdbus-1-3`).
+- **Linux**: `SlideCastStudio-linux-x64.tar.gz` — extraia e rode `./SlideCastStudio/SlideCastStudio` (em sistemas mínimos pode faltar Qt/OpenGL/áudio: `sudo apt install libgl1 libegl1 libxkbcommon0 libdbus-1-3 libpulse0`).
 - **Windows**: `SlideCastStudio-windows-x64.zip` — extraia e rode `SlideCastStudio.exe` (o SmartScreen pode avisar por ser app não assinado; clique em "Mais informações → Executar assim mesmo").
 - **macOS (Apple Silicon)**: `SlideCastStudio-macos-arm64.dmg` — arraste para Aplicativos (não assinado: no primeiro uso, clique com botão direito → Abrir).
 
