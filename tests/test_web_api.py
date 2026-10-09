@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.web.server as server_module
+from app.web import billing as billing_module
 
 ffmpeg_available = shutil.which("ffmpeg") is not None
 
@@ -55,7 +56,11 @@ def client(tmp_path, monkeypatch):
 
 
 def upload_project(
-    test_client, pdf_name="slides.pdf", audio_name="narr.wav", pdf_bytes=None
+    test_client,
+    pdf_name="slides.pdf",
+    audio_name="narr.wav",
+    pdf_bytes=None,
+    headers=None,
 ):
     return test_client.post(
         "/api/upload",
@@ -63,7 +68,18 @@ def upload_project(
             "pdf_file": (pdf_name, pdf_bytes or make_pdf_bytes(), "application/pdf"),
             "audio_file": (audio_name, make_wav_bytes(), "audio/wav"),
         },
+        headers=headers,
     )
+
+
+def auth_headers(test_client, email="user@example.com", password="password123"):
+    """Registers a trial user; returns (auth headers, user id)."""
+    res = test_client.post(
+        "/api/auth/register", json={"email": email, "password": password}
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    return {"Authorization": f"Bearer {body['token']}"}, body["user"]["id"]
 
 
 def test_health(client):
@@ -92,7 +108,8 @@ def test_health_degraded_on_low_disk(client, monkeypatch):
 
 
 def test_thumbnail_is_rendered_once_then_cached(client, tmp_path, monkeypatch):
-    project_id = upload_project(client).json()["project_id"]
+    headers, _ = auth_headers(client)
+    project_id = upload_project(client, headers=headers).json()["project_id"]
     original = server_module.render_thumbnail
     calls = []
 
@@ -101,8 +118,8 @@ def test_thumbnail_is_rendered_once_then_cached(client, tmp_path, monkeypatch):
         return original(*args, **kwargs)
 
     monkeypatch.setattr(server_module, "render_thumbnail", counting)
-    first = client.get(f"/api/projects/{project_id}/thumbnail/1")
-    second = client.get(f"/api/projects/{project_id}/thumbnail/1")
+    first = client.get(f"/api/projects/{project_id}/thumbnail/1", headers=headers)
+    second = client.get(f"/api/projects/{project_id}/thumbnail/1", headers=headers)
     assert first.status_code == 200
     assert second.status_code == 200
     assert first.content == second.content
@@ -145,14 +162,16 @@ def test_key_save_requires_admin_token_when_configured(client, monkeypatch):
 
 
 def test_upload_rejects_wrong_extensions(client):
-    res = upload_project(client, pdf_name="slides.txt")
+    headers, _ = auth_headers(client)
+    res = upload_project(client, pdf_name="slides.txt", headers=headers)
     assert res.status_code == 400
-    res = upload_project(client, audio_name="narr.pdf")
+    res = upload_project(client, audio_name="narr.pdf", headers=headers)
     assert res.status_code == 400
 
 
 def test_upload_rejects_fake_pdf_content(client):
-    res = upload_project(client, pdf_bytes=b"this is not a pdf at all")
+    headers, _ = auth_headers(client)
+    res = upload_project(client, pdf_bytes=b"this is not a pdf at all", headers=headers)
     assert res.status_code == 400
     assert "assinatura" in res.json()["detail"]
 
@@ -166,8 +185,12 @@ def test_delete_job_endpoint_wiring(client, monkeypatch):
             return "cancelled"
 
     monkeypatch.setattr(server_module, "queue_manager", StubQueue())
+    headers, user_id = auth_headers(client)
     job_id = str(uuid.uuid4())
-    res = client.delete(f"/api/jobs/{job_id}")
+    billing_module.record_render(
+        user_id, job_id, server_module.STORAGE_DIR / "slidecast.db"
+    )
+    res = client.delete(f"/api/jobs/{job_id}", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"id": job_id, "status": "cancelled"}
     assert calls["job_id"] == job_id
@@ -179,20 +202,33 @@ def test_delete_job_not_found_and_malformed(client, monkeypatch):
             return None
 
     monkeypatch.setattr(server_module, "queue_manager", StubQueue())
-    assert client.delete(f"/api/jobs/{uuid.uuid4()}").status_code == 404
-    assert client.delete("/api/jobs/nope").status_code == 400
+    headers, user_id = auth_headers(client)
+    missing = str(uuid.uuid4())
+    billing_module.record_render(
+        user_id, missing, server_module.STORAGE_DIR / "slidecast.db"
+    )
+    assert client.delete(f"/api/jobs/{missing}", headers=headers).status_code == 404
+    assert client.delete("/api/jobs/nope", headers=headers).status_code == 400
 
 
 def test_unknown_and_malformed_project_ids(client):
-    assert client.get(f"/api/projects/{uuid.uuid4()}/thumbnail/0").status_code == 404
-    assert client.get("/api/projects/not-a-uuid/thumbnail/0").status_code == 400
-    assert client.get(f"/api/jobs/{uuid.uuid4()}").status_code == 404
-    assert client.get("/api/jobs/traversal..").status_code == 400
+    headers, _ = auth_headers(client)
+    assert (
+        client.get(f"/api/projects/{uuid.uuid4()}/thumbnail/0", headers=headers).status_code
+        == 404
+    )
+    assert (
+        client.get("/api/projects/not-a-uuid/thumbnail/0", headers=headers).status_code
+        == 400
+    )
+    assert client.get(f"/api/jobs/{uuid.uuid4()}", headers=headers).status_code == 404
+    assert client.get("/api/jobs/traversal..", headers=headers).status_code == 400
 
 
 @pytest.mark.skipif(not ffmpeg_available, reason="ffmpeg not installed")
 def test_full_render_flow(client):
-    res = upload_project(client)
+    headers, _ = auth_headers(client)
+    res = upload_project(client, headers=headers)
     assert res.status_code == 200, res.text
     body = res.json()
     project_id = body["project_id"]
@@ -200,26 +236,32 @@ def test_full_render_flow(client):
     assert len(body["slides"]) == 2
     assert body["pdf_name"] == "slides.pdf"
 
-    thumb = client.get(f"/api/projects/{project_id}/thumbnail/0")
+    thumb = client.get(f"/api/projects/{project_id}/thumbnail/0", headers=headers)
     assert thumb.status_code == 200
     assert thumb.content[:8] == b"\x89PNG\r\n\x1a\n"
-    assert client.get(f"/api/projects/{project_id}/thumbnail/9").status_code == 400
+    assert (
+        client.get(f"/api/projects/{project_id}/thumbnail/9", headers=headers).status_code
+        == 400
+    )
 
     # Invalid render payloads are rejected before any job is queued.
     bad = client.post(
         f"/api/projects/{project_id}/render",
         json={"durations": [1.0], "resolution_w": 320, "resolution_h": 240, "fps": 15},
+        headers=headers,
     )
     assert bad.status_code == 400
     bad = client.post(
         f"/api/projects/{project_id}/render",
         json={"durations": [1.0, 1.0], "resolution_w": 321, "resolution_h": 240, "fps": 15},
+        headers=headers,
     )
     assert bad.status_code == 400
 
     res = client.post(
         f"/api/projects/{project_id}/render",
         json={"durations": [1.0, 1.0], "resolution_w": 320, "resolution_h": 240, "fps": 15},
+        headers=headers,
     )
     assert res.status_code == 200, res.text
     job_id = res.json()["job_id"]
@@ -227,15 +269,15 @@ def test_full_render_flow(client):
     deadline = time.time() + 180
     status = None
     while time.time() < deadline:
-        status = client.get(f"/api/jobs/{job_id}").json()
+        status = client.get(f"/api/jobs/{job_id}", headers=headers).json()
         if status["status"] in ("completed", "failed"):
             break
         time.sleep(0.5)
     assert status["status"] == "completed", status.get("error")
 
-    download = client.get(f"/api/jobs/{job_id}/download")
+    download = client.get(f"/api/jobs/{job_id}/download", headers=headers)
     assert download.status_code == 200
     assert len(download.content) > 1000
-    video = client.get(f"/api/jobs/{job_id}/video")
+    video = client.get(f"/api/jobs/{job_id}/video", headers=headers)
     assert video.status_code == 200
     assert len(video.content) > 1000

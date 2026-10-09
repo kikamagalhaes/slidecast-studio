@@ -21,6 +21,10 @@
         </div>
       </div>
       <div class="nav-actions">
+        <span id="accountBadge" class="badge" style="display:none;"></span>
+        <button id="btnSubscribe" class="btn btn-primary" style="display:none;">Assinar</button>
+        <button id="btnPortal" class="btn btn-outline" style="display:none;">Minha assinatura</button>
+        <button id="btnLogout" class="btn btn-outline" style="display:none;">Sair</button>
         <button id="btnOpenKeyModal" class="btn btn-outline">
           🔑 <span id="keyStatusText">Chave Gemini API</span>
         </button>
@@ -29,8 +33,28 @@
   </header>
 
   <main class="container main-content">
+    <!-- Auth gate -->
+    <section class="card" id="authGate" style="display:none;">
+      <h2 class="section-title">Entre para criar seus vídeos</h2>
+      <p class="section-desc">Crie sua conta e teste grátis por 14 dias, com vídeos mensais inclusos. Depois, assinatura única.</p>
+      <div id="checkoutBanner" class="badge" style="display:none; margin-bottom:12px;"></div>
+      <div class="form-group">
+        <label for="authEmail">E-mail:</label>
+        <input type="email" id="authEmail" class="form-control" placeholder="voce@exemplo.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="authPassword">Senha (mínimo 8 caracteres):</label>
+        <input type="password" id="authPassword" class="form-control" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <p id="authError" style="display:none; color:#f87171;"></p>
+      <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+        <button id="btnLogin" class="btn btn-primary">Entrar</button>
+        <button id="btnRegister" class="btn btn-secondary">Criar conta grátis</button>
+      </div>
+    </section>
+
     <!-- Step 1: Upload -->
-    <section class="card upload-section">
+    <section class="card upload-section" id="uploadSection">
       <h2 class="section-title">1. Selecione os Arquivos de Entrada</h2>
       <div class="drop-grid">
         <!-- PDF Drop -->

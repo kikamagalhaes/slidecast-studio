@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initFileUploads();
   initKeyModal();
   checkKeyStatus();
+  initAuth();
 
   document.getElementById("btnProcessUpload").addEventListener("click", uploadFiles);
   document.getElementById("btnAiSync").addEventListener("click", triggerAiSync);
@@ -145,6 +146,11 @@ async function uploadFiles() {
       body: formData,
     });
 
+    if (res.status === 401) {
+      location.reload();
+      return;
+    }
+
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || "Erro ao processar arquivos.");
@@ -241,6 +247,11 @@ async function triggerAiSync() {
       body: JSON.stringify({}),
     });
 
+    if (res.status === 401) {
+      location.reload();
+      return;
+    }
+
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || "Falha na sincronização");
@@ -296,6 +307,11 @@ async function triggerRender() {
       }),
     });
 
+    if (res.status === 401) {
+      location.reload();
+      return;
+    }
+
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || "Erro ao iniciar renderização");
@@ -316,6 +332,11 @@ function pollJob(jobId) {
   pollInterval = setInterval(async () => {
     try {
       const res = await fetch(`/api/jobs/${jobId}`);
+      if (res.status === 401) {
+        clearInterval(pollInterval);
+        location.reload();
+        return;
+      }
       if (!res.ok) return;
 
       const job = await res.json();
@@ -349,4 +370,96 @@ function pollJob(jobId) {
       console.error("Polling error:", e);
     }
   }, 1000);
+}
+
+// Auth & subscription
+function planLabel(plan) {
+  const left = plan.renders_limit === 0 ? "ilimitados" : `${plan.renders_left} restantes`;
+  if (plan.state === "trial") {
+    const end = plan.trial_ends_at ? new Date(plan.trial_ends_at).toLocaleDateString("pt-BR") : "";
+    return `Teste grátis até ${end} · ${left}`;
+  }
+  if (plan.state === "active") return `Assinante · ${left} vídeos/mês`;
+  if (plan.state === "past_due") return "Pagamento pendente — atualize o cartão";
+  return "Teste encerrado — assine para continuar";
+}
+
+function handleCheckoutParam() {
+  const params = new URLSearchParams(location.search);
+  const status = params.get("checkout");
+  if (!status) return;
+  const banner = document.getElementById("checkoutBanner");
+  banner.style.display = "inline-block";
+  banner.textContent =
+    status === "success"
+      ? "Pagamento confirmado! Sua assinatura ativa em alguns segundos."
+      : "Assinatura não concluída. Tente novamente quando quiser.";
+  history.replaceState(null, "", location.pathname);
+}
+
+async function initAuth() {
+  handleCheckoutParam();
+  let me = null;
+  try {
+    const res = await fetch("/api/auth/me");
+    if (res.ok) me = await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  const logged = !!me;
+  document.getElementById("authGate").style.display = logged ? "none" : "block";
+  document.getElementById("uploadSection").style.display = logged ? "block" : "none";
+  document.getElementById("accountBadge").style.display = logged ? "inline-block" : "none";
+  document.getElementById("btnLogout").style.display = logged ? "inline-block" : "none";
+  document.getElementById("btnLogin").onclick = () => authRequest("/api/auth/login");
+  document.getElementById("btnRegister").onclick = () => authRequest("/api/auth/register");
+  if (!logged) return;
+
+  document.getElementById("accountBadge").textContent =
+    `${me.user.email} · ${planLabel(me.plan)}`;
+  const needsSub = me.plan.state === "trial" || me.plan.state === "expired" || me.plan.state === "past_due";
+  document.getElementById("btnSubscribe").style.display =
+    needsSub && me.billing_configured ? "inline-block" : "none";
+  document.getElementById("btnPortal").style.display =
+    me.plan.has_subscription ? "inline-block" : "none";
+
+  document.getElementById("btnLogout").onclick = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    location.reload();
+  };
+  document.getElementById("btnSubscribe").onclick = () => billingRedirect("/api/billing/checkout");
+  document.getElementById("btnPortal").onclick = () => billingRedirect("/api/billing/portal");
+}
+
+async function authRequest(path) {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  const errEl = document.getElementById("authError");
+  errEl.style.display = "none";
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Falha na autenticação.");
+    }
+    location.reload();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = "block";
+  }
+}
+
+async function billingRedirect(path) {
+  try {
+    const res = await fetch(path, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Falha na cobrança.");
+    location.href = data.url;
+  } catch (e) {
+    alert("Erro: " + e.message);
+  }
 }

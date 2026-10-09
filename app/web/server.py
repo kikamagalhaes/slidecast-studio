@@ -22,6 +22,9 @@ from app.core.audio_processor import get_audio_info
 from app.core.ai_synchronizer import synchronize_slides_with_gemini
 from app.core.config_manager import get_gemini_api_key, set_gemini_api_key
 from app.web.queue_manager import queue_manager
+from app.web import auth as auth_module
+from app.web import billing as billing_module
+from app.web import stripe_billing
 from app.web.rate_limit import enforce_rate_limit
 from app.web.validation import (
     META_FILENAME,
@@ -71,6 +74,54 @@ if not _admin_token_configured():
         "ADMIN_TOKEN is not set: POST /api/config/key is unprotected. "
         "Set ADMIN_TOKEN in production to require the X-Admin-Token header."
     )
+
+
+def _db_path() -> Path:
+    """Lazy DB path so tests can relocate STORAGE_DIR per test."""
+    return STORAGE_DIR / "slidecast.db"
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        auth_module.SESSION_COOKIE,
+        token,
+        httponly=True,
+        secure=auth_module.cookie_secure(),
+        samesite="lax",
+        max_age=auth_module.session_days() * 86400,
+        path="/",
+    )
+
+
+def _owned_project(user_id: int, project_id: str) -> Path:
+    proj_dir = _project_or_404(project_id)
+    if not billing_module.owns(user_id, "project", proj_dir.name, _db_path()):
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    return proj_dir
+
+
+def _owned_job(user_id: int, job_id: str):
+    job_id = _validate_job_id(job_id)
+    if not billing_module.owns(user_id, "job", job_id, _db_path()):
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    job = queue_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    return job
+
+
+def _plan_or_403(user_id: int) -> dict:
+    try:
+        return billing_module.plan_guard(user_id, _db_path())
+    except billing_module.BillingError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+
+
+def _render_or_403(user_id: int) -> dict:
+    try:
+        return billing_module.render_guard(user_id, _db_path())
+    except billing_module.BillingError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
 
 
 class AISyncRequest(BaseModel):
@@ -202,11 +253,103 @@ async def save_api_key(
     return {"success": True, "configured": True}
 
 
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+@app.post("/api/auth/register", dependencies=[Depends(enforce_rate_limit)])
+async def api_register(payload: RegisterRequest, response: Response):
+    try:
+        user = auth_module.register(payload.email, payload.password, _db_path())
+    except auth_module.AuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    token = auth_module.create_session(user["id"], _db_path())
+    _set_session_cookie(response, token)
+    logger.info("register user=%s", user["email"])
+    return {
+        "token": token,
+        "user": {"id": user["id"], "email": user["email"]},
+        "plan": billing_module.plan_status(user["id"], _db_path()),
+    }
+
+
+@app.post("/api/auth/login", dependencies=[Depends(enforce_rate_limit)])
+async def api_login(payload: LoginRequest, response: Response):
+    try:
+        token = auth_module.authenticate(
+            payload.email, payload.password, _db_path()
+        )
+    except auth_module.AuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    user = auth_module.get_user_by_token(token, _db_path())
+    assert user is not None
+    _set_session_cookie(response, token)
+    return {
+        "token": token,
+        "user": {"id": user["id"], "email": user["email"]},
+        "plan": billing_module.plan_status(user["id"], _db_path()),
+    }
+
+
+@app.post("/api/auth/logout")
+async def api_logout(
+    request: Request,
+    response: Response,
+    authorization: Optional[str] = Header(default=None),
+    user: dict = Depends(auth_module.current_user),
+):
+    auth_module.logout(
+        auth_module.extract_token(request, authorization), _db_path()
+    )
+    response.delete_cookie(auth_module.SESSION_COOKIE, path="/")
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+async def api_me(user: dict = Depends(auth_module.current_user)):
+    return {
+        "user": {"id": user["id"], "email": user["email"]},
+        "plan": billing_module.plan_status(user["id"], _db_path()),
+        "billing_configured": stripe_billing.is_configured(),
+    }
+
+
+@app.post("/api/billing/checkout")
+async def api_checkout(user: dict = Depends(auth_module.current_user)):
+    url = stripe_billing.create_checkout_session(
+        user["id"], user["email"], _db_path()
+    )
+    return {"url": url}
+
+
+@app.post("/api/billing/portal")
+async def api_portal(user: dict = Depends(auth_module.current_user)):
+    url = stripe_billing.create_portal_session(user["id"], _db_path())
+    return {"url": url}
+
+
+@app.post("/api/billing/webhook")
+async def api_stripe_webhook(request: Request):
+    payload = await request.body()
+    event_type = stripe_billing.handle_webhook(
+        payload, request.headers.get("stripe-signature")
+    )
+    return {"received": True, "type": event_type}
+
+
 @app.post("/api/upload", dependencies=[Depends(enforce_rate_limit)])
 async def upload_files(
     pdf_file: UploadFile = File(...),
     audio_file: UploadFile = File(...),
+    user: dict = Depends(auth_module.current_user),
 ):
+    _plan_or_403(user["id"])
     try:
         audio_ext = validate_upload_filename(audio_file.filename, "audio")
         validate_upload_filename(pdf_file.filename, "pdf")
@@ -256,11 +399,13 @@ async def upload_files(
         raise
 
     logger.info(
-        "upload project=%s pages=%d duration=%.1fs",
+        "upload project=%s pages=%d duration=%.1fs user=%d",
         project_id,
         pdf_info.page_count,
         audio_info.duration,
+        user["id"],
     )
+    billing_module.record_project(user["id"], project_id, _db_path())
 
     default_slide_duration = (
         audio_info.duration / pdf_info.page_count if pdf_info.page_count > 0 else 5.0
@@ -289,8 +434,12 @@ async def upload_files(
 
 
 @app.get("/api/projects/{project_id}/thumbnail/{slide_index}")
-async def get_slide_thumbnail(project_id: str, slide_index: int):
-    proj_dir = _project_or_404(project_id)
+async def get_slide_thumbnail(
+    project_id: str,
+    slide_index: int,
+    user: dict = Depends(auth_module.current_user),
+):
+    proj_dir = _owned_project(user["id"], project_id)
     meta = _read_meta(proj_dir)
 
     if slide_index < 0 or slide_index >= meta["page_count"]:
@@ -320,8 +469,13 @@ async def get_slide_thumbnail(project_id: str, slide_index: int):
 
 
 @app.post("/api/projects/{project_id}/ai-sync", dependencies=[Depends(enforce_rate_limit)])
-async def ai_sync(project_id: str, payload: AISyncRequest):
-    proj_dir = _project_or_404(project_id)
+async def ai_sync(
+    project_id: str,
+    payload: AISyncRequest,
+    user: dict = Depends(auth_module.current_user),
+):
+    _plan_or_403(user["id"])
+    proj_dir = _owned_project(user["id"], project_id)
     meta = _read_meta(proj_dir)
 
     pdf_path = proj_dir / STORED_PDF_NAME
@@ -349,8 +503,13 @@ async def ai_sync(project_id: str, payload: AISyncRequest):
 
 
 @app.post("/api/projects/{project_id}/render", dependencies=[Depends(enforce_rate_limit)])
-async def render_video(project_id: str, payload: RenderRequest):
-    proj_dir = _project_or_404(project_id)
+async def render_video(
+    project_id: str,
+    payload: RenderRequest,
+    user: dict = Depends(auth_module.current_user),
+):
+    proj_dir = _owned_project(user["id"], project_id)
+    _render_or_403(user["id"])
     meta = _read_meta(proj_dir)
 
     try:
@@ -373,6 +532,7 @@ async def render_video(project_id: str, payload: RenderRequest):
         fps=fps,
         output_dir=proj_dir / "output",
     )
+    billing_module.record_render(user["id"], job.id, _db_path())
 
     return {"job_id": job.id, "status": job.status}
 
@@ -392,8 +552,10 @@ def _job_or_404(job_id: str):
 
 
 @app.get("/api/jobs/{job_id}")
-async def get_job_status(job_id: str):
-    job = _job_or_404(job_id)
+async def get_job_status(
+    job_id: str, user: dict = Depends(auth_module.current_user)
+):
+    job = _owned_job(user["id"], job_id)
 
     return {
         "id": job.id,
@@ -408,16 +570,23 @@ async def get_job_status(job_id: str):
 
 
 @app.delete("/api/jobs/{job_id}")
-async def cancel_job(job_id: str):
-    status = queue_manager.cancel_job(_validate_job_id(job_id))
+async def cancel_job(
+    job_id: str, user: dict = Depends(auth_module.current_user)
+):
+    job_id = _validate_job_id(job_id)
+    if not billing_module.owns(user["id"], "job", job_id, _db_path()):
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    status = queue_manager.cancel_job(job_id)
     if status is None:
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return {"id": job_id, "status": status}
 
 
 @app.get("/api/jobs/{job_id}/video")
-async def get_job_video(job_id: str):
-    job = _job_or_404(job_id)
+async def get_job_video(
+    job_id: str, user: dict = Depends(auth_module.current_user)
+):
+    job = _owned_job(user["id"], job_id)
     if not job.output_video_path or not os.path.exists(job.output_video_path):
         raise HTTPException(status_code=404, detail="Vídeo não disponível")
 
@@ -425,8 +594,10 @@ async def get_job_video(job_id: str):
 
 
 @app.get("/api/jobs/{job_id}/download")
-async def download_job_video(job_id: str):
-    job = _job_or_404(job_id)
+async def download_job_video(
+    job_id: str, user: dict = Depends(auth_module.current_user)
+):
+    job = _owned_job(user["id"], job_id)
     if not job.output_video_path or not os.path.exists(job.output_video_path):
         raise HTTPException(status_code=404, detail="Vídeo não disponível para download")
 

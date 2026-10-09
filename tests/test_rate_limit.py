@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 import app.web.rate_limit as rate_limit
 import app.web.server as server_module
 from app.web.rate_limit import check_rate_limit
-from tests.test_web_api import upload_project
+from tests.test_web_api import auth_headers, upload_project
 
 
 def test_allows_under_limit_blocks_over_and_slides(monkeypatch):
@@ -46,8 +46,9 @@ def limited_client(tmp_path, monkeypatch):
 
 
 def test_upload_endpoint_returns_429_when_limited(limited_client):
-    assert upload_project(limited_client).status_code == 200
-    assert upload_project(limited_client).status_code == 200
-    res = upload_project(limited_client)
+    headers, _ = auth_headers(limited_client)
+    assert upload_project(limited_client, headers=headers).status_code == 200
+    assert upload_project(limited_client, headers=headers).status_code == 200
+    res = upload_project(limited_client, headers=headers)
     assert res.status_code == 429
     assert "Retry-After" in res.headers
