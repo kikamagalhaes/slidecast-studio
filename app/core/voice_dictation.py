@@ -1,7 +1,6 @@
-import time
-from pathlib import Path
 from typing import Optional
 from app.core.config_manager import get_gemini_api_key
+from app.core.gemini_client import GeminiError, generate_with_fallback
 
 
 def transcribe_voice_prompt(audio_path: str, api_key: Optional[str] = None) -> str:
@@ -26,20 +25,14 @@ def transcribe_voice_prompt(audio_path: str, api_key: Optional[str] = None) -> s
         "sem frases introdutórias como 'o áudio diz' e sem observações. Retorne estritamente o texto falado."
     )
 
-    models = [
-        "gemini-3.8-flash",
-        "gemini-3-flash-preview",
-        "gemini-2.5-flash",
-        "gemini-flash-latest",
-    ]
-
-    for m in models:
+    try:
         try:
-            resp = client.models.generate_content(model=m, contents=[uploaded, prompt])
-            if resp.text:
-                clean_text = resp.text.strip().strip('"').strip("'")
-                return clean_text
+            resp = generate_with_fallback(client, contents=[uploaded, prompt])
+        except GeminiError as exc:
+            raise RuntimeError(f"Não foi possível transcrever a gravação de voz: {exc}")
+        return resp.text.strip().strip('"').strip("'")
+    finally:
+        try:
+            client.files.delete(name=uploaded.name)
         except Exception:
-            continue
-
-    raise RuntimeError("Não foi possível transcrever a gravação de voz com o Gemini.")
+            pass

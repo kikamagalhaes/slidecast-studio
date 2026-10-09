@@ -1,4 +1,6 @@
+import logging
 from typing import Optional
+
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import (
@@ -17,6 +19,8 @@ from PySide6.QtMultimedia import (
     QMediaDevices,
 )
 from PySide6.QtMultimediaWidgets import QVideoWidget
+
+logger = logging.getLogger(__name__)
 
 
 class FloatingCameraWidget(QWidget):
@@ -133,7 +137,7 @@ class FloatingCameraWidget(QWidget):
             self.capture_session.setCamera(self.camera)
             self.camera.start()
         except Exception as e:
-            print(f"Aviso ao iniciar câmera flutuante: {e}")
+            logger.warning("Aviso ao iniciar câmera flutuante: %s", e)
 
     def stop_camera(self):
         if self.camera:

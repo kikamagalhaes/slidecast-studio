@@ -1,13 +1,134 @@
+import logging
 import os
-import sys
+import re
+import shutil
 import subprocess
-import signal
+import sys
 import time
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict, List, Optional
 
 from app.core.ffmpeg_utils import get_ffmpeg_paths
 from app.core.config_manager import get_gemini_api_key
+from app.core.gemini_client import GeminiError, generate_with_fallback
+
+logger = logging.getLogger(__name__)
+
+# Overrides (documented in README): force a specific capture device instead of
+# the auto-detected default.
+PULSE_SOURCE_ENV = "SLIDECAST_PULSE_SOURCE"
+DSHOW_AUDIO_ENV = "SLIDECAST_DSHOW_AUDIO"
+
+
+def parse_pactl_short_sources(output: str) -> List[Dict[str, str]]:
+    """Parses ``pactl list short sources`` into [{id, name, state}]."""
+    sources = []
+    for line in (output or "").splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2 and parts[0].strip().isdigit():
+            sources.append(
+                {
+                    "id": parts[0].strip(),
+                    "name": parts[1].strip(),
+                    "state": parts[4].strip() if len(parts) > 4 else "",
+                }
+            )
+    return sources
+
+
+def parse_pactl_default_source(output: str) -> Optional[str]:
+    """Extracts ``Default Source: ...`` from ``pactl info`` output."""
+    match = re.search(r"^Default Source:\s*(\S+)", output or "", re.MULTILINE)
+    return match.group(1) if match else None
+
+
+def parse_dshow_devices(output: str) -> Dict[str, List[str]]:
+    """Parses ``ffmpeg -list_devices true -f dshow -i dummy`` stderr."""
+    found: Dict[str, List[str]] = {"video": [], "audio": []}
+    section: Optional[str] = None
+    for line in (output or "").splitlines():
+        lowered = line.lower()
+        if "directshow video devices" in lowered:
+            section = "video"
+            continue
+        if "directshow audio devices" in lowered:
+            section = "audio"
+            continue
+        if section is None or "alternative name" in lowered:
+            continue
+        match = re.search(r'"([^"]+)"', line)
+        if match:
+            found[section].append(match.group(1))
+    return found
+
+
+def _run_capture(argv: List[str], timeout: float = 5.0) -> Optional[str]:
+    if not shutil.which(argv[0]):
+        return None
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug("Device probe %s failed: %s", argv[:2], exc)
+        return None
+    return (proc.stdout or "") + (proc.stderr or "")
+
+
+def default_pulse_source() -> Optional[str]:
+    """Best-effort default PulseAudio source name (Linux)."""
+    explicit = (os.environ.get(PULSE_SOURCE_ENV) or "").strip()
+    if explicit:
+        return explicit
+    out = _run_capture(["pactl", "info"])
+    if out:
+        return parse_pactl_default_source(out)
+    return None
+
+
+def list_pulse_sources() -> List[Dict[str, str]]:
+    out = _run_capture(["pactl", "list", "short", "sources"])
+    return parse_pactl_short_sources(out or "")
+
+
+def list_dshow_devices() -> Dict[str, List[str]]:
+    ffmpeg_exe, _ = get_ffmpeg_paths()
+    if not ffmpeg_exe:
+        return {"video": [], "audio": []}
+    try:
+        proc = subprocess.run(
+            [ffmpeg_exe, "-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {"video": [], "audio": []}
+    return parse_dshow_devices(proc.stderr or "")
+
+
+def list_linux_cameras(sys_dev_root: str = "/dev") -> List[str]:
+    """Camera nodes from ``/dev/video*`` (best effort, empty when none)."""
+    try:
+        return sorted(str(p) for p in Path(sys_dev_root).glob("video*"))
+    except OSError:
+        return []
+
+
+def describe_capture_devices() -> Dict[str, object]:
+    """Best-effort capture inventory for logs and diagnostics UIs."""
+    if sys.platform == "win32":
+        dshow = list_dshow_devices()
+        return {
+            "platform": "windows",
+            "audio": dshow["audio"],
+            "video": dshow["video"],
+            "default_audio": os.environ.get(DSHOW_AUDIO_ENV) or "virtual-audio-capturer",
+        }
+    return {
+        "platform": "linux",
+        "audio": [s["name"] for s in list_pulse_sources()],
+        "video": list_linux_cameras(),
+        "default_audio": default_pulse_source() or "default",
+    }
 
 
 class ScreenRecordingProcess:
@@ -36,9 +157,29 @@ class ScreenRecordingProcess:
         self.process: Optional[subprocess.Popen] = None
         self.start_time: float = 0.0
 
+    def _effective_camera_device(self) -> Optional[str]:
+        """Drops /dev camera nodes that do not exist, with a clear warning."""
+        cam = self.camera_device
+        if cam and cam.startswith("/dev/") and not Path(cam).exists():
+            logger.warning("Câmera %s não encontrada; gravando sem câmera.", cam)
+            return None
+        return cam
+
+    def _pulse_audio_input(self) -> str:
+        return default_pulse_source() or "default"
+
+    def _dshow_audio_input(self) -> str:
+        explicit = (os.environ.get(DSHOW_AUDIO_ENV) or "").strip()
+        return f"audio={explicit}" if explicit else "audio=virtual-audio-capturer"
+
     def start(self):
         Path(self.output_video_path).parent.mkdir(parents=True, exist_ok=True)
         ffmpeg_exe, _ = get_ffmpeg_paths()
+        if not ffmpeg_exe:
+            raise RuntimeError("FFmpeg não encontrado; não é possível gravar a tela.")
+        self.camera_device = self._effective_camera_device()
+        pulse_input = self._pulse_audio_input()
+        dshow_audio = self._dshow_audio_input()
 
         # Parse PIP position expression
         try:
@@ -63,7 +204,7 @@ class ScreenRecordingProcess:
                     "-framerate", str(self.fps),
                     "-i", "desktop",
                     "-f", "dshow",
-                    "-i", "audio=virtual-audio-capturer",
+                    "-i", dshow_audio,
                     "-f", "dshow",
                     "-i", f"video={self.camera_device}",
                     "-filter_complex",
@@ -84,7 +225,7 @@ class ScreenRecordingProcess:
                     "-framerate", str(self.fps),
                     "-i", "desktop",
                     "-f", "dshow",
-                    "-i", "audio=virtual-audio-capturer",
+                    "-i", dshow_audio,
                     "-c:v", "libx264",
                     "-preset", "ultrafast",
                     "-pix_fmt", "yuv420p",
@@ -106,7 +247,7 @@ class ScreenRecordingProcess:
                     "-video_size", self.video_size,
                     "-i", input_spec,
                     "-f", "pulse",
-                    "-i", "default",
+                    "-i", pulse_input,
                     "-f", "v4l2",
                     "-framerate", str(self.fps),
                     "-video_size", "640x360",
@@ -131,7 +272,7 @@ class ScreenRecordingProcess:
                     "-video_size", self.video_size,
                     "-i", input_spec,
                     "-f", "pulse",
-                    "-i", "default",
+                    "-i", pulse_input,
                     "-c:v", "libx264",
                     "-preset", "ultrafast",
                     "-pix_fmt", "yuv420p",
@@ -151,13 +292,13 @@ class ScreenRecordingProcess:
             time.sleep(0.25)
             if self.process.poll() is not None and self.camera_device:
                 # Camera device busy/unavailable, fallback cleanly without camera
-                print("Aviso: Câmera indisponível no FFmpeg. Gravando tela normalmente.")
+                logger.warning("Câmera indisponível no FFmpeg. Gravando tela normalmente.")
                 self.camera_device = None
                 self.start()
                 return
         except Exception as e:
             if self.camera_device:
-                print("Fallback para gravação de tela:", e)
+                logger.warning("Fallback para gravação de tela: %s", e)
                 self.camera_device = None
                 self.start()
                 return
@@ -208,6 +349,16 @@ def extract_audio_from_video(video_path: str, output_audio_path: str) -> str:
     return str(out_audio)
 
 
+def parse_meeting_response(text: str) -> Dict[str, str]:
+    """Splits a Gemini meeting answer into summary + transcription parts."""
+    clean = (text or "").strip()
+    if "=== TRANSCRIÇÃO INTEGRAL ===" in clean:
+        parts = clean.split("=== TRANSCRIÇÃO INTEGRAL ===")
+        summary_part = parts[0].replace("=== RESUMO EXECUTIVO ===", "").strip()
+        return {"summary": summary_part, "transcription": parts[1].strip()}
+    return {"summary": clean, "transcription": "Transcrição inclusa no resumo acima."}
+
+
 def generate_meeting_notes(audio_path: str, meeting_title: str = "Reunião Google Meet") -> Dict[str, str]:
     """
     Calls Gemini Flash to generate:
@@ -237,15 +388,8 @@ def generate_meeting_notes(audio_path: str, meeting_title: str = "Reunião Googl
         if audio_path and Path(audio_path).exists() and Path(audio_path).stat().st_size > 1000:
             try:
                 uploaded_file = client.files.upload(file=audio_path)
-            except Exception as e:
-                print(f"Aviso upload: {e}")
-
-        models = [
-            "gemini-3.8-flash",
-            "gemini-3-flash-preview",
-            "gemini-2.5-flash",
-            "gemini-flash-latest",
-        ]
+            except Exception as exc:
+                logger.warning("Aviso upload: %s", exc)
 
         prompt = (
             f"Você é um assistente executivo sênior. Analise o áudio da reunião '{meeting_title}' e gere:\n"
@@ -262,28 +406,18 @@ def generate_meeting_notes(audio_path: str, meeting_title: str = "Reunião Googl
 
         contents = [uploaded_file, prompt] if uploaded_file else [prompt]
 
-        for m in models:
-            try:
-                resp = client.models.generate_content(model=m, contents=contents)
-                text = resp.text.strip()
-                if "=== TRANSCRIÇÃO INTEGRAL ===" in text:
-                    parts = text.split("=== TRANSCRIÇÃO INTEGRAL ===")
-                    summary_part = parts[0].replace("=== RESUMO EXECUTIVO ===", "").strip()
-                    transcription_part = parts[1].strip()
-                    return {
-                        "summary": summary_part,
-                        "transcription": transcription_part,
-                    }
-                else:
-                    return {
-                        "summary": text,
-                        "transcription": "Transcrição inclusa no resumo acima.",
-                    }
-            except Exception:
-                continue
+        try:
+            resp = generate_with_fallback(client, contents=contents)
+        except GeminiError:
+            return {
+                "summary": default_summary,
+                "transcription": default_transcription,
+            }
 
-    except Exception as e:
-        print(f"Erro ao processar reunião no Gemini: {e}")
+        return parse_meeting_response(resp.text)
+
+    except Exception as exc:
+        logger.warning("Erro ao processar reunião no Gemini: %s", exc)
 
     return {
         "summary": default_summary,

@@ -1,10 +1,12 @@
 import json
-import traceback
-from pathlib import Path
+import logging
 from typing import List, Dict, Any, Optional, Callable
 import pymupdf
 
 from app.core.config_manager import get_gemini_api_key
+from app.core.gemini_client import GeminiError, generate_with_fallback
+
+logger = logging.getLogger(__name__)
 
 
 class AISyncError(Exception):
@@ -14,20 +16,22 @@ class AISyncError(Exception):
 def extract_presentation_summary(pdf_path: str) -> List[Dict[str, Any]]:
     """Extracts text content for each slide to provide context to Gemini."""
     doc = pymupdf.open(pdf_path)
-    slides_data = []
+    try:
+        slides_data = []
 
-    for i, page in enumerate(doc):
-        text = page.get_text().strip()
-        clean_text = " ".join(text.split())
-        if len(clean_text) > 400:
-            clean_text = clean_text[:400] + "..."
-        slides_data.append({
-            "slide_number": i + 1,
-            "text": clean_text if clean_text else "[Slide predominantemente visual / sem texto]"
-        })
+        for i, page in enumerate(doc):
+            text = page.get_text().strip()
+            clean_text = " ".join(text.split())
+            if len(clean_text) > 400:
+                clean_text = clean_text[:400] + "..."
+            slides_data.append({
+                "slide_number": i + 1,
+                "text": clean_text if clean_text else "[Slide predominantemente visual / sem texto]"
+            })
 
-    doc.close()
-    return slides_data
+        return slides_data
+    finally:
+        doc.close()
 
 
 def synchronize_slides_with_gemini(
@@ -94,32 +98,20 @@ Instruções:
 }}
 """
 
-        # Prioritize gemini-3.8-flash and gemini-3-flash-preview, with automatic fallbacks
-        models_to_try = ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-flash-latest"]
-        response = None
-        last_err = None
-
-        for model_name in models_to_try:
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=[
-                        uploaded_audio,
-                        prompt,
-                    ],
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.2,
-                    ),
-                )
-                if response and response.text:
-                    break
-            except Exception as e:
-                last_err = e
-                continue
-
-        if not response or not response.text:
-            raise AISyncError(f"Falha ao obter resposta do Gemini: {last_err}")
+        try:
+            response = generate_with_fallback(
+                client,
+                contents=[
+                    uploaded_audio,
+                    prompt,
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.2,
+                ),
+            )
+        except GeminiError as exc:
+            raise AISyncError(f"Falha ao obter resposta do Gemini: {exc}")
 
         # Parse JSON
         result_data = json.loads(response.text)
@@ -147,9 +139,9 @@ Instruções:
 
         return durations
 
-    except Exception as e:
-        traceback.print_exc()
-        raise AISyncError(f"Erro na sincronização com Gemini:\n{e}")
+    except Exception as exc:
+        logger.exception("Erro na sincronização com Gemini")
+        raise AISyncError(f"Erro na sincronização com Gemini:\n{exc}")
     finally:
         # Delete temporary uploaded audio file from Gemini Files API
         if uploaded_audio:

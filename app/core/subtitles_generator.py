@@ -1,8 +1,7 @@
-import os
-import re
 from pathlib import Path
 from typing import Optional, Callable
 from app.core.config_manager import get_gemini_api_key
+from app.core.gemini_client import GeminiError, generate_with_fallback
 
 
 class SubtitleGenerationError(Exception):
@@ -77,33 +76,22 @@ Continuação da fala...
 4. Responda SOMENTE o bloco de texto SRT, sem blocos de markdown explicativos adicionais.
 """
 
-    models_to_try = ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-flash-latest"]
-    response = None
-    last_err = None
-
     if progress_callback:
         progress_callback("IA gerando e sincronizando legendas...")
 
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[uploaded_audio, prompt],
-                config=types.GenerateContentConfig(temperature=0.1),
-            )
-            if response and response.text:
-                break
-        except Exception as e:
-            last_err = e
-            continue
-
     try:
-        client.files.delete(name=uploaded_audio.name)
-    except Exception:
-        pass
-
-    if not response or not response.text:
-        raise SubtitleGenerationError(f"Falha ao gerar legendas com Gemini: {last_err}")
+        response = generate_with_fallback(
+            client,
+            contents=[uploaded_audio, prompt],
+            config=types.GenerateContentConfig(temperature=0.1),
+        )
+    except GeminiError as exc:
+        raise SubtitleGenerationError(f"Falha ao gerar legendas com Gemini: {exc}")
+    finally:
+        try:
+            client.files.delete(name=uploaded_audio.name)
+        except Exception:
+            pass
 
     raw_text = response.text.strip()
     # Clean markdown code blocks if model wrapped it in ```srt ... ```

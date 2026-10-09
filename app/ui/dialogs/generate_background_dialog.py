@@ -1,6 +1,9 @@
+import logging
 import time
 from pathlib import Path
 from typing import Optional, Dict
+
+logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import Qt, QThread, Signal, QSize
 from PySide6.QtGui import QPixmap
@@ -346,7 +349,7 @@ class GenerateBackgroundDialog(QDialog):
             else:
                 self.lbl_preview.setText(f"✓ Cenário gerado: {Path(img_path).name}")
         except Exception as e:
-            print("Aviso exibindo preview do fundo:", e)
+            logger.warning("Aviso exibindo preview do fundo: %s", e)
             self.lbl_preview.setText("✓ Cenário gerado com sucesso!")
 
     def _on_error(self, err: str):

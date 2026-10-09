@@ -43,6 +43,7 @@ class PodcastVideoRenderWorker(QThread):
     progress_changed = Signal(float, str)
     render_finished = Signal(str)
     render_error = Signal(str)
+    render_cancelled = Signal()
 
     def __init__(
         self,
@@ -62,11 +63,16 @@ class PodcastVideoRenderWorker(QThread):
         self.waveform_color = waveform_color
         self.enable_subtitles = enable_subtitles
         self.subtitles_language = subtitles_language
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
 
     def run(self):
         try:
             def callback(pct, msg):
-                self.progress_changed.emit(pct, msg)
+                # Core reports 0.0-1.0; this view's bar uses 0-100.
+                self.progress_changed.emit(pct * 100.0, msg)
 
             res = build_podcast_video(
                 cover_image_path=self.cover_image,
@@ -77,8 +83,11 @@ class PodcastVideoRenderWorker(QThread):
                 enable_subtitles=self.enable_subtitles,
                 subtitles_language=self.subtitles_language,
                 progress_callback=callback,
+                cancel_check=lambda: self._cancelled,
             )
             self.render_finished.emit(res)
+        except InterruptedError:
+            self.render_cancelled.emit()
         except Exception as e:
             self.render_error.emit(str(e))
 
@@ -91,6 +100,7 @@ class RecordPodcastView(QWidget):
         self.cover_image_path: Optional[str] = None
         self.bgm_path: Optional[str] = None
         self.output_video_path: Optional[str] = None
+        self.worker = None
 
         # State
         self.is_recording = False
@@ -556,6 +566,11 @@ class RecordPodcastView(QWidget):
         self.render_progress_bar.setValue(0)
         self.render_progress_bar.setFixedHeight(20)
 
+        self.btn_cancel_render = QPushButton("⏹ Cancelar Renderização")
+        self.btn_cancel_render.setCursor(Qt.PointingHandCursor)
+        self.btn_cancel_render.clicked.connect(self._cancel_render)
+        self.btn_cancel_render.hide()
+
         # Buttons
         self.result_btn_container = QWidget()
         bc_layout = QHBoxLayout(self.result_btn_container)
@@ -584,6 +599,7 @@ class RecordPodcastView(QWidget):
         c_layout.addWidget(self.lbl_result_title)
         c_layout.addWidget(self.lbl_result_status)
         c_layout.addWidget(self.render_progress_bar)
+        c_layout.addWidget(self.btn_cancel_render)
         c_layout.addWidget(self.result_btn_container)
 
         layout.addWidget(card)
@@ -785,7 +801,22 @@ class RecordPodcastView(QWidget):
         self.worker.progress_changed.connect(self._on_render_progress)
         self.worker.render_finished.connect(self._on_render_finished)
         self.worker.render_error.connect(self._on_render_error)
+        self.worker.render_cancelled.connect(self._on_render_cancelled)
+        self.btn_cancel_render.show()
         self.worker.start()
+
+    def _cancel_render(self):
+        if self.worker is not None:
+            self.worker.cancel()
+            self.lbl_result_status.setText("Cancelando renderização...")
+
+    def _on_render_cancelled(self):
+        self.output_video_path = None
+        self.btn_cancel_render.hide()
+        self.lbl_result_icon.setText("⏹")
+        self.lbl_result_title.setText("Renderização Cancelada")
+        self.lbl_result_status.setText("A renderização foi cancelada. Ajuste e tente novamente.")
+        self.result_btn_container.show()
 
     def _on_render_progress(self, pct: float, msg: str):
         self.render_progress_bar.setValue(int(pct))
@@ -793,6 +824,7 @@ class RecordPodcastView(QWidget):
 
     def _on_render_finished(self, out_path: str):
         self.output_video_path = out_path
+        self.btn_cancel_render.hide()
         self.render_progress_bar.setValue(100)
         self.lbl_result_icon.setText("🎉")
         self.lbl_result_title.setText("Vídeo do Podcast Concluído!")
@@ -800,6 +832,7 @@ class RecordPodcastView(QWidget):
         self.result_btn_container.show()
 
     def _on_render_error(self, err: str):
+        self.btn_cancel_render.hide()
         self.lbl_result_icon.setText("❌")
         self.lbl_result_title.setText("Erro na Renderização")
         self.lbl_result_status.setText(f"Falha ao gerar o vídeo do podcast:\n{err}")

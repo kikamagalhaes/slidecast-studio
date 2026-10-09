@@ -9,9 +9,23 @@ services:
     environment:
       - APP_DOMAIN=${APP_DOMAIN:-slidecast-179-199-133-126.sslip.io}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:-500}
+      - JOB_RETENTION_HOURS=${JOB_RETENTION_HOURS:-24}
+      - QUEUE_BACKEND=${QUEUE_BACKEND:-redis}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
+      - PROXY_HEADERS=1
+      - RQ_JOB_TIMEOUT=${RQ_JOB_TIMEOUT:-3600}
+      - JOB_RESULT_TTL_HOURS=${JOB_RESULT_TTL_HOURS:-24}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
+      - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-*}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - TZ=America/Sao_Paulo
     volumes:
       - ./storage:/app/storage
+    depends_on:
+      - redis
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.slidecast.rule=Host(`${APP_DOMAIN:-slidecast-179-199-133-126.sslip.io}`)"
@@ -19,3 +33,27 @@ services:
       - "traefik.http.routers.slidecast.tls=true"
       - "traefik.http.routers.slidecast.tls.certresolver=letsencrypt"
       - "traefik.http.services.slidecast.loadbalancer.server.port=8000"
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["sh", "-c", "rq worker --url \"$REDIS_URL\" slidecast"]
+    environment:
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - PYTHONPATH=/app
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TZ=America/Sao_Paulo
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

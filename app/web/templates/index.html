@@ -177,6 +177,11 @@
           <label for="inputApiKey">Chave de API (começa com AIzaSy...):</label>
           <input type="text" id="inputApiKey" class="form-control" placeholder="Cole sua chave aqui...">
         </div>
+        <div class="form-group" style="margin-top: 12px;">
+          <label for="inputAdminToken">Token de administrador (somente se o servidor exigir):</label>
+          <input type="password" id="inputAdminToken" class="form-control" placeholder="Opcional...">
+        </div>
+        <p class="modal-error" id="keyModalError" style="display:none; color: #f87171; margin-top: 8px;"></p>
         <p class="modal-help">
           Não tem uma chave? <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Criar chave gratuita no AI Studio</a>
         </p>

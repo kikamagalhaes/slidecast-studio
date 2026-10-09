@@ -94,6 +94,9 @@ def generate_video(
         str(out_file),
     ]
 
+    # stderr goes to a temp file (not a pipe): FFmpeg is chatty and an
+    # undrained pipe would eventually block the encoder mid-render.
+    stderr_capture = tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace")
     try:
         # Hide console window on Windows
         startupinfo = None
@@ -104,7 +107,7 @@ def generate_video(
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=stderr_capture,
             text=True,
             bufsize=1,
             startupinfo=startupinfo,
@@ -143,7 +146,8 @@ def generate_video(
 
         returncode = process.wait()
         if returncode != 0:
-            stderr_output = process.stderr.read()
+            stderr_capture.seek(0)
+            stderr_output = stderr_capture.read()
             raise VideoGenerationError(f"Erro no FFmpeg (código {returncode}):\n{stderr_output[-500:]}")
 
         if progress_callback:
@@ -152,6 +156,10 @@ def generate_video(
         return str(out_file)
 
     finally:
+        try:
+            stderr_capture.close()
+        except Exception:
+            pass
         # Clean up concat temporary file
         try:
             if os.path.exists(concat_file_path):

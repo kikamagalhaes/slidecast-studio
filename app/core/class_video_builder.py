@@ -1,4 +1,3 @@
-import os
 import subprocess
 import tempfile
 import sys
@@ -30,94 +29,96 @@ def render_intro_card_image(
     doc = pymupdf.open()
     page = doc.new_page(width=w, height=h)
 
-    clean_title = title.strip() or "Aula Especial"
-    clean_teacher = teacher.strip() or "Professor(a)"
+    try:
+        clean_title = title.strip() or "Aula Especial"
+        clean_teacher = teacher.strip() or "Professor(a)"
 
-    # 1. Background (Cover image or dark modern backdrop)
-    if cover_image_path and Path(cover_image_path).is_file():
-        try:
-            page.insert_image(pymupdf.Rect(0, 0, w, h), filename=cover_image_path)
-            # Semi-transparent dark overlay card for readability
-            if h > w:  # Vertical 9:16
-                page.draw_rect(
-                    pymupdf.Rect(0, 0, w, h),
-                    color=(0.04, 0.06, 0.10),
-                    fill=(0.04, 0.06, 0.10),
-                )
-            else:  # Horizontal 16:9
-                overlay_h = h * 0.44
-                page.draw_rect(
-                    pymupdf.Rect(0, h - overlay_h, w, h),
-                    color=(0.04, 0.06, 0.10),
-                    fill=(0.04, 0.06, 0.10),
-                )
-        except Exception:
+        # 1. Background (Cover image or dark modern backdrop)
+        if cover_image_path and Path(cover_image_path).is_file():
+            try:
+                page.insert_image(pymupdf.Rect(0, 0, w, h), filename=cover_image_path)
+                # Semi-transparent dark overlay card for readability
+                if h > w:  # Vertical 9:16
+                    page.draw_rect(
+                        pymupdf.Rect(0, 0, w, h),
+                        color=(0.04, 0.06, 0.10),
+                        fill=(0.04, 0.06, 0.10),
+                    )
+                else:  # Horizontal 16:9
+                    overlay_h = h * 0.44
+                    page.draw_rect(
+                        pymupdf.Rect(0, h - overlay_h, w, h),
+                        color=(0.04, 0.06, 0.10),
+                        fill=(0.04, 0.06, 0.10),
+                    )
+            except Exception:
+                page.draw_rect(pymupdf.Rect(0, 0, w, h), color=(0.06, 0.08, 0.14), fill=(0.06, 0.08, 0.14))
+        else:
             page.draw_rect(pymupdf.Rect(0, 0, w, h), color=(0.06, 0.08, 0.14), fill=(0.06, 0.08, 0.14))
-    else:
-        page.draw_rect(pymupdf.Rect(0, 0, w, h), color=(0.06, 0.08, 0.14), fill=(0.06, 0.08, 0.14))
 
-    if h > w:  # Vertical layout (Shorts / Reels: 1080x1920)
-        # Center card (Safe zone between y=400 and y=1500)
-        card_y = 650
-        page.draw_rect(
-            pymupdf.Rect(60, card_y, w - 60, card_y + 600),
-            color=(0.10, 0.14, 0.24),
-            fill=(0.10, 0.14, 0.24),
-        )
-        # Accent bar
-        page.draw_rect(
-            pymupdf.Rect(60, card_y, w - 60, card_y + 12),
-            color=(0.38, 0.40, 0.95),
-            fill=(0.38, 0.40, 0.95),
-        )
-        # Tag
-        page.insert_text(
-            (110, card_y + 80),
-            "V I D E O A U L A",
-            fontsize=26,
-            color=(0.38, 0.74, 0.98),
-        )
-        # Title (allow up to 2 lines or truncated)
-        if len(clean_title) > 42:
-            clean_title = clean_title[:39] + "..."
-        page.insert_text(
-            (110, card_y + 200),
-            clean_title,
-            fontsize=54,
-            color=(1, 1, 1),
-        )
-        # Teacher
-        page.insert_text(
-            (110, card_y + 340),
-            f"Prof(a). {clean_teacher}",
-            fontsize=38,
-            color=(0.65, 0.80, 1.0),
-        )
-    else:  # Horizontal layout (YouTube: 1920x1080)
-        start_y = h * 0.64 if cover_image_path else h * 0.40
-        page.draw_rect(
-            pymupdf.Rect(100, start_y, 112, start_y + 160),
-            color=(0.38, 0.40, 0.95),
-            fill=(0.38, 0.40, 0.95),
-        )
-        if len(clean_title) > 52:
-            clean_title = clean_title[:49] + "..."
-        page.insert_text(
-            (140, start_y + 55),
-            clean_title,
-            fontsize=52,
-            color=(1, 1, 1),
-        )
-        page.insert_text(
-            (142, start_y + 125),
-            f"Apresentado por: {clean_teacher}",
-            fontsize=32,
-            color=(0.65, 0.80, 1.0),
-        )
+        if h > w:  # Vertical layout (Shorts / Reels: 1080x1920)
+            # Center card (Safe zone between y=400 and y=1500)
+            card_y = 650
+            page.draw_rect(
+                pymupdf.Rect(60, card_y, w - 60, card_y + 600),
+                color=(0.10, 0.14, 0.24),
+                fill=(0.10, 0.14, 0.24),
+            )
+            # Accent bar
+            page.draw_rect(
+                pymupdf.Rect(60, card_y, w - 60, card_y + 12),
+                color=(0.38, 0.40, 0.95),
+                fill=(0.38, 0.40, 0.95),
+            )
+            # Tag
+            page.insert_text(
+                (110, card_y + 80),
+                "V I D E O A U L A",
+                fontsize=26,
+                color=(0.38, 0.74, 0.98),
+            )
+            # Title (allow up to 2 lines or truncated)
+            if len(clean_title) > 42:
+                clean_title = clean_title[:39] + "..."
+            page.insert_text(
+                (110, card_y + 200),
+                clean_title,
+                fontsize=54,
+                color=(1, 1, 1),
+            )
+            # Teacher
+            page.insert_text(
+                (110, card_y + 340),
+                f"Prof(a). {clean_teacher}",
+                fontsize=38,
+                color=(0.65, 0.80, 1.0),
+            )
+        else:  # Horizontal layout (YouTube: 1920x1080)
+            start_y = h * 0.64 if cover_image_path else h * 0.40
+            page.draw_rect(
+                pymupdf.Rect(100, start_y, 112, start_y + 160),
+                color=(0.38, 0.40, 0.95),
+                fill=(0.38, 0.40, 0.95),
+            )
+            if len(clean_title) > 52:
+                clean_title = clean_title[:49] + "..."
+            page.insert_text(
+                (140, start_y + 55),
+                clean_title,
+                fontsize=52,
+                color=(1, 1, 1),
+            )
+            page.insert_text(
+                (142, start_y + 125),
+                f"Apresentado por: {clean_teacher}",
+                fontsize=32,
+                color=(0.65, 0.80, 1.0),
+            )
 
-    pix = page.get_pixmap(dpi=72)
-    pix.save(str(output_png_path))
-    doc.close()
+        pix = page.get_pixmap(dpi=72)
+        pix.save(str(output_png_path))
+    finally:
+        doc.close()
     return output_png_path
 
 
@@ -136,89 +137,115 @@ def render_outro_card_image(
     doc = pymupdf.open()
     page = doc.new_page(width=w, height=h)
 
-    clean_title = title.strip() or "Aula Especial"
-    clean_teacher = teacher.strip() or "Professor(a)"
+    try:
+        clean_title = title.strip() or "Aula Especial"
+        clean_teacher = teacher.strip() or "Professor(a)"
 
-    # Dark stylish background
-    page.draw_rect(pymupdf.Rect(0, 0, w, h), color=(0.05, 0.07, 0.12), fill=(0.05, 0.07, 0.12))
+        # Dark stylish background
+        page.draw_rect(pymupdf.Rect(0, 0, w, h), color=(0.05, 0.07, 0.12), fill=(0.05, 0.07, 0.12))
 
-    if h > w:  # Vertical layout (Shorts / Reels: 1080x1920)
-        card_y = 650
-        page.draw_rect(
-            pymupdf.Rect(60, card_y, w - 60, card_y + 620),
-            color=(0.09, 0.13, 0.22),
-            fill=(0.09, 0.13, 0.22),
-        )
-        page.draw_rect(
-            pymupdf.Rect(60, card_y, w - 60, card_y + 12),
-            color=(0.16, 0.73, 0.58),
-            fill=(0.16, 0.73, 0.58),
-        )
-        page.insert_text(
-            (110, card_y + 110),
-            "OBRIGADO POR ASSISTIR!",
-            fontsize=48,
-            color=(1, 1, 1),
-        )
-        page.insert_text(
-            (110, card_y + 220),
-            "Gostou da aula? Curta e compartilhe!",
-            fontsize=32,
-            color=(0.38, 0.74, 0.98),
-        )
-        page.insert_text(
-            (110, card_y + 310),
-            "Inscreva-se no canal para não perder as próximas aulas.",
-            fontsize=26,
-            color=(0.80, 0.85, 0.95),
-        )
-        page.insert_text(
-            (110, card_y + 450),
-            f"Prof(a). {clean_teacher} • {clean_title[:32]}",
-            fontsize=28,
-            color=(0.55, 0.65, 0.80),
-        )
-    else:  # Horizontal layout (YouTube: 1920x1080)
-        card_y = 300
-        page.draw_rect(
-            pymupdf.Rect(180, card_y, w - 180, card_y + 480),
-            color=(0.09, 0.13, 0.22),
-            fill=(0.09, 0.13, 0.22),
-        )
-        page.draw_rect(
-            pymupdf.Rect(180, card_y, w - 180, card_y + 10),
-            color=(0.16, 0.73, 0.58),
-            fill=(0.16, 0.73, 0.58),
-        )
-        page.insert_text(
-            (260, card_y + 110),
-            "OBRIGADO POR ASSISTIR!",
-            fontsize=56,
-            color=(1, 1, 1),
-        )
-        page.insert_text(
-            (260, card_y + 200),
-            "Deixe seu Like, inscreva-se no canal e ative o sininho! 🔔",
-            fontsize=34,
-            color=(0.38, 0.74, 0.98),
-        )
-        page.insert_text(
-            (260, card_y + 280),
-            "Dúvidas ou sugestões? Deixe seu comentário logo abaixo.",
-            fontsize=28,
-            color=(0.80, 0.85, 0.95),
-        )
-        page.insert_text(
-            (260, card_y + 390),
-            f"Ministrado por: {clean_teacher}  |  {clean_title}",
-            fontsize=26,
-            color=(0.55, 0.65, 0.80),
-        )
+        if h > w:  # Vertical layout (Shorts / Reels: 1080x1920)
+            card_y = 650
+            page.draw_rect(
+                pymupdf.Rect(60, card_y, w - 60, card_y + 620),
+                color=(0.09, 0.13, 0.22),
+                fill=(0.09, 0.13, 0.22),
+            )
+            page.draw_rect(
+                pymupdf.Rect(60, card_y, w - 60, card_y + 12),
+                color=(0.16, 0.73, 0.58),
+                fill=(0.16, 0.73, 0.58),
+            )
+            page.insert_text(
+                (110, card_y + 110),
+                "OBRIGADO POR ASSISTIR!",
+                fontsize=48,
+                color=(1, 1, 1),
+            )
+            page.insert_text(
+                (110, card_y + 220),
+                "Gostou da aula? Curta e compartilhe!",
+                fontsize=32,
+                color=(0.38, 0.74, 0.98),
+            )
+            page.insert_text(
+                (110, card_y + 310),
+                "Inscreva-se no canal para não perder as próximas aulas.",
+                fontsize=26,
+                color=(0.80, 0.85, 0.95),
+            )
+            page.insert_text(
+                (110, card_y + 450),
+                f"Prof(a). {clean_teacher} • {clean_title[:32]}",
+                fontsize=28,
+                color=(0.55, 0.65, 0.80),
+            )
+        else:  # Horizontal layout (YouTube: 1920x1080)
+            card_y = 300
+            page.draw_rect(
+                pymupdf.Rect(180, card_y, w - 180, card_y + 480),
+                color=(0.09, 0.13, 0.22),
+                fill=(0.09, 0.13, 0.22),
+            )
+            page.draw_rect(
+                pymupdf.Rect(180, card_y, w - 180, card_y + 10),
+                color=(0.16, 0.73, 0.58),
+                fill=(0.16, 0.73, 0.58),
+            )
+            page.insert_text(
+                (260, card_y + 110),
+                "OBRIGADO POR ASSISTIR!",
+                fontsize=56,
+                color=(1, 1, 1),
+            )
+            page.insert_text(
+                (260, card_y + 200),
+                "Deixe seu Like, inscreva-se no canal e ative o sininho!",
+                fontsize=34,
+                color=(0.38, 0.74, 0.98),
+            )
+            page.insert_text(
+                (260, card_y + 280),
+                "Dúvidas ou sugestões? Deixe seu comentário logo abaixo.",
+                fontsize=28,
+                color=(0.80, 0.85, 0.95),
+            )
+            page.insert_text(
+                (260, card_y + 390),
+                f"Ministrado por: {clean_teacher}  |  {clean_title}",
+                fontsize=26,
+                color=(0.55, 0.65, 0.80),
+            )
 
-    pix = page.get_pixmap(dpi=72)
-    pix.save(str(output_png_path))
-    doc.close()
+        pix = page.get_pixmap(dpi=72)
+        pix.save(str(output_png_path))
+    finally:
+        doc.close()
     return output_png_path
+
+
+def _clip_has_audio(input_video: str, ffprobe_path: Optional[str], ffmpeg_path: str) -> bool:
+    """Detects whether a clip carries an audio stream (ffprobe, else ffmpeg -i)."""
+    target = str(Path(input_video).resolve())
+    if ffprobe_path:
+        probe_cmd = [
+            ffprobe_path, "-v", "error",
+            "-select_streams", "a",
+            "-show_entries", "stream=codec_type",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            target,
+        ]
+        try:
+            res = subprocess.run(probe_cmd, capture_output=True, text=True)
+            return bool(res.stdout.strip())
+        except OSError:
+            pass
+    # Fallback when ffprobe is unavailable: parse `ffmpeg -i` stream list.
+    try:
+        res = subprocess.run([ffmpeg_path, "-i", target], capture_output=True, text=True)
+        return " Audio: " in (res.stderr or "")
+    except OSError:
+        return False
 
 
 def normalize_video_clip(
@@ -232,23 +259,13 @@ def normalize_video_clip(
     and 48kHz stereo AAC (adding silent audio if video has no sound)
     so that FFmpeg concat demuxer can merge it cleanly without re-encoding.
     """
-    ffmpeg_path, _ = get_ffmpeg_paths()
+    ffmpeg_path, ffprobe_path = get_ffmpeg_paths()
+    if not ffmpeg_path:
+        raise ClassVideoBuilderError("FFmpeg não encontrado.")
     w, h = target_res
 
     # Check if input video has an audio stream
-    probe_cmd = [
-        "ffprobe", "-v", "error",
-        "-select_streams", "a",
-        "-show_entries", "stream=codec_type",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        str(Path(input_video).resolve()),
-    ]
-    has_audio = False
-    try:
-        res = subprocess.run(probe_cmd, capture_output=True, text=True)
-        has_audio = bool(res.stdout.strip())
-    except Exception:
-        has_audio = False
+    has_audio = _clip_has_audio(input_video, ffprobe_path, ffmpeg_path)
 
     cmd = [ffmpeg_path, "-y", "-i", str(Path(input_video).resolve())]
 
@@ -334,6 +351,7 @@ def build_class_video(
     w, h = resolution
 
     temp_dir = Path(tempfile.mkdtemp(prefix="class_build_"))
+    stderr_capture = None  # Replaced with a temp file before the FFmpeg call.
     try:
         final_images = list(slide_images)
         final_durations = list(durations)
@@ -466,7 +484,7 @@ def build_class_video(
                         f"[av_bg][card_overlay]overlay=0:0:enable='{cond_str}':repeatlast=0[base_v]"
                     )
                 else:
-                    fc_parts.append(f"[av_bg]null[base_v]")
+                    fc_parts.append("[av_bg]null[base_v]")
 
                 # 3. Presenter overlay in center (1040x584 at x=20, y=520)
                 pres_y = 500 if video_format == "shorts" else 530
@@ -508,9 +526,9 @@ def build_class_video(
                         f"format=yuv420p[cust_bg_raw];"
                         f"[cust_bg_raw]drawbox=0:0:{w}:{h}:color=black@0.25:t=fill[base_bg]"
                     )
-                    fc_parts.append(f"[0:v]null[slide_fg_in]")
+                    fc_parts.append("[0:v]null[slide_fg_in]")
                 else:
-                    fc_parts.append(f"[0:v]split=2[slide_bg_in][slide_fg_in]")
+                    fc_parts.append("[0:v]split=2[slide_bg_in][slide_fg_in]")
                     fc_parts.append(
                         f"[slide_bg_in]fps={fps},scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=5:5,scale={w}:{h},format=yuv420p[blurred_bg];"
                         f"[blurred_bg]drawbox=0:0:{w}:{h}:color=black@0.45:t=fill[base_bg]"
@@ -630,7 +648,7 @@ def build_class_video(
             if narration_delay_ms > 0:
                 fc_parts.append(f"[1:a]adelay={narration_delay_ms}|{narration_delay_ms}[aout]")
             else:
-                fc_parts.append(f"[1:a]anull[aout]")
+                fc_parts.append("[1:a]anull[aout]")
 
         filter_complex_str = "; ".join(fc_parts)
         cmd.extend([
@@ -654,10 +672,13 @@ def build_class_video(
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
+        # stderr goes to a temp file (not a pipe): FFmpeg is chatty and an
+        # undrained pipe would eventually block the encoder mid-render.
+        stderr_capture = tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace")
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=stderr_capture,
             text=True,
             bufsize=1,
             startupinfo=startupinfo,
@@ -693,7 +714,8 @@ def build_class_video(
 
         ret = process.wait()
         if ret != 0:
-            err_msg = process.stderr.read()
+            stderr_capture.seek(0)
+            err_msg = stderr_capture.read()
             raise ClassVideoBuilderError(f"Erro na renderização final:\n{err_msg[-400:]}")
 
         # 3. Concatenate Custom Video Clips (Intro / Outro) if requested
@@ -736,6 +758,11 @@ def build_class_video(
         return str(out_file)
 
     finally:
+        try:
+            if stderr_capture is not None:
+                stderr_capture.close()
+        except Exception:
+            pass
         try:
             if temp_dir.exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)

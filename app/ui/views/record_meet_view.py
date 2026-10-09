@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import time
@@ -34,6 +35,8 @@ from app.core.meeting_recorder import ScreenRecordingProcess, extract_audio_from
 from app.core.ebook_generator import generate_class_ebook
 from app.ui.floating_camera_widget import FloatingCameraWidget
 from PySide6.QtMultimedia import QMediaDevices, QCameraDevice
+
+logger = logging.getLogger(__name__)
 
 
 class MeetPostProcessWorker(QThread):
@@ -95,7 +98,7 @@ class MeetPostProcessWorker(QThread):
                                 f.write(img_bytes)
                             slide_images.append(img_p)
                     except Exception as e:
-                        print(f"Aviso extraindo slides: {e}")
+                        logger.warning("Aviso extraindo slides: %s", e)
 
                 if self.enable_ebook:
                     self.progress_changed.emit(50.0, "Criando E-book Didático com slides intercalados via IA...")
@@ -103,7 +106,8 @@ class MeetPostProcessWorker(QThread):
                     ebook_path = str(temp_dir / f"{clean_slug}_{int(time.time())}.pdf")
 
                     def callback(pct, msg):
-                        self.progress_changed.emit(pct, msg)
+                        # Core reports 0.0-1.0; this view's bar uses 0-100.
+                        self.progress_changed.emit(pct * 100.0, msg)
 
                     final_ebook = generate_class_ebook(
                         title=self.title,
@@ -127,7 +131,7 @@ class MeetPostProcessWorker(QThread):
                         )
                         results["subtitles_path"] = srt_path
                     except Exception as e:
-                        print(f"Aviso gerando legendas: {e}")
+                        logger.warning("Aviso gerando legendas: %s", e)
 
                 self.progress_changed.emit(100.0, "Aula processada e e-book finalizado!")
 

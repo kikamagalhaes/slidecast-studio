@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install python dependencies (web-only, without desktop PySide6 GUI overhead)
-COPY requirements-web.txt .
+COPY requirements-base.txt requirements-web.txt ./
 RUN pip install --no-cache-dir -r requirements-web.txt
 
 # Copy application files
@@ -22,4 +22,7 @@ RUN mkdir -p /app/storage
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.web.server:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Default: single worker (in-memory queue). Raise UVICORN_WORKERS only with
+# QUEUE_BACKEND=redis; see entrypoint.sh and compose.production.yml.
+RUN chmod +x /app/entrypoint.sh
+CMD ["./entrypoint.sh"]

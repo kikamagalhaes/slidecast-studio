@@ -29,13 +29,27 @@ function initKeyModal() {
 
   btnSave.onclick = async () => {
     const key = document.getElementById("inputApiKey").value.trim();
+    const adminToken = document.getElementById("inputAdminToken").value.trim();
+    const errEl = document.getElementById("keyModalError");
+    errEl.style.display = "none";
     const formData = new FormData();
     formData.append("key", key);
+    const headers = {};
+    if (adminToken) headers["X-Admin-Token"] = adminToken;
 
-    const res = await fetch("/api/config/key", { method: "POST", body: formData });
+    const res = await fetch("/api/config/key", { method: "POST", headers, body: formData });
     if (res.ok) {
       modal.style.display = "none";
+      document.getElementById("inputAdminToken").value = "";
       checkKeyStatus();
+    } else {
+      let msg = "Falha ao salvar a chave.";
+      try {
+        const data = await res.json();
+        if (data.detail) msg = data.detail;
+      } catch (e) { /* keep default message */ }
+      errEl.textContent = msg;
+      errEl.style.display = "block";
     }
   };
 }

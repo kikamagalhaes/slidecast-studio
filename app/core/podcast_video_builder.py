@@ -1,12 +1,13 @@
-import os
-import sys
-import subprocess
+import logging
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Optional, Callable
 
-from app.core.ffmpeg_utils import get_ffmpeg_paths
+from app.core.ffmpeg_utils import get_ffmpeg_paths, run_process_cancellable
 from app.core.subtitles_generator import generate_subtitles_with_gemini
+
+logger = logging.getLogger(__name__)
 
 
 def build_podcast_video(
@@ -18,6 +19,7 @@ def build_podcast_video(
     enable_subtitles: bool = False,
     subtitles_language: str = "pt",
     progress_callback: Optional[Callable[[float, str], None]] = None,
+    cancel_check: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Renders a Full HD video for a podcast episode:
@@ -29,24 +31,31 @@ def build_podcast_video(
     out_file = Path(output_video_path).resolve()
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if progress_callback:
-        progress_callback(10.0, "Preparando capa e visualizador de ondas sonoras...")
+    if cancel_check and cancel_check():
+        raise InterruptedError("Renderização do podcast cancelada.")
 
-    # Optional Subtitles generation
+    if progress_callback:
+        progress_callback(0.10, "Preparando capa e visualizador de ondas sonoras...")
+
+    # Optional Subtitles generation (SRT only needs to exist during rendering).
+    subs_temp_dir: Optional[Path] = None
     srt_path = None
     if enable_subtitles:
         if progress_callback:
-            progress_callback(20.0, "Transcrevendo e traduzindo legendas com IA Gemini...")
+            progress_callback(0.20, "Transcrevendo e traduzindo legendas com IA Gemini...")
         try:
+            subs_temp_dir = Path(tempfile.mkdtemp(prefix="podcast_subs_"))
             srt_path = generate_subtitles_with_gemini(
                 audio_path=narration_audio_path,
+                output_srt_path=str(subs_temp_dir / "subtitles.srt"),
                 target_language=subtitles_language,
             )
-        except Exception as e:
-            print(f"Aviso: falha ao gerar legendas no podcast: {e}")
+        except Exception as exc:
+            logger.warning("Falha ao gerar legendas no podcast: %s", exc)
+            srt_path = None
 
     if progress_callback:
-        progress_callback(40.0, "Iniciando renderização de vídeo e sincronização de áudio...")
+        progress_callback(0.40, "Iniciando renderização de vídeo e sincronização de áudio...")
 
     # Build filter complex
     # Base video 1080p canvas with cover image centered/scaled
@@ -120,20 +129,19 @@ def build_podcast_video(
     ])
 
     if progress_callback:
-        progress_callback(60.0, "Processando vídeo com aceleração FFmpeg...")
+        progress_callback(0.60, "Processando vídeo com aceleração FFmpeg...")
 
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    stdout, stderr = process.communicate()
+    try:
+        completed = run_process_cancellable(cmd, cancel_check=cancel_check)
 
-    if process.returncode != 0:
-        raise RuntimeError(f"FFmpeg falhou ao criar vídeo do podcast:\n{stderr[-600:]}")
+        if completed.returncode != 0:
+            stderr = completed.stderr or ""
+            raise RuntimeError(f"FFmpeg falhou ao criar vídeo do podcast:\n{stderr[-600:]}")
+    finally:
+        if subs_temp_dir is not None:
+            shutil.rmtree(subs_temp_dir, ignore_errors=True)
 
     if progress_callback:
-        progress_callback(100.0, "Vídeo do podcast gerado com sucesso!")
+        progress_callback(1.0, "Vídeo do podcast gerado com sucesso!")
 
     return str(out_file)

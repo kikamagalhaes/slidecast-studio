@@ -60,7 +60,8 @@ class EbookGenerationWorker(QThread):
     def run(self):
         try:
             def callback(pct, msg):
-                self.progress_changed.emit(pct, msg)
+                # Core reports 0.0-1.0; this view's bar uses 0-100.
+                self.progress_changed.emit(pct * 100.0, msg)
 
             res = generate_class_ebook(
                 title=self.title,
@@ -656,38 +657,34 @@ class GenerateMaterialsView(QWidget):
 
         try:
             from google import genai
+            from app.core.gemini_client import GeminiError, generate_with_fallback
+
             client = genai.Client(api_key=api_key)
 
-            models_to_try = [
-                "gemini-3.8-flash",
-                "gemini-3-flash-preview",
-                "gemini-2.5-flash",
-                "gemini-flash-latest",
-            ]
-
             import json
-            for m in models_to_try:
-                try:
-                    resp = client.models.generate_content(model=m, contents=prompt_request)
-                    text = resp.text.strip()
-                    if text.startswith("```json"):
-                        text = text[7:]
-                    if text.endswith("```"):
-                        text = text[:-3]
-                    prompts_list = json.loads(text.strip())
-                    if isinstance(prompts_list, list) and len(prompts_list) > 0:
-                        for idx, p_text in enumerate(prompts_list):
-                            if idx < len(self.slide_cards):
-                                self.slide_cards[idx].set_prompt(str(p_text))
-                                self.slide_cards[idx].set_status("✓ Sugestão gerada pela IA", "#10b981")
-                        QMessageBox.information(
-                            self,
-                            "Roteiro Gerado",
-                            f"A IA gerou sugestões detalhadas para todos os {len(self.slide_cards)} slides!",
-                        )
-                        return
-                except Exception:
-                    continue
+
+            try:
+                resp = generate_with_fallback(client, contents=prompt_request)
+                text = resp.text.strip()
+                if text.startswith("```json"):
+                    text = text[7:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                prompts_list = json.loads(text.strip())
+            except (GeminiError, ValueError):
+                prompts_list = []
+
+            if isinstance(prompts_list, list) and len(prompts_list) > 0:
+                for idx, p_text in enumerate(prompts_list):
+                    if idx < len(self.slide_cards):
+                        self.slide_cards[idx].set_prompt(str(p_text))
+                        self.slide_cards[idx].set_status("✓ Sugestão gerada pela IA", "#10b981")
+                QMessageBox.information(
+                    self,
+                    "Roteiro Gerado",
+                    f"A IA gerou sugestões detalhadas para todos os {len(self.slide_cards)} slides!",
+                )
+                return
 
             QMessageBox.warning(self, "Aviso", "Não foi possível estruturar as sugestões automaticamente.")
         except Exception as e:

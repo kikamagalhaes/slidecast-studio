@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import time
@@ -5,6 +6,8 @@ import tempfile
 import webbrowser
 from pathlib import Path
 from typing import Optional, List, Dict
+
+logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QPixmap, QImage, QGuiApplication
@@ -790,7 +793,7 @@ class AvatarCalibrationDialog(QDialog):
             self.lbl_cam_status.setStyleSheet("color: #ef4444; font-size: 11px;")
 
     def _on_camera_error(self, error, error_string):
-        print(f"[AvatarCalibrationDialog] Camera error: {error} - {error_string}")
+        logger.warning("Camera error: %s - %s", error, error_string)
         if self.camera and not self.camera.isActive():
             msg = error_string if error_string else "Dispositivo ocupado ou inacessível"
             self.lbl_cam_status.setText(f"⚠️ Câmera: {msg} (Clique em 🔄 Atualizar)")
@@ -880,7 +883,7 @@ class AvatarCalibrationDialog(QDialog):
     # RECORDING ACTIONS
     # ----------------------------------------------------
     def _on_recorder_error(self, error, error_string):
-        print(f"[AvatarCalibrationDialog] Recorder error: {error} - {error_string}")
+        logger.warning("Recorder error: %s - %s", error, error_string)
         if self.is_recording:
             self.calib_timer.stop()
             self.is_recording = False

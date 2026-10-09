@@ -1,0 +1,16 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Start with errors only (E9 = syntax, F = pyflakes); widen once clean.
+select = ["E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Legacy UI modules carry pre-existing unused imports; new code must be clean.
+"app/ui/dialogs/*.py" = ["F401", "F841"]
+"app/ui/views/*.py" = ["F401", "F841"]
+"app/ui/*.py" = ["F401", "F841"]

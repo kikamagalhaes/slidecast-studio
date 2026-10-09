@@ -1,0 +1,18 @@
+# Keep the Docker build context small and secret-free.
+.git
+.github
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+storage/
+*.mp4
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+dist/
+build/
+*.spec
+tests/

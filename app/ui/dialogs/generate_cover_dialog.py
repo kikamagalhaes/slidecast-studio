@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import Optional
@@ -19,6 +20,8 @@ from PySide6.QtWidgets import (
 
 from app.core.image_generator import generate_slide_image, enhance_slide_prompt_with_gemini
 from app.ui.voice_prompt_button import VoicePromptButton
+
+logger = logging.getLogger(__name__)
 
 
 class CoverGenerationWorker(QThread):
@@ -240,8 +243,8 @@ class GenerateCoverDialog(QDialog):
             else:
                 self.lbl_preview.setText(f"✓ Imagem gerada: {Path(img_path).name}")
         except Exception as e:
-            print("Aviso ao exibir preview:", e)
-            self.lbl_preview.setText(f"✓ Imagem gerada com sucesso!")
+            logger.warning("Aviso ao exibir preview: %s", e)
+            self.lbl_preview.setText("✓ Imagem gerada com sucesso!")
 
     def _on_error(self, err: str):
         self.progress_bar.hide()

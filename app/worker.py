@@ -1,12 +1,14 @@
+import logging
 import shutil
 import tempfile
-import traceback
 from pathlib import Path
 from typing import List, Tuple
 from PySide6.QtCore import QThread, Signal
 
 from app.core.pdf_processor import render_all_slides_to_dir
 from app.core.video_generator import generate_video
+
+logger = logging.getLogger(__name__)
 
 
 class VideoRenderWorker(QThread):
@@ -89,7 +91,7 @@ class VideoRenderWorker(QThread):
         except InterruptedError:
             self.render_cancelled.emit()
         except Exception as e:
-            traceback.print_exc()
+            logger.exception("Falha na renderização do vídeo")
             self.render_error.emit(str(e))
         finally:
             # Clean up temp slide directory
@@ -132,6 +134,6 @@ class AISyncWorker(QThread):
             )
             self.sync_finished.emit(durations)
         except Exception as e:
-            traceback.print_exc()
+            logger.exception("Falha na sincronização com IA")
             self.sync_error.emit(str(e))
 

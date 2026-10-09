@@ -1,8 +1,11 @@
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 def get_config_dir() -> Path:
@@ -39,8 +42,8 @@ def save_config(data: dict):
         current.update(data)
         with open(cfg_path, "w", encoding="utf-8") as f:
             json.dump(current, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print(f"Erro ao salvar configurações: {e}")
+    except Exception as exc:
+        logger.error("Erro ao salvar configurações: %s", exc)
 
 
 def get_gemini_api_key() -> Optional[str]:

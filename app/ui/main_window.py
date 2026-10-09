@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import subprocess
@@ -40,6 +41,9 @@ from app.ui.views import (
     GenerateMaterialsView,
 )
 from app.ui.dialogs.generate_cover_dialog import GenerateCoverDialog
+from app.ui.home_cards import MainView, build_home_menu
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -75,13 +79,13 @@ class MainWindow(QMainWindow):
         self.home_view = self._build_home_view()
         self.create_video_view = self._build_create_video_view()
         self.record_class_view = RecordClassView(self)
-        self.record_class_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(0))
+        self.record_class_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(MainView.HOME))
         self.record_meet_view = RecordMeetView(self)
-        self.record_meet_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(0))
+        self.record_meet_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(MainView.HOME))
         self.record_podcast_view = RecordPodcastView(self)
-        self.record_podcast_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(0))
+        self.record_podcast_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(MainView.HOME))
         self.generate_materials_view = GenerateMaterialsView(self)
-        self.generate_materials_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(0))
+        self.generate_materials_view.back_to_home.connect(lambda: self.stack.setCurrentIndex(MainView.HOME))
 
         # Inter-module shortcuts from materials generator
         self.generate_materials_view.send_to_create_video.connect(self._on_material_sent_to_create_video)
@@ -94,7 +98,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.record_podcast_view)      # Index 4
         self.stack.addWidget(self.generate_materials_view)  # Index 5
 
-        self.stack.setCurrentIndex(0)
+        self.stack.setCurrentIndex(MainView.HOME)
 
     def _build_home_view(self) -> QWidget:
         widget = QWidget()
@@ -154,184 +158,8 @@ class MainWindow(QMainWindow):
         welcome_box.addWidget(lbl_desc)
         layout.addLayout(welcome_box)
 
-        # Main Menu Cards in 2 Rows (Direct layout, no scrollbar)
-        cards_container_layout = QVBoxLayout()
-        cards_container_layout.setContentsMargins(0, 0, 0, 0)
-        cards_container_layout.setSpacing(16)
-
-        # Row 1: Cards 1, 2, 3
-        row1_layout = QHBoxLayout()
-        row1_layout.setSpacing(18)
-
-        # --- Card 1: Criar Vídeo ---
-        card1 = QFrame()
-        card1.setProperty("class", "menu-card")
-        c1_layout = QVBoxLayout(card1)
-        c1_layout.setContentsMargins(20, 20, 20, 20)
-        c1_layout.setSpacing(12)
-
-        icon1 = QLabel("🎬")
-        icon1.setStyleSheet("font-size: 38px; margin-bottom: 2px;")
-        t1 = QLabel("1. Criar Vídeo")
-        t1.setStyleSheet("font-size: 17px; font-weight: 700; color: #38bdf8;")
-        sub1 = QLabel("Slides (PDF) + Narração em Áudio")
-        sub1.setStyleSheet("font-size: 11px; font-weight: 600; color: #94a3b8;")
-        d1 = QLabel(
-            "Transforme sua apresentação de slides em PDF e áudio em um vídeo MP4 "
-            "com sincronização inteligente de transições utilizando IA."
-        )
-        d1.setWordWrap(True)
-        d1.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
-
-        btn1 = QPushButton("Abrir Criador de Vídeos →")
-        btn1.setProperty("class", "primary")
-        btn1.setCursor(Qt.PointingHandCursor)
-        btn1.clicked.connect(lambda: self.stack.setCurrentIndex(1))
-
-        c1_layout.addWidget(icon1)
-        c1_layout.addWidget(t1)
-        c1_layout.addWidget(sub1)
-        c1_layout.addWidget(d1)
-        c1_layout.addStretch()
-        c1_layout.addWidget(btn1)
-        row1_layout.addWidget(card1)
-
-        # --- Card 2: Gravar Aula ---
-        card2 = QFrame()
-        card2.setProperty("class", "menu-card")
-        c2_layout = QVBoxLayout(card2)
-        c2_layout.setContentsMargins(20, 20, 20, 20)
-        c2_layout.setSpacing(12)
-
-        icon2 = QLabel("🎓")
-        icon2.setStyleSheet("font-size: 38px; margin-bottom: 2px;")
-        t2 = QLabel("2. Gravar Aula")
-        t2.setStyleSheet("font-size: 17px; font-weight: 700; color: #a78bfa;")
-        sub2 = QLabel("Estúdio Educacional & Tutoriais de Tela")
-        sub2.setStyleSheet("font-size: 11px; font-weight: 600; color: #94a3b8;")
-        d2 = QLabel(
-            "Grave videoaulas com apresentação de slides ou tutoriais de aplicativos capturando a tela "
-            "do computador, com teleprompter no topo, câmera opcional, fundo musical e legendas IA."
-        )
-        d2.setWordWrap(True)
-        d2.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
-
-        btn2 = QPushButton("Abrir Gravador de Aula →")
-        btn2.setCursor(Qt.PointingHandCursor)
-        btn2.clicked.connect(lambda: self.stack.setCurrentIndex(2))
-
-        c2_layout.addWidget(icon2)
-        c2_layout.addWidget(t2)
-        c2_layout.addWidget(sub2)
-        c2_layout.addWidget(d2)
-        c2_layout.addStretch()
-        c2_layout.addWidget(btn2)
-        row1_layout.addWidget(card2)
-
-        # --- Card 3: Gravar Reunião do Meet ---
-        card3 = QFrame()
-        card3.setProperty("class", "menu-card")
-        c3_layout = QVBoxLayout(card3)
-        c3_layout.setContentsMargins(20, 20, 20, 20)
-        c3_layout.setSpacing(12)
-
-        icon3 = QLabel("👥")
-        icon3.setStyleSheet("font-size: 38px; margin-bottom: 2px;")
-        t3 = QLabel("3. Gravar Reunião do Meet")
-        t3.setStyleSheet("font-size: 17px; font-weight: 700; color: #34d399;")
-        sub3 = QLabel("Captura do Google Meet & Chamadas")
-        sub3.setStyleSheet("font-size: 11px; font-weight: 600; color: #94a3b8;")
-        d3 = QLabel(
-            "Grave reuniões completas do Google Meet diretamente do seu desktop, "
-            "capturando com perfeição o som dos participantes e o microfone."
-        )
-        d3.setWordWrap(True)
-        d3.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
-
-        btn3 = QPushButton("Abrir Gravador do Meet →")
-        btn3.setCursor(Qt.PointingHandCursor)
-        btn3.clicked.connect(lambda: self.stack.setCurrentIndex(3))
-
-        c3_layout.addWidget(icon3)
-        c3_layout.addWidget(t3)
-        c3_layout.addWidget(sub3)
-        c3_layout.addWidget(d3)
-        c3_layout.addStretch()
-        c3_layout.addWidget(btn3)
-        row1_layout.addWidget(card3)
-
-        cards_container_layout.addLayout(row1_layout)
-
-        # Row 2: Cards 4 and 5
-        row2_layout = QHBoxLayout()
-        row2_layout.setSpacing(18)
-
-        # --- Card 4: Gravar Podcast ---
-        card4 = QFrame()
-        card4.setProperty("class", "menu-card")
-        c4_layout = QVBoxLayout(card4)
-        c4_layout.setContentsMargins(20, 20, 20, 20)
-        c4_layout.setSpacing(12)
-
-        icon4 = QLabel("🎙️")
-        icon4.setStyleSheet("font-size: 38px; margin-bottom: 2px;")
-        t4 = QLabel("4. Gravar Podcast")
-        t4.setStyleSheet("font-size: 17px; font-weight: 700; color: #f59e0b;")
-        sub4 = QLabel("Áudio ao Vivo + Ondas Sonoras Dinâmicas")
-        sub4.setStyleSheet("font-size: 11px; font-weight: 600; color: #94a3b8;")
-        d4 = QLabel(
-            "Grave episódios de podcast com capa fixa e ondas sonoras animadas em tempo real, "
-            "teleprompter integrado no topo, microfone, fundo musical e legendas IA."
-        )
-        d4.setWordWrap(True)
-        d4.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
-
-        btn4 = QPushButton("Abrir Gravador de Podcast →")
-        btn4.setCursor(Qt.PointingHandCursor)
-        btn4.clicked.connect(lambda: self.stack.setCurrentIndex(4))
-
-        c4_layout.addWidget(icon4)
-        c4_layout.addWidget(t4)
-        c4_layout.addWidget(sub4)
-        c4_layout.addWidget(d4)
-        c4_layout.addStretch()
-        c4_layout.addWidget(btn4)
-        row2_layout.addWidget(card4)
-
-        # --- Card 5: Gerar Materiais da Aula ---
-        card5 = QFrame()
-        card5.setProperty("class", "menu-card")
-        c5_layout = QVBoxLayout(card5)
-        c5_layout.setContentsMargins(20, 20, 20, 20)
-        c5_layout.setSpacing(12)
-
-        icon5 = QLabel("🪄")
-        icon5.setStyleSheet("font-size: 38px; margin-bottom: 2px;")
-        t5 = QLabel("5. Gerar Materiais da Aula")
-        t5.setStyleSheet("font-size: 17px; font-weight: 700; color: #818cf8;")
-        sub5 = QLabel("Slides em PDF (até 100) & Prompts por Voz")
-        sub5.setStyleSheet("font-size: 11px; font-weight: 600; color: #94a3b8;")
-        d5 = QLabel(
-            "Gere apresentações visuais de altíssimo padrão por IA (de 1 a 100 slides) com prompts "
-            "digitados ou falados pelo microfone, exportando em PDF e E-books didáticos."
-        )
-        d5.setWordWrap(True)
-        d5.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
-
-        btn5 = QPushButton("Abrir Gerador de Materiais →")
-        btn5.setCursor(Qt.PointingHandCursor)
-        btn5.clicked.connect(lambda: self.stack.setCurrentIndex(5))
-
-        c5_layout.addWidget(icon5)
-        c5_layout.addWidget(t5)
-        c5_layout.addWidget(sub5)
-        c5_layout.addWidget(d5)
-        c5_layout.addStretch()
-        c5_layout.addWidget(btn5)
-        row2_layout.addWidget(card5)
-
-        cards_container_layout.addLayout(row2_layout)
-        layout.addLayout(cards_container_layout, stretch=1)
+        menu_layout = build_home_menu(self.stack.setCurrentIndex)
+        layout.addLayout(menu_layout, stretch=1)
 
         return widget
 
@@ -345,7 +173,7 @@ class MainWindow(QMainWindow):
         nav_bar = QHBoxLayout()
         btn_back = QPushButton("← Voltar ao Menu Inicial")
         btn_back.setCursor(Qt.PointingHandCursor)
-        btn_back.clicked.connect(lambda: self.stack.setCurrentIndex(0))
+        btn_back.clicked.connect(lambda: self.stack.setCurrentIndex(MainView.HOME))
 
         lbl_screen_title = QLabel("1. Criador de Vídeos a partir de PDF e Áudio")
         lbl_screen_title.setStyleSheet("font-size: 16px; font-weight: 700; color: #38bdf8;")
@@ -408,7 +236,7 @@ class MainWindow(QMainWindow):
         btn_ai_slides = QPushButton("🪄 Não tem slides? Criar com IA (Módulo 5)")
         btn_ai_slides.setCursor(Qt.PointingHandCursor)
         btn_ai_slides.setStyleSheet("font-size: 11px; padding: 5px 12px; background-color: #1e1b4b; border: 1px solid #4338ca; color: #c7d2fe; border-radius: 6px;")
-        btn_ai_slides.clicked.connect(lambda: self.stack.setCurrentIndex(5))
+        btn_ai_slides.clicked.connect(lambda: self.stack.setCurrentIndex(MainView.GENERATE_MATERIALS))
         sec_header.addWidget(btn_ai_slides)
 
         inputs_layout.addLayout(sec_header)
@@ -832,7 +660,7 @@ class MainWindow(QMainWindow):
                 self.slides_layout.addWidget(card)
                 self.slide_widgets.append(card)
             except Exception as e:
-                print(f"Erro ao renderizar thumbnail {i}: {e}")
+                logger.warning("Erro ao renderizar thumbnail %s: %s", i, e)
 
         self._update_durations_label()
 
@@ -1101,7 +929,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Aviso", f"Não foi possível abrir a pasta:\n{e}")
 
     def _on_material_sent_to_create_video(self, pdf_path: str):
-        self.stack.setCurrentIndex(1)
+        self.stack.setCurrentIndex(MainView.CREATE_VIDEO)
         self.pdf_drop.set_file(pdf_path)
         self._on_pdf_selected(pdf_path)
 
@@ -1114,4 +942,4 @@ class MainWindow(QMainWindow):
             self.record_class_view.lbl_pdf_status.setStyleSheet("color: #10b981; font-weight: 600;")
         except Exception as e:
             pass
-        self.stack.setCurrentIndex(2)
+        self.stack.setCurrentIndex(MainView.RECORD_CLASS)

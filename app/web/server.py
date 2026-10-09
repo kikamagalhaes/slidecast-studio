@@ -1,21 +1,46 @@
+import json
+import logging
 import os
+import secrets
 import shutil
 import uuid
 from pathlib import Path
 from typing import List, Optional
+
 from pydantic import BaseModel
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Header
 from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from app.core.pdf_processor import inspect_pdf, render_thumbnail, PresentationInfo
-from app.core.audio_processor import get_audio_info, AudioInfo
+from app.core.ffmpeg_utils import get_ffmpeg_paths
+from app.core.logging_config import setup_logging
+from app.core.pdf_processor import inspect_pdf, render_thumbnail
+from app.core.audio_processor import get_audio_info
 from app.core.ai_synchronizer import synchronize_slides_with_gemini
 from app.core.config_manager import get_gemini_api_key, set_gemini_api_key
 from app.web.queue_manager import queue_manager
+from app.web.rate_limit import enforce_rate_limit
+from app.web.validation import (
+    META_FILENAME,
+    STORED_AUDIO_BASENAME,
+    STORED_PDF_NAME,
+    ValidationError,
+    assert_pdf_signature,
+    display_name,
+    get_max_upload_bytes,
+    parse_project_id,
+    project_dir,
+    validate_durations,
+    validate_fps,
+    validate_resolution,
+    validate_upload_filename,
+)
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 STORAGE_DIR = Path(__file__).resolve().parent.parent.parent / "storage"
@@ -37,6 +62,17 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 templates = Jinja2Templates(directory=str(templates_dir))
 
 
+def _admin_token_configured() -> str:
+    return (os.environ.get("ADMIN_TOKEN") or "").strip()
+
+
+if not _admin_token_configured():
+    logger.warning(
+        "ADMIN_TOKEN is not set: POST /api/config/key is unprotected. "
+        "Set ADMIN_TOKEN in production to require the X-Admin-Token header."
+    )
+
+
 class AISyncRequest(BaseModel):
     api_key: Optional[str] = None
 
@@ -46,6 +82,53 @@ class RenderRequest(BaseModel):
     resolution_w: int = 1920
     resolution_h: int = 1080
     fps: int = 30
+
+
+def _require_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
+    """Enforces the admin token when ADMIN_TOKEN is configured."""
+    expected = _admin_token_configured()
+    if not expected:
+        return
+    if not x_admin_token or not secrets.compare_digest(x_admin_token, expected):
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+
+
+def _project_or_404(project_id: str) -> Path:
+    try:
+        proj_dir = project_dir(STORAGE_DIR, project_id)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not proj_dir.exists():
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    return proj_dir
+
+
+def _read_meta(proj_dir: Path) -> dict:
+    meta_path = proj_dir / META_FILENAME
+    if not meta_path.exists():
+        raise HTTPException(status_code=400, detail="Metadados do projeto ausentes.")
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Metadados do projeto inválidos: {exc}")
+
+
+async def _save_upload_capped(upload: UploadFile, dest: Path, max_bytes: int) -> int:
+    """Streams an upload to disk enforcing the size cap (HTTP 413 on exceed)."""
+    total = 0
+    with open(dest, "wb") as f:
+        while True:
+            chunk = await upload.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Arquivo excede o limite de {max_bytes // (1024 * 1024)} MB.",
+                )
+            f.write(chunk)
+    return total
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -58,9 +141,37 @@ async def home(request: Request):
     )
 
 
+def _disk_free_mb(path: Path) -> int:
+    """Free disk space in MB, or -1 when it cannot be determined."""
+    try:
+        return shutil.disk_usage(path).free // (1024 * 1024)
+    except OSError:
+        return -1
+
+
 @app.get("/api/health")
 async def health():
-    return {"status": "healthy", "service": "slidecast-web"}
+    ffmpeg_path, _ = get_ffmpeg_paths()
+    free_mb = _disk_free_mb(STORAGE_DIR)
+    try:
+        min_disk_mb = int(os.environ.get("HEALTH_MIN_DISK_MB", "500"))
+    except ValueError:
+        min_disk_mb = 500
+
+    reasons = []
+    if not ffmpeg_path:
+        reasons.append("ffmpeg not found")
+    if free_mb >= 0 and free_mb < min_disk_mb:
+        reasons.append(f"low disk space ({free_mb} MB free)")
+
+    return {
+        "status": "healthy" if not reasons else "degraded",
+        "service": "slidecast-web",
+        "ffmpeg": bool(ffmpeg_path),
+        "disk_free_mb": free_mb,
+        "pending_jobs": queue_manager.pending_count(),
+        "reasons": reasons,
+    }
 
 
 @app.get("/api/config/key")
@@ -73,35 +184,83 @@ async def get_key_status():
 
 
 @app.post("/api/config/key")
-async def save_api_key(key: str = Form(...)):
+async def save_api_key(
+    key: str = Form(...),
+    x_admin_token: Optional[str] = Header(default=None),
+):
+    _require_admin(x_admin_token)
+    if (os.environ.get("GEMINI_API_KEY") or "").strip():
+        raise HTTPException(
+            status_code=409,
+            detail="Chave gerenciada pela variável de ambiente GEMINI_API_KEY; "
+            "alteração via API desabilitada.",
+        )
     key_clean = key.strip()
+    if not key_clean:
+        raise HTTPException(status_code=400, detail="Chave vazia não é aceita.")
     set_gemini_api_key(key_clean)
-    return {"success": True, "configured": bool(key_clean)}
+    return {"success": True, "configured": True}
 
 
-@app.post("/api/upload")
+@app.post("/api/upload", dependencies=[Depends(enforce_rate_limit)])
 async def upload_files(
     pdf_file: UploadFile = File(...),
     audio_file: UploadFile = File(...),
 ):
+    try:
+        audio_ext = validate_upload_filename(audio_file.filename, "audio")
+        validate_upload_filename(pdf_file.filename, "pdf")
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    max_bytes = get_max_upload_bytes()
     project_id = str(uuid.uuid4())
     proj_dir = STORAGE_DIR / "projects" / project_id
     proj_dir.mkdir(parents=True, exist_ok=True)
 
-    pdf_path = proj_dir / pdf_file.filename
-    with open(pdf_path, "wb") as f:
-        shutil.copyfileobj(pdf_file.file, f)
-
-    audio_path = proj_dir / audio_file.filename
-    with open(audio_path, "wb") as f:
-        shutil.copyfileobj(audio_file.file, f)
+    # Fixed on-disk names: user filenames are never used as paths.
+    pdf_path = proj_dir / STORED_PDF_NAME
+    audio_path = proj_dir / f"{STORED_AUDIO_BASENAME}{audio_ext}"
 
     try:
-        pdf_info = inspect_pdf(str(pdf_path))
-        audio_info = get_audio_info(str(audio_path))
-    except Exception as e:
+        try:
+            await _save_upload_capped(pdf_file, pdf_path, max_bytes)
+            await _save_upload_capped(audio_file, audio_path, max_bytes)
+        finally:
+            await pdf_file.close()
+            await audio_file.close()
+
+        try:
+            assert_pdf_signature(pdf_path)
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        try:
+            pdf_info = inspect_pdf(str(pdf_path))
+            audio_info = get_audio_info(str(audio_path))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Arquivo inválido: {exc}")
+
+        meta = {
+            "pdf_name": display_name(pdf_file.filename, "slides.pdf"),
+            "audio_name": display_name(audio_file.filename, "audio"),
+            "audio_ext": audio_ext,
+            "page_count": pdf_info.page_count,
+            "audio_duration": audio_info.duration,
+        }
+        (proj_dir / META_FILENAME).write_text(
+            json.dumps(meta, ensure_ascii=False), encoding="utf-8"
+        )
+    except Exception:
         shutil.rmtree(proj_dir, ignore_errors=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise
+
+    logger.info(
+        "upload project=%s pages=%d duration=%.1fs",
+        project_id,
+        pdf_info.page_count,
+        audio_info.duration,
+    )
 
     default_slide_duration = (
         audio_info.duration / pdf_info.page_count if pdf_info.page_count > 0 else 5.0
@@ -120,9 +279,9 @@ async def upload_files(
 
     return {
         "project_id": project_id,
-        "pdf_name": pdf_info.file_name,
+        "pdf_name": meta["pdf_name"],
         "page_count": pdf_info.page_count,
-        "audio_name": audio_info.file_name,
+        "audio_name": meta["audio_name"],
         "audio_duration": audio_info.duration,
         "formatted_audio_duration": audio_info.formatted_duration,
         "slides": slides,
@@ -131,82 +290,110 @@ async def upload_files(
 
 @app.get("/api/projects/{project_id}/thumbnail/{slide_index}")
 async def get_slide_thumbnail(project_id: str, slide_index: int):
-    proj_dir = STORAGE_DIR / "projects" / project_id
-    if not proj_dir.exists():
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    proj_dir = _project_or_404(project_id)
+    meta = _read_meta(proj_dir)
 
-    pdf_files = list(proj_dir.glob("*.pdf"))
-    if not pdf_files:
+    if slide_index < 0 or slide_index >= meta["page_count"]:
+        raise HTTPException(status_code=400, detail="Índice de slide fora do alcance.")
+
+    pdf_path = proj_dir / STORED_PDF_NAME
+    if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="PDF não encontrado")
+
+    # Thumbnails are immutable per project: render once, serve from disk after.
+    thumbs_dir = proj_dir / "thumbs"
+    thumbs_dir.mkdir(exist_ok=True)
+    cached = thumbs_dir / f"thumb_{slide_index:04d}.png"
+    if cached.exists():
+        return FileResponse(str(cached), media_type="image/png")
 
     try:
-        png_bytes = render_thumbnail(str(pdf_files[0]), slide_index, max_dimension=280)
-        return Response(content=png_bytes, media_type="image/png")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        png_bytes = render_thumbnail(str(pdf_path), slide_index, max_dimension=280)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    try:
+        cached.write_bytes(png_bytes)
+    except OSError as exc:
+        logger.warning("Could not cache thumbnail %s: %s", cached, exc)
+    return Response(content=png_bytes, media_type="image/png")
 
 
-@app.post("/api/projects/{project_id}/ai-sync")
+@app.post("/api/projects/{project_id}/ai-sync", dependencies=[Depends(enforce_rate_limit)])
 async def ai_sync(project_id: str, payload: AISyncRequest):
-    proj_dir = STORAGE_DIR / "projects" / project_id
-    if not proj_dir.exists():
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    proj_dir = _project_or_404(project_id)
+    meta = _read_meta(proj_dir)
 
-    pdf_files = list(proj_dir.glob("*.pdf"))
-    if not pdf_files:
-        raise HTTPException(status_code=404, detail="PDF não encontrado")
+    pdf_path = proj_dir / STORED_PDF_NAME
+    audio_path = proj_dir / f"{STORED_AUDIO_BASENAME}{meta['audio_ext']}"
+    if not pdf_path.exists() or not audio_path.exists():
+        raise HTTPException(status_code=400, detail="Arquivos do projeto incompletos")
 
-    # Find audio
-    audio_extensions = [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma"]
-    audio_files = [f for f in proj_dir.iterdir() if f.suffix.lower() in audio_extensions]
-    if not audio_files:
-        raise HTTPException(status_code=404, detail="Arquivo de áudio não encontrado")
+    try:
+        audio_info = get_audio_info(str(audio_path))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Áudio inválido: {exc}")
 
-    audio_info = get_audio_info(str(audio_files[0]))
-    api_key = payload.api_key or get_gemini_api_key()
+    api_key = (payload.api_key or "").strip() or get_gemini_api_key()
 
     try:
         durations = synchronize_slides_with_gemini(
-            pdf_path=str(pdf_files[0]),
-            audio_path=str(audio_files[0]),
+            pdf_path=str(pdf_path),
+            audio_path=str(audio_path),
             total_audio_duration=audio_info.duration,
             api_key=api_key,
         )
         return {"success": True, "durations": durations}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
-@app.post("/api/projects/{project_id}/render")
+@app.post("/api/projects/{project_id}/render", dependencies=[Depends(enforce_rate_limit)])
 async def render_video(project_id: str, payload: RenderRequest):
-    proj_dir = STORAGE_DIR / "projects" / project_id
-    if not proj_dir.exists():
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+    proj_dir = _project_or_404(project_id)
+    meta = _read_meta(proj_dir)
 
-    pdf_files = list(proj_dir.glob("*.pdf"))
-    audio_extensions = [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma"]
-    audio_files = [f for f in proj_dir.iterdir() if f.suffix.lower() in audio_extensions]
+    try:
+        durations = validate_durations(payload.durations, meta["page_count"])
+        resolution = validate_resolution(payload.resolution_w, payload.resolution_h)
+        fps = validate_fps(payload.fps)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    if not pdf_files or not audio_files:
+    pdf_path = proj_dir / STORED_PDF_NAME
+    audio_path = proj_dir / f"{STORED_AUDIO_BASENAME}{meta['audio_ext']}"
+    if not pdf_path.exists() or not audio_path.exists():
         raise HTTPException(status_code=400, detail="Arquivos do projeto incompletos")
 
     job = queue_manager.create_job(
-        pdf_path=str(pdf_files[0]),
-        audio_path=str(audio_files[0]),
-        durations=payload.durations,
-        resolution=(payload.resolution_w, payload.resolution_h),
-        fps=payload.fps,
+        pdf_path=str(pdf_path),
+        audio_path=str(audio_path),
+        durations=durations,
+        resolution=resolution,
+        fps=fps,
         output_dir=proj_dir / "output",
     )
 
     return {"job_id": job.id, "status": job.status}
 
 
-@app.get("/api/jobs/{job_id}")
-async def get_job_status(job_id: str):
-    job = queue_manager.get_job(job_id)
+def _validate_job_id(job_id: str) -> str:
+    try:
+        return parse_project_id(job_id)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+def _job_or_404(job_id: str):
+    job = queue_manager.get_job(_validate_job_id(job_id))
     if not job:
         raise HTTPException(status_code=404, detail="Job não encontrado")
+    return job
+
+
+@app.get("/api/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    job = _job_or_404(job_id)
 
     return {
         "id": job.id,
@@ -220,10 +407,18 @@ async def get_job_status(job_id: str):
     }
 
 
+@app.delete("/api/jobs/{job_id}")
+async def cancel_job(job_id: str):
+    status = queue_manager.cancel_job(_validate_job_id(job_id))
+    if status is None:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    return {"id": job_id, "status": status}
+
+
 @app.get("/api/jobs/{job_id}/video")
 async def get_job_video(job_id: str):
-    job = queue_manager.get_job(job_id)
-    if not job or not job.output_video_path or not os.path.exists(job.output_video_path):
+    job = _job_or_404(job_id)
+    if not job.output_video_path or not os.path.exists(job.output_video_path):
         raise HTTPException(status_code=404, detail="Vídeo não disponível")
 
     return FileResponse(job.output_video_path, media_type="video/mp4")
@@ -231,8 +426,8 @@ async def get_job_video(job_id: str):
 
 @app.get("/api/jobs/{job_id}/download")
 async def download_job_video(job_id: str):
-    job = queue_manager.get_job(job_id)
-    if not job or not job.output_video_path or not os.path.exists(job.output_video_path):
+    job = _job_or_404(job_id)
+    if not job.output_video_path or not os.path.exists(job.output_video_path):
         raise HTTPException(status_code=404, detail="Vídeo não disponível para download")
 
     return FileResponse(

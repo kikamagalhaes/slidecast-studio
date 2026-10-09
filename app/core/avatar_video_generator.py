@@ -1,11 +1,11 @@
-import os
-import sys
-import time
-import json
 import asyncio
+import logging
+import os
 import subprocess
+import threading
+import time
 from pathlib import Path
-from typing import Optional, Callable, Dict, Tuple, List
+from typing import Callable, Dict, List, Optional, Tuple
 
 import requests
 import edge_tts
@@ -13,9 +13,47 @@ import edge_tts
 from app.core.config_manager import (
     get_elevenlabs_api_key,
     get_replicate_api_key,
-    get_avatar_engine,
 )
+from app.core.clone_manager import update_clone_metadata
 from app.core.ffmpeg_utils import get_ffmpeg_paths, get_video_duration
+
+logger = logging.getLogger(__name__)
+
+
+def edge_tts_timeout() -> float:
+    """Neural TTS time budget in seconds (env ``EDGE_TTS_TIMEOUT``)."""
+    try:
+        return max(10.0, float(os.environ.get("EDGE_TTS_TIMEOUT", "180")))
+    except ValueError:
+        return 180.0
+
+
+def synthesize_edge_tts(text: str, voice: str, out_path: Path, timeout: float) -> None:
+    """Runs Edge-TTS synthesis in a dedicated thread with a hard timeout.
+
+    Isolates ``asyncio.run`` from any Qt worker thread that may already own
+    an event loop, and guarantees a hung network call cannot block forever.
+    """
+    errors: Dict[str, BaseException] = {}
+
+    def _target() -> None:
+        try:
+
+            async def _run() -> None:
+                comm = edge_tts.Communicate(text, voice)
+                await comm.save(str(out_path))
+
+            asyncio.run(_run())
+        except BaseException as exc:  # re-raised in the caller thread
+            errors["error"] = exc
+
+    worker = threading.Thread(target=_target, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        raise TimeoutError(f"Edge-TTS excedeu o tempo limite de {timeout:g}s.")
+    if "error" in errors:
+        raise errors["error"]
 
 
 def generate_avatar_speech(
@@ -57,8 +95,13 @@ def generate_avatar_speech(
                 if resp.status_code == 200:
                     voice_id = resp.json().get("voice_id")
                     clone_data["elevenlabs_voice_id"] = voice_id
+                    # Persist so the voice is not re-registered (and re-billed
+                    # in quota) on every synthesis.
+                    clone_id = clone_data.get("id")
+                    if clone_id:
+                        update_clone_metadata(clone_id, {"elevenlabs_voice_id": voice_id})
                 else:
-                    print("Aviso ElevenLabs add voice:", resp.text)
+                    logger.warning("ElevenLabs add voice falhou: %s", resp.text)
 
             if voice_id:
                 if progress_callback:
@@ -76,18 +119,21 @@ def generate_avatar_speech(
                         f.write(tts_resp.content)
                     return str(out_p)
 
-        except Exception as e:
-            print(f"Fallback para neural TTS: {e}")
+        except Exception as exc:
+            logger.warning("ElevenLabs falhou, usando TTS neural local: %s", exc)
 
     # Fallback to high-quality neural voice (Edge-TTS)
     if progress_callback:
         progress_callback(0.3, "Sintetizando voz em português (Motor Neural)...")
 
-    async def _run_tts():
-        comm = edge_tts.Communicate(text, preferred_voice)
-        await comm.save(str(out_p))
-
-    asyncio.run(_run_tts())
+    try:
+        synthesize_edge_tts(text, preferred_voice, out_p, edge_tts_timeout())
+    except TimeoutError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(
+            f"Falha na síntese de voz neural (verifique a conexão): {exc}"
+        ) from exc
     return str(out_p)
 
 
@@ -125,8 +171,8 @@ def detect_audio_silences(
                     silences.append((current_start, end_sec))
                     current_start = None
         return silences
-    except Exception as e:
-        print(f"Aviso detectando silêncios de áudio: {e}")
+    except Exception as exc:
+        logger.warning("Falha ao detectar silêncios de áudio: %s", exc)
         return []
 
 
@@ -144,8 +190,8 @@ def generate_replicate_lipsync(
     try:
         import replicate
         client = replicate.Client(api_token=api_token)
-    except Exception as e:
-        print(f"Replicate client indisponível: {e}")
+    except Exception as exc:
+        logger.warning("Replicate client indisponível: %s", exc)
         return False
 
     if progress_callback:
@@ -175,7 +221,7 @@ def generate_replicate_lipsync(
                             f.write(chunk)
                     return True
     except Exception as e:
-        print(f"Aviso Lipsync-2 falhou: {e}. Tentando modelo Wav2Lip...")
+        logger.warning("Lipsync-2 falhou: %s. Tentando modelo Wav2Lip...", e)
 
     # 2. Fallback to devxpy/cog-wav2lip
     try:
@@ -202,7 +248,7 @@ def generate_replicate_lipsync(
                             f.write(chunk)
                     return True
     except Exception as e2:
-        print(f"Aviso cog-wav2lip falhou: {e2}")
+        logger.warning("cog-wav2lip falhou: %s", e2)
 
     return False
 
@@ -255,7 +301,7 @@ def render_local_cadence_avatar(
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return output_video_path
         except Exception as e:
-            print(f"Aviso render_local_cadence_avatar tblend fallback: {e}")
+            logger.warning("tblend falhou, usando fallback sem blend: %s", e)
             cmd_fallback = [
                 ffmpeg_exe, "-y",
                 "-stream_loop", "-1",
@@ -342,7 +388,9 @@ def render_avatar_video(
             if progress_callback:
                 progress_callback(0.9, "Sincronia labial neural concluída com sucesso!")
             return str(out_video)
-        print("Aviso: Sincronia em nuvem falhou ou não retornou vídeo, usando motor local inteligente...")
+        logger.warning(
+            "Sincronia em nuvem falhou ou não retornou vídeo; usando motor local."
+        )
 
     # 2. Option 2: Local Smart Engine (Cadence synchronization with resting mouth pauses)
     if progress_callback:

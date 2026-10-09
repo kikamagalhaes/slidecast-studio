@@ -1,10 +1,12 @@
-import os
 import json
+import logging
 import time
 import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Dict
+
+logger = logging.getLogger(__name__)
 
 from app.core.config_manager import (
     get_config_dir,
@@ -32,8 +34,8 @@ def list_clones() -> List[Dict]:
                     with open(meta_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         clones.append(data)
-                except Exception as e:
-                    print(f"Aviso lendo clone em {d}: {e}")
+                except Exception as exc:
+                    logger.warning("Aviso lendo clone em %s: %s", d, exc)
     return clones
 
 
@@ -61,32 +63,14 @@ def get_active_clone() -> Optional[Dict]:
     return None
 
 
-def create_clone(
-    name: str,
+def _extract_clone_assets(
     raw_video_path: str,
-    engine: str = "cloud",
-    preferred_voice: str = "pt-BR-FranciscaNeural",
-    background_image: Optional[str] = None,
-) -> Dict:
-    """
-    Creates a new digital clone profile from a 10-20s calibration video:
-    - Extracts voice_sample.wav (clean mono 16kHz audio)
-    - Extracts face_photo.png (clear high-res facial reference image)
-    - Stores reference video_sample.mp4
-    - Generates metadata.json
-    """
-    ffmpeg_exe, _ = get_ffmpeg_paths()
-    timestamp = int(time.time())
-    safe_slug = "".join(c for c in name.lower().replace(" ", "_") if c.isalnum() or c in "_-")[:20] or "clone"
-    clone_id = f"{safe_slug}_{timestamp}"
-
-    clone_dir = get_clones_dir() / clone_id
-    clone_dir.mkdir(parents=True, exist_ok=True)
-
-    target_video = clone_dir / "video_sample.mp4"
-    target_voice = clone_dir / "voice_sample.wav"
-    target_face = clone_dir / "face_photo.png"
-
+    target_video: Path,
+    target_voice: Path,
+    target_face: Path,
+    ffmpeg_exe: str,
+) -> None:
+    """Copies the sample video and derives the voice + face reference files."""
     # 1. Copy video file
     shutil.copy2(raw_video_path, str(target_video))
 
@@ -124,6 +108,41 @@ def create_clone(
         ]
         subprocess.run(cmd_fallback, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+
+def create_clone(
+    name: str,
+    raw_video_path: str,
+    engine: str = "cloud",
+    preferred_voice: str = "pt-BR-FranciscaNeural",
+    background_image: Optional[str] = None,
+) -> Dict:
+    """
+    Creates a new digital clone profile from a 10-20s calibration video:
+    - Extracts voice_sample.wav (clean mono 16kHz audio)
+    - Extracts face_photo.png (clear high-res facial reference image)
+    - Stores reference video_sample.mp4
+    - Generates metadata.json
+    """
+    ffmpeg_exe, _ = get_ffmpeg_paths()
+    if not ffmpeg_exe:
+        raise RuntimeError("FFmpeg não encontrado; não é possível criar o clone.")
+    timestamp = int(time.time())
+    safe_slug = "".join(c for c in name.lower().replace(" ", "_") if c.isalnum() or c in "_-")[:20] or "clone"
+    clone_id = f"{safe_slug}_{timestamp}"
+
+    clone_dir = get_clones_dir() / clone_id
+    clone_dir.mkdir(parents=True, exist_ok=True)
+
+    target_video = clone_dir / "video_sample.mp4"
+    target_voice = clone_dir / "voice_sample.wav"
+    target_face = clone_dir / "face_photo.png"
+
+    try:
+        _extract_clone_assets(raw_video_path, target_video, target_voice, target_face, ffmpeg_exe)
+    except Exception:
+        shutil.rmtree(clone_dir, ignore_errors=True)
+        raise
+
     metadata = {
         "id": clone_id,
         "name": name.strip() or "Meu Clone IA",
@@ -142,8 +161,8 @@ def create_clone(
             target_bg = clone_dir / f"background_{int(time.time())}{Path(background_image).suffix}"
             shutil.copy2(background_image, str(target_bg))
             metadata["background_image"] = str(target_bg.resolve())
-        except Exception as e:
-            print("Aviso ao copiar fundo do clone:", e)
+        except Exception as exc:
+            logger.warning("Aviso ao copiar fundo do clone: %s", exc)
 
     meta_file = clone_dir / "metadata.json"
     with open(meta_file, "w", encoding="utf-8") as f:
@@ -166,8 +185,8 @@ def update_clone_metadata(clone_id: str, new_fields: dict) -> Optional[Dict]:
         with open(meta_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         return data
-    except Exception as e:
-        print(f"Erro ao atualizar metadados do clone {clone_id}: {e}")
+    except Exception as exc:
+        logger.error("Erro ao atualizar metadados do clone %s: %s", clone_id, exc)
         return None
 
 

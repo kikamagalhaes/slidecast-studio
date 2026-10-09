@@ -1,13 +1,14 @@
-import os
-import sys
 import json
-import time
+import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Callable
 
 import pymupdf
 
 from app.core.config_manager import get_gemini_api_key
+from app.core.gemini_client import generate_with_fallback
+
+logger = logging.getLogger(__name__)
 
 
 def generate_class_ebook(
@@ -26,7 +27,7 @@ def generate_class_ebook(
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     if progress_callback:
-        progress_callback(10.0, "Analisando áudio da aula com IA Gemini...")
+        progress_callback(0.10, "Analisando áudio da aula com IA Gemini...")
 
     api_key = get_gemini_api_key()
     total_slides = max(1, len(slide_images))
@@ -42,62 +43,65 @@ def generate_class_ebook(
     )
 
     if progress_callback:
-        progress_callback(60.0, "Diagramando e intercalando slides e textos didáticos...")
+        progress_callback(0.60, "Diagramando e intercalando slides e textos didáticos...")
 
     # 2. Build PDF Document with PyMuPDF
     doc = pymupdf.open()
     A4_W, A4_H = 595, 842  # Standard A4 in points
 
-    # --- 2.1 COVER PAGE ---
-    cover_page = doc.new_page(width=A4_W, height=A4_H)
-    _render_ebook_cover(cover_page, title, teacher, A4_W, A4_H)
+    try:
+        # --- 2.1 COVER PAGE ---
+        cover_page = doc.new_page(width=A4_W, height=A4_H)
+        _render_ebook_cover(cover_page, title, teacher, A4_W, A4_H)
 
-    # --- 2.2 CHAPTER PAGES (Slide + Interleaved Explanatory Text) ---
-    for i in range(total_slides):
-        slide_num = i + 1
-        sec_info = sections_data.get(slide_num, {})
-        slide_img = slide_images[i] if i < len(slide_images) else None
+        # --- 2.2 CHAPTER PAGES (Slide + Interleaved Explanatory Text) ---
+        for i in range(total_slides):
+            slide_num = i + 1
+            sec_info = sections_data.get(slide_num, {})
+            slide_img = slide_images[i] if i < len(slide_images) else None
 
-        page = doc.new_page(width=A4_W, height=A4_H)
-        _render_ebook_slide_chapter(
-            page=page,
-            doc=doc,
-            slide_num=slide_num,
-            total_slides=total_slides,
-            sec_info=sec_info,
-            slide_img_path=slide_img,
-            W=A4_W,
-            H=A4_H,
+            page = doc.new_page(width=A4_W, height=A4_H)
+            _render_ebook_slide_chapter(
+                page=page,
+                doc=doc,
+                slide_num=slide_num,
+                total_slides=total_slides,
+                sec_info=sec_info,
+                slide_img_path=slide_img,
+                W=A4_W,
+                H=A4_H,
+            )
+
+            if progress_callback:
+                pct = 0.60 + (0.30 * (slide_num / total_slides))
+                progress_callback(pct, f"Diagramando Capítulo {slide_num} de {total_slides}...")
+
+        # --- 2.3 FINAL SUMMARY & EXERCISES PAGE ---
+        final_page = doc.new_page(width=A4_W, height=A4_H)
+        _render_ebook_summary_and_quiz(
+            final_page,
+            sections_data.get("summary", ""),
+            sections_data.get("exercises", []),
+            A4_W,
+            A4_H,
         )
 
-        if progress_callback:
-            pct = 60.0 + (30.0 * (slide_num / total_slides))
-            progress_callback(pct, f"Diagramando Capítulo {slide_num} de {total_slides}...")
+        # Add page numbers to all pages except cover
+        for p_idx in range(1, len(doc)):
+            p = doc[p_idx]
+            p.insert_text(
+                (A4_W - 120, A4_H - 30),
+                f"Página {p_idx + 1} de {len(doc)}",
+                fontsize=9,
+                color=(0.5, 0.55, 0.65),
+            )
 
-    # --- 2.3 FINAL SUMMARY & EXERCISES PAGE ---
-    final_page = doc.new_page(width=A4_W, height=A4_H)
-    _render_ebook_summary_and_quiz(
-        final_page,
-        sections_data.get("summary", ""),
-        sections_data.get("exercises", []),
-        A4_W,
-        A4_H,
-    )
-
-    # Add page numbers to all pages except cover
-    for p_idx in range(1, len(doc)):
-        p = doc[p_idx]
-        p.insert_text(
-            (A4_W - 120, A4_H - 30),
-            f"Página {p_idx + 1} de {len(doc)}",
-            fontsize=9,
-            color=(0.5, 0.55, 0.65),
-        )
-
-    doc.save(str(out_file))
+        doc.save(str(out_file))
+    finally:
+        doc.close()
 
     if progress_callback:
-        progress_callback(100.0, "E-book didático em PDF gerado com sucesso!")
+        progress_callback(1.0, "E-book didático em PDF gerado com sucesso!")
 
     return str(out_file)
 
@@ -172,8 +176,8 @@ def _render_ebook_slide_chapter(
             )
             page.insert_image(img_rect, filename=str(slide_img_path))
             cur_y += img_h + 16.0
-        except Exception as e:
-            print(f"Erro ao inserir imagem do slide {slide_num}: {e}")
+        except Exception as exc:
+            logger.warning("Erro ao inserir imagem do slide %s: %s", slide_num, exc)
             cur_y += 10.0
 
     # 2. Explanatory Pedagogical Text
@@ -201,7 +205,7 @@ def _render_ebook_slide_chapter(
         box_rect = pymupdf.Rect(45, cur_y, W - 45, min(H - 60, cur_y + 65))
         page.draw_rect(box_rect, fill=(0.93, 0.96, 1.0), color=(0.25, 0.65, 0.95), width=1.2, radius=None)
         page.draw_rect(pymupdf.Rect(45, cur_y, 49, min(H - 60, cur_y + 65)), fill=(0.1, 0.5, 0.9))
-        page.insert_text((58, cur_y + 18), "💡 Ponto-Chave / Destaque da Aula:", fontsize=10, color=(0.08, 0.35, 0.75))
+        page.insert_text((58, cur_y + 18), ">> Ponto-Chave / Destaque da Aula:", fontsize=10, color=(0.08, 0.35, 0.75))
         page.insert_textbox(
             pymupdf.Rect(58, cur_y + 24, W - 55, cur_y + 60),
             highlight,
@@ -220,7 +224,7 @@ def _render_ebook_summary_and_quiz(page, summary: str, exercises: list, W: float
 
     # Summary box
     page.draw_rect(pymupdf.Rect(45, cur_y, W - 45, cur_y + 190), fill=(0.97, 0.98, 1.0), color=(0.8, 0.85, 0.9), radius=None)
-    page.insert_text((60, cur_y + 22), "📌 Resumo dos Principais Aprendizados:", fontsize=11, color=(0.1, 0.2, 0.4))
+    page.insert_text((60, cur_y + 22), ">> Resumo dos Principais Aprendizados:", fontsize=11, color=(0.1, 0.2, 0.4))
 
     sum_text = summary or (
         "Ao longo desta aula, foram explorados os fundamentos essenciais do tema, "
@@ -236,7 +240,7 @@ def _render_ebook_summary_and_quiz(page, summary: str, exercises: list, W: float
     cur_y += 210.0
 
     # Exercises Header
-    page.insert_text((45, cur_y), "📝 Exercícios de Fixação para os Alunos:", fontsize=12, color=(0.1, 0.2, 0.4))
+    page.insert_text((45, cur_y), ">> Exercícios de Fixação para os Alunos:", fontsize=12, color=(0.1, 0.2, 0.4))
     cur_y += 18.0
 
     if not exercises:
@@ -289,20 +293,13 @@ def _generate_ebook_content_with_gemini(
         from google import genai
         client = genai.Client(api_key=api_key)
 
-        models_to_try = [
-            "gemini-3.8-flash",
-            "gemini-3-flash-preview",
-            "gemini-2.5-flash",
-            "gemini-flash-latest",
-        ]
-
         # Upload audio to Gemini File API if available
         uploaded_file = None
         if audio_path and Path(audio_path).exists() and Path(audio_path).stat().st_size > 1000:
             try:
                 uploaded_file = client.files.upload(file=audio_path)
-            except Exception as e:
-                print(f"Aviso: upload de áudio falhou: {e}")
+            except Exception as exc:
+                logger.warning("Aviso: upload de áudio falhou: %s", exc)
 
         prompt = (
             f"Você é um renomado pedagogo e autor de livros didáticos. A partir da aula gravada intitulada '{title}' "
@@ -330,32 +327,32 @@ def _generate_ebook_content_with_gemini(
 
         contents = [uploaded_file, prompt] if uploaded_file else [prompt]
 
-        for m in models_to_try:
-            try:
-                resp = client.models.generate_content(model=m, contents=contents)
-                raw_text = resp.text.strip()
-                if raw_text.startswith("```json"):
-                    raw_text = raw_text[7:]
-                if raw_text.endswith("```"):
-                    raw_text = raw_text[:-3]
+        try:
+            resp = generate_with_fallback(client, contents=contents)
+            raw_text = resp.text.strip()
+            if raw_text.startswith("```json"):
+                raw_text = raw_text[7:]
+            if raw_text.endswith("```"):
+                raw_text = raw_text[:-3]
 
-                parsed = json.loads(raw_text.strip())
-                result_map: Dict = {}
-                slides_list = parsed.get("slides", [])
-                for item in slides_list:
-                    s_num = item.get("slide_number", len(result_map) + 1)
-                    result_map[s_num] = {
-                        "topic": item.get("topic", f"Tópico #{s_num}"),
-                        "content": item.get("content", ""),
-                        "highlight": item.get("highlight", ""),
-                    }
-                result_map["summary"] = parsed.get("summary", default_data["summary"])
-                result_map["exercises"] = parsed.get("exercises", default_data["exercises"])
-                return result_map
-            except Exception:
-                continue
+            parsed = json.loads(raw_text.strip())
+            result_map: Dict = {}
+            slides_list = parsed.get("slides", [])
+            for item in slides_list:
+                s_num = item.get("slide_number", len(result_map) + 1)
+                result_map[s_num] = {
+                    "topic": item.get("topic", f"Tópico #{s_num}"),
+                    "content": item.get("content", ""),
+                    "highlight": item.get("highlight", ""),
+                }
+            result_map["summary"] = parsed.get("summary", default_data["summary"])
+            result_map["exercises"] = parsed.get("exercises", default_data["exercises"])
+            return result_map
+        except Exception:
+            # Model failures and malformed JSON both degrade to default_data.
+            return default_data
 
-    except Exception as e:
-        print(f"Aviso ao consultar Gemini para o E-book: {e}")
+    except Exception as exc:
+        logger.warning("Aviso ao consultar Gemini para o E-book: %s", exc)
 
     return default_data

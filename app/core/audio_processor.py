@@ -1,11 +1,13 @@
-import os
-import subprocess
 import json
+import logging
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from app.core.ffmpeg_utils import get_ffmpeg_paths, format_duration
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -40,8 +42,8 @@ def get_audio_info(file_path: str) -> AudioInfo:
                 sample_rate = int(audio.info.sample_rate)
             if hasattr(audio.info, 'channels'):
                 channels = int(audio.info.channels)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("mutagen probe failed for %s: %s", file_path, exc)
 
     # 2. Fallback to ffprobe if mutagen didn't get duration or failed
     if duration is None or duration <= 0:
