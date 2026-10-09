@@ -1,0 +1,86 @@
+name: Desktop release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: SlideCastStudio-linux-x64
+            exe: dist/SlideCastStudio/SlideCastStudio
+          - os: windows-latest
+            asset: SlideCastStudio-windows-x64
+            exe: dist/SlideCastStudio/SlideCastStudio.exe
+          - os: macos-14
+            asset: SlideCastStudio-macos-arm64
+            exe: dist/SlideCastStudio/SlideCastStudio
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-packaging.txt
+
+      - name: Stage static ffmpeg
+        run: python scripts/fetch_ffmpeg.py
+
+      - name: Build bundle
+        run: pyinstaller slidecast.spec --noconfirm --clean
+
+      - name: Bundle self-test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ${{ matrix.exe }} --self-test
+
+      - name: Package (linux)
+        if: runner.os == 'Linux'
+        run: tar -czf ${{ matrix.asset }}.tar.gz -C dist SlideCastStudio
+
+      - name: Package (macOS dmg)
+        if: runner.os == 'macOS'
+        run: |
+          hdiutil create -volname SlideCastStudio -srcfolder "dist/SlideCast Studio.app" \
+            -ov -format UDZO ${{ matrix.asset }}.dmg
+
+      - name: Package (windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path dist/SlideCastStudio -DestinationPath ${{ matrix.asset }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: |
+            ${{ matrix.asset }}.tar.gz
+            ${{ matrix.asset }}.dmg
+            ${{ matrix.asset }}.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*/*
+          generate_release_notes: true

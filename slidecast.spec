@@ -13,6 +13,8 @@ import os
 import sys
 from pathlib import Path
 
+from PyInstaller.utils.hooks import copy_metadata
+
 ROOT = Path(SPECPATH)
 APP_NAME = "SlideCastStudio"
 
@@ -28,6 +30,8 @@ if stage_dir.is_dir():
     for child in sorted(stage_dir.iterdir()):
         if child.is_file() and not child.name.startswith("."):
             datas.append((str(child), "."))
+# replicate reads its own version via importlib.metadata at import time.
+datas += copy_metadata("replicate")
 
 block_cipher = None
 
