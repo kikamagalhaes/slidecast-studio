@@ -2,7 +2,6 @@ import sys
 import os
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
 
 from app.core.logging_config import setup_logging
 from app.ui.main_window import MainWindow
