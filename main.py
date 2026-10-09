@@ -19,8 +19,12 @@ def main():
     if sys.platform == "linux":
         try:
             import ctypes
-            libs_dir = Path(__file__).resolve().parent / "libs"
-            cursor_lib = libs_dir / "libxcb-cursor.so.0"
+
+            if getattr(sys, "frozen", False):
+                base_dir = Path(sys._MEIPASS)  # PyInstaller bundle dir
+            else:
+                base_dir = Path(__file__).resolve().parent
+            cursor_lib = base_dir / "libs" / "libxcb-cursor.so.0"
             if cursor_lib.exists():
                 ctypes.CDLL(str(cursor_lib))
         except Exception:
@@ -36,6 +40,16 @@ def main():
 
     window = MainWindow()
     window.show()
+
+    # Packaging smoke test: quit shortly after startup when requested.
+    smoke_ms = os.environ.get("SLIDECAST_SMOKE_QUIT")
+    if smoke_ms:
+        try:
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(max(500, int(smoke_ms)), app.quit)
+        except ValueError:
+            pass
 
     sys.exit(app.exec())
 

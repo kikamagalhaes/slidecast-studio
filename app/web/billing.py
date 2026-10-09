@@ -225,6 +225,29 @@ def find_user_by_stripe_subscription(
     return row["user_id"] if row else None
 
 
+def note_webhook_event(
+    event_id: str, event_type: str, db_path: DbPath = None
+) -> bool:
+    """Records a verified webhook event; True when first seen.
+
+    Stripe retries deliveries, so the same event may arrive twice. Callers
+    must skip already-recorded events instead of reprocessing them.
+    """
+    if not event_id:
+        return True
+    conn = db_module.connect(db_path)
+    try:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO webhook_events (event_id, event_type, received_at)"
+            " VALUES (?, ?, ?)",
+            (event_id, event_type, db_module.utcnow_iso()),
+        )
+        conn.commit()
+        return cur.rowcount == 1
+    finally:
+        conn.close()
+
+
 def set_status_by_stripe_id(
     subscription_id: str,
     *,

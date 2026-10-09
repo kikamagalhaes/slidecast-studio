@@ -341,3 +341,100 @@ def test_webhook_ignores_unknown_events(client, monkeypatch):
     res = post_webhook(client, event)
     assert res.status_code == 200
     assert res.json()["type"] == "something.else"
+
+
+def test_webhook_duplicate_delivery_processed_once(client, monkeypatch):
+    stripe_env(monkeypatch)
+    user_id, headers = register(client)
+    event = {
+        "id": "evt_dup",
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "client_reference_id": str(user_id),
+                "customer": "cus_dup",
+                "subscription": {
+                    "id": "sub_dup",
+                    "status": "active",
+                    "current_period_end": 2000000000,
+                },
+            }
+        },
+    }
+    assert post_webhook(client, event).status_code == 200
+    assert post_webhook(client, event).status_code == 200
+    conn = db_module.connect(server_module.STORAGE_DIR / "slidecast.db")
+    try:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM webhook_events WHERE event_id = 'evt_dup'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert count == 1
+    me = client.get("/api/auth/me", headers=headers).json()
+    assert me["plan"]["state"] == "active"
+
+
+def test_webhook_payment_succeeded_clears_past_due(client, monkeypatch):
+    stripe_env(monkeypatch)
+    user_id, headers = register(client)
+    dbp = server_module.STORAGE_DIR / "slidecast.db"
+    billing_module.link_stripe_subscription(
+        user_id,
+        customer_id="cus_1",
+        subscription_id="sub_rec",
+        status="past_due",
+        period_end=None,
+        db_path=dbp,
+    )
+
+    class StubSubs:
+        def retrieve(self, sub_id):
+            assert sub_id == "sub_rec"
+            return {"id": sub_id, "status": "active",
+                    "current_period_end": 2000000000}
+
+    class StubV1:
+        def __init__(self):
+            self.subscriptions = StubSubs()
+
+    class StubClient:
+        def __init__(self):
+            self.v1 = StubV1()
+
+    monkeypatch.setattr(stripe_billing, "_get_client", lambda: StubClient())
+    event = {
+        "id": "evt_rec",
+        "type": "invoice.payment_succeeded",
+        "data": {"object": {"subscription": "sub_rec"}},
+    }
+    assert post_webhook(client, event).status_code == 200
+    me = client.get("/api/auth/me", headers=headers).json()
+    assert me["plan"]["state"] == "active"
+
+
+def test_checkout_params_support_coupons_and_metadata(client, monkeypatch):
+    stripe_env(monkeypatch)
+    user_id, headers = register(client)
+    calls = {}
+
+    class StubSessions:
+        def create(self, params):
+            calls["params"] = params
+            return {"url": "https://checkout/z"}
+
+    class StubV1:
+        def __init__(self):
+            self.checkout = type("C", (), {"sessions": StubSessions()})()
+
+    class StubClient:
+        def __init__(self):
+            self.v1 = StubV1()
+
+    monkeypatch.setattr(stripe_billing, "_get_client", lambda: StubClient())
+    assert client.post("/api/billing/checkout", headers=headers).status_code == 200
+    assert calls["params"]["allow_promotion_codes"] is True
+    assert calls["params"]["subscription_data"]["metadata"] == {
+        "user_id": str(user_id),
+        "app": "slidecast",
+    }

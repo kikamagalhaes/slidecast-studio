@@ -26,6 +26,8 @@ wheels/
 # PyInstaller
 *.manifest
 *.spec
+# Hand-authored bundle spec is source, not a build artifact.
+!slidecast.spec
 
 # OS files
 .DS_Store

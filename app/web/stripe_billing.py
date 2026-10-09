@@ -67,6 +67,22 @@ def _period_end_iso(value) -> Optional[str]:
     return moment.isoformat(timespec="seconds")
 
 
+def _as_dict(obj) -> dict:
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
+    return dict(obj)
+
+
+def _retrieve_subscription(sub_id: str) -> Optional[dict]:
+    try:
+        return _as_dict(_get_client().v1.subscriptions.retrieve(sub_id))
+    except Exception as exc:  # noqa: BLE001 - Stripe/network failure
+        logger.warning("Could not retrieve subscription %s: %s", sub_id, exc)
+        return None
+
+
 def _require_configured() -> None:
     if not is_configured():
         raise HTTPException(
@@ -87,6 +103,10 @@ def create_checkout_session(
         "client_reference_id": str(user_id),
         "success_url": f"{_base_url()}/?checkout=success",
         "cancel_url": f"{_base_url()}/?checkout=cancel",
+        "allow_promotion_codes": True,
+        "subscription_data": {
+            "metadata": {"user_id": str(user_id), "app": "slidecast"}
+        },
     }
     if sub.get("stripe_customer_id"):
         params["customer"] = sub["stripe_customer_id"]
@@ -133,12 +153,10 @@ def _handle_checkout_completed(obj: dict, db_path: DbPath = None) -> None:
     else:
         sub_id = sub_ref
     if sub_id and status is None:
-        try:
-            full = _get_client().v1.subscriptions.retrieve(sub_id)
+        full = _retrieve_subscription(sub_id)
+        if full:
             status = full.get("status")
             period_end = _period_end_iso(full.get("current_period_end"))
-        except Exception as exc:  # noqa: BLE001 - Stripe/network failure
-            logger.warning("Could not retrieve subscription %s: %s", sub_id, exc)
     billing_module.link_stripe_subscription(
         user_id,
         customer_id=customer_id,
@@ -169,6 +187,22 @@ def _handle_payment_failed(obj: dict) -> None:
         logger.warning("payment_failed for unknown subscription %s", sub_id)
 
 
+def _handle_payment_succeeded(obj: dict) -> None:
+    """Re-syncs from the API so a recovered card clears past_due promptly."""
+    sub_id = _sid(obj.get("subscription"))
+    if not sub_id:
+        return
+    full = _retrieve_subscription(sub_id)
+    if full is None:
+        return
+    if not billing_module.set_status_by_stripe_id(
+        sub_id,
+        status=full.get("status") or "active",
+        period_end=_period_end_iso(full.get("current_period_end")),
+    ):
+        logger.warning("payment_succeeded for unknown subscription %s", sub_id)
+
+
 def handle_webhook(payload: bytes, signature: Optional[str]) -> str:
     """Verifies and applies a Stripe webhook; returns the event type."""
     _require_configured()
@@ -184,6 +218,9 @@ def handle_webhook(payload: bytes, signature: Optional[str]) -> str:
     # handlers below can use .get() uniformly.
     evt = event.to_dict() if hasattr(event, "to_dict") else dict(event)
     event_type = evt.get("type", "")
+    if not billing_module.note_webhook_event(evt.get("id", ""), event_type):
+        logger.info("Skipping duplicate Stripe event %s", evt.get("id"))
+        return event_type
     obj = (evt.get("data") or {}).get("object") or {}
     if event_type == "checkout.session.completed":
         _handle_checkout_completed(obj)
@@ -193,6 +230,8 @@ def handle_webhook(payload: bytes, signature: Optional[str]) -> str:
         _handle_subscription_changed(obj, deleted=True)
     elif event_type == "invoice.payment_failed":
         _handle_payment_failed(obj)
+    elif event_type == "invoice.payment_succeeded":
+        _handle_payment_succeeded(obj)
     else:
         logger.info("Ignoring Stripe event %s", event_type)
     return event_type
