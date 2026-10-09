@@ -9,12 +9,23 @@ Pré-requisitos no servidor: Docker + Compose, clone do repo, arquivo `.env`
 continua funcionando, mas defina `ADMIN_TOKEN`).
 
 ```bash
-cd /caminho/do/slidecast-studio
-git pull origin main
-docker compose -f compose.production.yml up -d --build
+# 1) Na sua máquina: enviar o código (o servidor não é git clone)
+rsync -a --delete \
+  --exclude='.git/' --exclude='.venv/' --exclude='storage/' \
+  --exclude='.env' --exclude='backups/' --exclude='tests/' \
+  --exclude='__pycache__/' --exclude='*.pyc' \
+  --exclude='.pytest_cache/' --exclude='.ruff_cache/' \
+  -e "ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 -p 22" \
+  ./ root@179.199.133.126:/opt/slidecast/
+
+# 2) No servidor: validar, rebuildar, conferir
+ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 root@179.199.133.126
+cd /opt/slidecast
+docker compose --env-file .env -f compose.production.yml config --quiet
+docker compose --env-file .env -f compose.production.yml up -d --build
 sleep 20
 curl -s https://SEU-DOMINIO/api/health
-docker compose -f compose.production.yml logs --tail=30 web
+docker compose --env-file .env -f compose.production.yml logs --tail=30 web
 ```
 
 Resposta saudável da versão nova inclui `ffmpeg` e `disk_free_mb`:
