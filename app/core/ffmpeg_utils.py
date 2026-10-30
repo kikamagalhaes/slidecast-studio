@@ -57,8 +57,10 @@ def run_process_cancellable(
     :raises InterruptedError: if ``cancel_check`` fired (process is killed).
     :returns: :class:`subprocess.CompletedProcess` with captured output.
     """
+    # stdin=DEVNULL: FFmpeg reads interactive commands from stdin; inheriting
+    # a GUI/terminal stdin can stall renders. Renders never need stdin input.
     process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
     try:
         while True:

@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Callable
 
-from app.core.ffmpeg_utils import get_ffmpeg_paths, run_process_cancellable
+from app.core.ffmpeg_utils import get_ffmpeg_paths, get_video_duration, run_process_cancellable
 from app.core.subtitles_generator import generate_subtitles_with_gemini
 
 logger = logging.getLogger(__name__)
@@ -125,8 +125,18 @@ def build_podcast_video(
         "-c:a", "aac",
         "-b:a", "192k",
         "-shortest",
-        str(out_file),
     ])
+
+    # Termination guarantee: the cover image input is infinite (-loop 1), so
+    # the render stops only when an audio-driven boundary trips. With a looped
+    # BGM (-stream_loop -1) that boundary never fires and FFmpeg runs forever.
+    # Cap the output at the narration length; behavior is unchanged when the
+    # probe fails (falls back to -shortest alone).
+    duration = get_video_duration(narration_audio_path)
+    if duration > 0:
+        cmd.extend(["-t", f"{duration:.3f}"])
+
+    cmd.append(str(out_file))
 
     if progress_callback:
         progress_callback(0.60, "Processando vídeo com aceleração FFmpeg...")
