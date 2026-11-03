@@ -1,5 +1,7 @@
 # SlideCast Studio 🎬📊
 
+> **Web (produto atual) é sem IA**: sem Gemini/chaves de IA, sem PySide6 no runtime web — ver [docs/deploy-local-e-vps.md](docs/deploy-local-e-vps.md). As seções abaixo sobre Gemini, avatar/clone, e-book com IA e 4K descrevem o **desktop legado**, não a web; 4K/VPS não foram medidos nesta entrega.
+
 Estúdio de produção de vídeos: sincroniza apresentações de slides em **PDF** com **áudio/narração**, grava aulas, reuniões e podcasts, gera materiais didáticos (capas, fundos, apostilas/e-books) e avatares/clones digitais — com sincronização inteligente por IA (**Google Gemini**).
 
 Duas frentes:

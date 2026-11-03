@@ -58,3 +58,5 @@ run.bat             # Windows
 
 - Nunca commite `.env` real nem a pasta `storage/` (só `.env.example`).
 - Logs do servidor: `docker compose -f compose.production.yml logs -f web worker`.
+
+> Instalação local/VPS, backup, atualização e rollback: ver [docs/deploy-local-e-vps.md](docs/deploy-local-e-vps.md).

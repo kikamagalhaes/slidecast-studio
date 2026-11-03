@@ -15,7 +15,7 @@ STORED_PDF_NAME = "slides.pdf"
 STORED_AUDIO_BASENAME = "audio"
 META_FILENAME = "meta.json"
 
-AUDIO_EXTENSIONS = frozenset({".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma"})
+AUDIO_EXTENSIONS = frozenset({".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".wma", ".webm"})
 
 MIN_SLIDE_SECONDS = 0.1
 MAX_SLIDE_SECONDS = 7200.0
@@ -36,6 +36,14 @@ def get_max_upload_bytes() -> int:
     except ValueError:
         mb = 500.0
     return max(1, int(mb * 1024 * 1024))
+
+
+def get_max_audio_seconds() -> float:
+    """Audio duration cap in seconds (env ``MAX_AUDIO_SECONDS``, default 3600)."""
+    try:
+        return max(1.0, float(os.environ.get("MAX_AUDIO_SECONDS", "3600")))
+    except ValueError:
+        return 3600.0
 
 
 def parse_project_id(value: str) -> str:
@@ -97,7 +105,8 @@ def validate_durations(durations: List[float], page_count: int) -> List[float]:
             value = float(raw)
         except (TypeError, ValueError) as exc:
             raise ValidationError(f"Duração do slide {i + 1} não é um número.") from exc
-        if not (MIN_SLIDE_SECONDS <= value <= MAX_SLIDE_SECONDS):
+        import math
+        if not math.isfinite(value) or not (MIN_SLIDE_SECONDS <= value <= MAX_SLIDE_SECONDS):
             raise ValidationError(
                 f"Duração do slide {i + 1} fora do intervalo "
                 f"({MIN_SLIDE_SECONDS}s–{MAX_SLIDE_SECONDS}s)."

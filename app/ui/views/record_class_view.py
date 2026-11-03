@@ -6,8 +6,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QPixmap, QImage, QKeyEvent
+from PySide6.QtCore import Qt, QSize, QTimer, QUrl, Signal
+from PySide6.QtGui import QPixmap, QImage, QKeyEvent, QPainter
 from PySide6.QtMultimedia import (
     QMediaDevices,
     QAudioInput,
@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
     QFileDialog,
+    QInputDialog,
     QMessageBox,
     QStackedWidget,
     QScrollArea,
@@ -49,6 +50,9 @@ from app.core.subtitles_generator import SUPPORTED_LANGUAGES
 from app.core.meeting_recorder import ScreenRecordingProcess
 from app.core.clone_manager import get_active_clone, list_clones
 from app.ui.teleprompter_widget import TeleprompterWidget
+from app.core import studio as studio_core
+from app.ui.studio_pen import StudioPenOverlay
+from app.ui.workers.studio_render_worker import StudioRenderWorker
 from app.ui.dialogs.generate_cover_dialog import GenerateCoverDialog
 from app.ui.dialogs.avatar_calibration_dialog import AvatarCalibrationDialog
 from app.ui.dialogs.clone_engine_selection_dialog import CloneEngineSelectionDialog
@@ -93,6 +97,17 @@ class RecordClassView(QWidget):
         self.outro_mode: str = "auto"       # 'auto', 'custom', 'none'
         self.outro_video_path: Optional[str] = None
 
+        # SlideCast Studio state (shared core with web): 3 PDFs, scenes, ink
+        self.studio = studio_core.new_studio_state()
+        self.pdf_slots: dict = {}
+        self.active_pdf_slot = 1
+        self.studio_scene = "slide"
+        self.segments: list = []
+        self.has_scene_segments = False
+        self.segment_start = 0.0
+        self.segment_dir = None
+        self.pen_overlay = None
+
         # Live Recording State
         self.current_slide_idx = 0
         self.is_recording = False
@@ -131,6 +146,10 @@ class RecordClassView(QWidget):
         self.preview_audio_output: Optional[QAudioOutput] = None
 
         self._build_ui()
+        self.pen_overlay = StudioPenOverlay(self.slide_display_frame)
+        self.pen_overlay.state = self.studio
+        self.pen_overlay.raise_()
+        QTimer.singleShot(300, self._sync_pen_geometry)
         self._refresh_active_clone_ui()
         self._refresh_audio_and_video_devices()
 
@@ -788,7 +807,7 @@ class RecordClassView(QWidget):
             pix = QPixmap.fromImage(qimg)
             # Scale smoothly to display frame
             scaled = pix.scaled(
-                self.slide_display_frame.size() - Qt.QSize(20, 20),
+                self.slide_display_frame.size() - QSize(20, 20),
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )
@@ -808,6 +827,7 @@ class RecordClassView(QWidget):
 
             self.current_slide_idx += 1
             self._update_slide_display()
+            self._segment_boundary()
 
     def _go_prev_slide(self):
         if self.current_slide_idx > 0:
@@ -819,6 +839,7 @@ class RecordClassView(QWidget):
 
             self.current_slide_idx -= 1
             self._update_slide_display()
+            self._segment_boundary()
 
     def _start_recording(self):
         if self.visual_mode == "screen":
@@ -873,6 +894,11 @@ class RecordClassView(QWidget):
             self.record_start_time = time.time()
             self.slide_start_time = time.time()
             self.recorded_slide_durations = []
+            self.segments = []; self.segment_dir = None; self.segment_start = time.time()
+            try:
+                self.segments.append({"image": self._frame_image_path(), "duration": 5.0})
+            except Exception:
+                self.segments = []
 
             self.lbl_rec_indicator.setText("🔴 GRAVANDO AULA")
             self.lbl_rec_indicator.setStyleSheet("font-weight: 800; color: #ef4444; font-size: 13px;")
@@ -982,6 +1008,8 @@ class RecordClassView(QWidget):
 
         # Slides mode:
         now = time.time()
+        if self.segments:
+            self.segments[-1]["duration"] = max(0.5, now - self.segment_start)
         last_dur = now - self.slide_start_time
         self.recorded_slide_durations.append(last_dur)
 
@@ -1030,6 +1058,20 @@ class RecordClassView(QWidget):
         self.lbl_result_title.setText("Renderizando sua Videoaula...")
         self.render_progress_bar.setValue(0)
         self.result_btn_container.hide()
+
+        if getattr(self, "has_scene_segments", False) and self.segments:
+            self.stack.setCurrentIndex(2)
+            self.lbl_result_icon.setText("⏳")
+            self.lbl_result_title.setText("Renderizando sua Videoaula (com cenas)...")
+            self.render_progress_bar.setValue(0)
+            self.result_btn_container.hide()
+            self.worker = StudioRenderWorker(self.segments, self.audio_temp_path, out_path, parent=self)
+            self.worker.progress_changed.connect(self._on_render_progress)
+            self.worker.render_finished.connect(self._on_render_finished)
+            self.worker.render_error.connect(self._on_render_error)
+            self.btn_cancel_render.show()
+            self.worker.start()
+            return
 
         sub_lang = self.combo_sub_lang.currentData()
         self.worker = ClassVideoRenderWorker(
@@ -1122,6 +1164,134 @@ class RecordClassView(QWidget):
 
     def _reset_for_new_class(self):
         self.stack.setCurrentIndex(0)
+
+
+    # --- SlideCast Studio: multi-PDF, scenes, ink, recorded segments -------
+    def _sync_pen_geometry(self):
+        if self.pen_overlay is not None and hasattr(self, "slide_display_frame"):
+            self.pen_overlay.setGeometry(self.slide_display_frame.rect().adjusted(8, 8, -8, -8))
+            self.pen_overlay.raise_()
+
+    def _pick_pdf_slot(self, slot: int):
+        file_path, _ = QFileDialog.getOpenFileName(self, f"Selecionar PDF {slot}", "", "Documentos PDF (*.pdf)")
+        if not file_path:
+            return
+        try:
+            info = inspect_pdf(file_path)
+        except Exception as exc:
+            QMessageBox.warning(self, "PDF inválido", str(exc)); return
+        self.pdf_slots[slot] = {"info": info, "page": 0}
+        self.studio = studio_core.set_pdf(self.studio, slot, file_path, info.page_count, Path(file_path).stem)
+        if slot == 1:
+            self.pdf_info = info
+        self._switch_pdf_slot(slot)
+
+    def _switch_pdf_slot(self, slot: int):
+        if slot not in self.pdf_slots:
+            self._pick_pdf_slot(slot); return
+        if self.pdf_info is not None:
+            self.pdf_slots[self.active_pdf_slot] = {"info": self.pdf_info, "page": self.current_slide_idx}
+        self.active_pdf_slot = slot
+        entry = self.pdf_slots[slot]
+        self.pdf_info = entry["info"]; self.current_slide_idx = int(entry.get("page", 0))
+        self.studio = studio_core.switch_pdf(self.studio, slot)
+        self.studio_scene = "slide"
+        self._update_slide_display(); self._segment_boundary()
+
+    def _on_pen_changed(self, *_):
+        modes = ["off", "temp", "perm", "highlight"]
+        mode = modes[self.combo_pen.currentIndex()] if hasattr(self, "combo_pen") else "off"
+        self.studio["temp_ttl"] = [3, 5, 8][self.combo_ttl.currentIndex()] if hasattr(self, "combo_ttl") else 5
+        if self.pen_overlay is not None:
+            self.pen_overlay.state = self.studio
+            self.pen_overlay.set_enabled(mode, board=self.studio_scene == "whiteboard")
+
+    def _show_scene(self, scene: str):
+        self.studio_scene = scene
+        if scene == "slide":
+            self._update_slide_display()
+        elif scene == "whiteboard":
+            pix = QPixmap(1280, 720); pix.fill(Qt.white)
+            self.lbl_live_slide.setPixmap(pix)
+            self.lbl_slide_counter.setText("Quadro branco — desenhe com a caneta")
+        else:
+            import tempfile
+            payloads = {
+                "bible": dict(self.studio["bible"]),
+                "quiz": dict(self.studio["quiz"]),
+                "brainstorm": dict(self.studio["brainstorm"]),
+                "title": {"text": self.edit_title.text().strip() or "SlideCast Studio"},
+            }
+            if scene == "bible" and not payloads["bible"].get("text"):
+                text, ok = QInputDialog.getMultiLineText(self, "Bíblia", "Referência e texto do versículo (seu/licenciado):", "João 1:1\n")
+                if ok and text:
+                    lines = text.splitlines(); payloads["bible"] = {"reference": lines[0], "text": "\n".join(lines[1:]), "version": "Texto fornecido pela usuária"}
+                    self.studio["bible"] = payloads["bible"]
+            if scene == "quiz" and not payloads["quiz"].get("question"):
+                q, ok = QInputDialog.getText(self, "Quiz", "Enunciado:")
+                if ok and q:
+                    opts, ok2 = QInputDialog.getMultiLineText(self, "Quiz", "Alternativas (uma por linha):", "")
+                    if ok2:
+                        payloads["quiz"] = {"question": q, "options": [o for o in opts.splitlines() if o.strip()], "correct": 0, "revealed": False}
+                        self.studio["quiz"] = payloads["quiz"]
+            if scene == "brainstorm" and not payloads["brainstorm"].get("cards"):
+                cards, ok = QInputDialog.getMultiLineText(self, "Brainstorm", "Cards (um por linha):", "")
+                if ok:
+                    payloads["brainstorm"] = {"title": "Brainstorm", "cards": [c for c in cards.splitlines() if c.strip()]}
+                    self.studio["brainstorm"] = payloads["brainstorm"]
+            out = str(Path(tempfile.gettempdir()) / f"slidecast_scene_{scene}.png")
+            try:
+                studio_core.render_scene_card_png(scene, payloads.get(scene, {}), out)
+                self.lbl_live_slide.setPixmap(QPixmap(out).scaled(self.lbl_live_slide.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.lbl_slide_counter.setText(f"Cena: {scene}")
+            except Exception as exc:
+                logger.warning("Scene render failed: %s", exc)
+        if scene != "slide":
+            self.has_scene_segments = True
+        self._on_pen_changed()
+        self._segment_boundary()
+
+    def _frame_image_path(self) -> str:
+        """Current stage frame as PNG (slide + visible ink, or scene card)."""
+        import tempfile
+        self.segment_dir = self.segment_dir or Path(tempfile.mkdtemp(prefix="slidecast_segments_"))
+        out = Path(self.segment_dir) / f"frame_{len(self.segments):04d}.png"
+        if self.studio_scene in ("bible", "quiz", "brainstorm", "title"):
+            payload = dict(self.studio.get(self.studio_scene, {})) if self.studio_scene != "title" else {"text": self.edit_title.text().strip() or "SlideCast Studio"}
+            studio_core.render_scene_card_png(self.studio_scene, payload, str(out))
+            return str(out)
+        png = render_thumbnail(self.pdf_info.file_path, self.current_slide_idx, max_dimension=1920)
+        img = QImage.fromData(png)
+        if self.studio_scene == "whiteboard":
+            img = QImage(1920, 1080, QImage.Format_RGB32); img.fill(Qt.white)
+        painter = QPainter(img)
+        now = time.time()
+        strokes = list(studio_core.visible_strokes(self.studio, now=now))
+        if self.studio_scene == "whiteboard":
+            strokes = [{"kind": "perm", "color": s.get("color", "#1d4ed8"), "width": 6, "points": s["points"]} for s in self.studio["whiteboard"]["strokes"]]
+        for s in strokes:
+            from PySide6.QtGui import QPen as _QP, QColor as _QC
+            col = _QC(s.get("color", "#e11d48"))
+            if s.get("kind") == "highlight": col.setAlpha(90)
+            painter.setPen(_QP(col, int(s.get("width", 4)) * 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            pts = s.get("points", [])
+            for a, b in zip(pts, pts[1:]):
+                painter.drawLine(int(a[0] * img.width()), int(a[1] * img.height()), int(b[0] * img.width()), int(b[1] * img.height()))
+        painter.end(); img.save(str(out))
+        return str(out)
+
+    def _segment_boundary(self):
+        if not getattr(self, "is_recording", False) or self.visual_mode != "slides" or not self.pdf_info:
+            return
+        now = time.time()
+        try:
+            image = self._frame_image_path()
+        except Exception as exc:
+            logger.warning("Segment frame failed: %s", exc); return
+        if self.segments:
+            self.segments[-1]["duration"] = max(0.5, now - self.segment_start)
+        self.segments.append({"image": image, "duration": 5.0})
+        self.segment_start = now
 
     # Keyboard navigation during live studio
     def keyPressEvent(self, event: QKeyEvent):
