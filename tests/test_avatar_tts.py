@@ -4,6 +4,7 @@ import time
 
 import pytest
 
+pytest.importorskip("edge_tts")
 import app.core.avatar_video_generator as avatar
 
 
