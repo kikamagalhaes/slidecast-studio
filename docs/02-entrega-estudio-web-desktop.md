@@ -63,3 +63,16 @@ Branch (ambos): `feat/studio-gravacao-web-desktop`. Sem deploy em produção.
   em ambiente headless (usado dispositivo simulado do Chromium).
 - Desktop: bundle PyInstaller `dist/SlideCastStudio` (383MB) construído em
   `VideosCreate` e `--self-test` com saída `SELF-TEST OK` (exit 0).
+
+## Adendo final — gravação contínua de 60 minutos (2026-11-02)
+- Web: 60 min contínuos pela UI real (headless, troca de cena a cada
+  minuto): `gravacao-longa-60min.webm` — 3.626,7s, VP9 1920×1080 + Opus,
+  71MB, remux p/ MP4 íntegro e decodificação completa sem erros
+  (log `long_rec60.log`: `LONG60 RECORDING DONE total=3640s`).
+- Desktop: renderização de 60 min pelo pipeline real (`generate_video`,
+  slides + cartão de Bíblia + narração): `desktop-longa-60min.mp4` —
+  H.264 + AAC, 3.600s, concluída em 1.650s de render.
+- Restante (único): câmera/microfone de hardware real — exige a
+  professora com dispositivo físico; ambiente headless usou o
+  dispositivo simulado do Chromium. Roteiro: abrir o estúdio, gravar
+  2 min falando, conferir nível de microfone, prévia e MP4.
