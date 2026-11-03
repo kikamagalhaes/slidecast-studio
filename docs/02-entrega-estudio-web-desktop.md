@@ -45,3 +45,21 @@ Branch (ambos): `feat/studio-gravacao-web-desktop`. Sem deploy em produção.
 - Web: `./run_web.sh` (ou uvicorn `app.web.server:app`) → rota `/`, "Gravar aula".
 - Desktop: `python3 main.py` em `VideosCreate/` → "Gravar Aula".
 - Rollback: voltar à branch `main` (nenhuma migração destrutiva foi feita).
+
+## Adendo 2026-11-02 — verificação em navegador real (headless)
+- Playwright/Chromium pela UI real, 28/28 PASS: login, 3 PDFs com páginas
+  independentes/preservadas, PiP, canetas permanente/temporária 3/5/8s,
+  marca-texto, Bíblia, quadro, brainstorm, quiz com revelar, teleprompter
+  rolando (scrollTop>0, fora do canvas), gravar/pausar/retomar/encerrar,
+  prévia, download WebM (187.552 B) e MP4 convertido (741.648 B, H.264
+  1920×1080 + AAC, 5,2s). Palco a 60,3 fps (rAF). Screenshots em
+  `/tmp/studio-evidence/01..13*.png`, lidas de volta nesta sessão.
+- Defeitos encontrados pela prova e corrigidos: autosave 409 (retry com
+  revisão fresca) e ausência de aviso durante a conversão MP4; tema claro
+  aplicado conforme a seção 2 do prompt (commit `55fe49a`).
+- Gravação longa web: 10 min contínuos com troca de cena a cada minuto —
+  WebM 1080p de 602,8s / 13,4MB íntegro e remuxável. Os 60 min do prompt
+  seguem NÃO executados; câmera/microfone reais (hardware) não validados
+  em ambiente headless (usado dispositivo simulado do Chromium).
+- Desktop: bundle PyInstaller `dist/SlideCastStudio` (383MB) construído em
+  `VideosCreate` e `--self-test` com saída `SELF-TEST OK` (exit 0).
