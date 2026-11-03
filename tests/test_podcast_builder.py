@@ -4,7 +4,6 @@ Bug history: with a looped background track (-stream_loop -1) the render ran
 forever because the cover image is infinite (-loop 1) and no audio-driven
 boundary fired. The builder now caps output at the narration duration.
 """
-import shutil
 import subprocess
 
 import pytest

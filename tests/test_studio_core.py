@@ -1,5 +1,4 @@
 """Shared studio core: 3 PDFs, temporary ink, scenes, portable projects."""
-import time
 from app.core import studio
 
 
@@ -25,7 +24,7 @@ def test_scene_timeline_and_project_roundtrip(tmp_path):
     assert studio.scene_at(s, 20)["scene"] == "quiz"
     back = studio.import_project(studio.export_project(s, "Aula"))
     assert back["scene"] == "quiz"
-    card = studio.render_scene_card_png("bible", {"reference": "João 1:1", "text": "No princípio era o Verbo", "version": "Teste"}, tmp_path / "c.png")
+    studio.render_scene_card_png("bible", {"reference": "João 1:1", "text": "No princípio era o Verbo", "version": "Teste"}, tmp_path / "c.png")
     assert (tmp_path / "c.png").stat().st_size > 1000
 
 

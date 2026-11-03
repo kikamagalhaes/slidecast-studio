@@ -7,7 +7,7 @@ def test_record_class_view_studio_scenes(qtbot=None):
     import pytest
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
+    QApplication.instance() or QApplication([])
     from app.ui.views.record_class_view import RecordClassView
     view = RecordClassView()
     assert hasattr(view, "btn_pdf_slots") and hasattr(view, "pen_overlay")
