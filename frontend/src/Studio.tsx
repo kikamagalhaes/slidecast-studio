@@ -42,7 +42,11 @@ export default function Studio({ project, setProject, flash }: { project: Projec
   const stateRef = useRef({ scene, slots, activePdf, pipPos, pipSize, pipOn, strokes, board, bibleRef, bibleText, quizQ, quizOpts, quizCorrect, revealed, cards, bsTitle, showTimer, elapsed })
   stateRef.current = { scene, slots, activePdf, pipPos, pipSize, pipOn, strokes, board, bibleRef, bibleText, quizQ, quizOpts, quizCorrect, revealed, cards, bsTitle, showTimer, elapsed }
 
-  const persist = () => { if (!project) return; const st = { schema_version: 1, scene, pdfs: slots.map((s, i) => ({ slot: i + 1, title: s.title, file: s.page_count ? `studio/pdf${i + 1}.pdf` : null, page: s.page, page_count: s.page_count })), active_pdf: activePdf, pip: { position: pipPos, size: pipSize, visible: pipOn }, teleprompter: { text: tele, font_size: font, speed }, bible: { reference: bibleRef, text: bibleText, version: bibleVersion }, quiz: { question: quizQ, options: quizOpts.split('\n').filter(Boolean), correct: quizCorrect, revealed }, brainstorm: { title: bsTitle, cards: cards.split('\n').filter(Boolean) }, annotations: strokes.map(s => ({ ...s, created_at: s.createdAt / 1000 })) }; api.patchProject(project.id, undefined, { studio: st }, project.revision).then(setProject).catch(e => flash(`Autosave do estúdio: ${String(e)}`)) }
+  const revRef = useRef(project?.revision || 0)
+  useEffect(() => { if (project) revRef.current = project.revision }, [project?.revision]) // eslint-disable-line
+  const persist = async () => { if (!project) return; const st = { schema_version: 1, scene, pdfs: slots.map((s, i) => ({ slot: i + 1, title: s.title, file: s.page_count ? `studio/pdf${i + 1}.pdf` : null, page: s.page, page_count: s.page_count })), active_pdf: activePdf, pip: { position: pipPos, size: pipSize, visible: pipOn }, teleprompter: { text: tele, font_size: font, speed }, bible: { reference: bibleRef, text: bibleText, version: bibleVersion }, quiz: { question: quizQ, options: quizOpts.split('\n').filter(Boolean), correct: quizCorrect, revealed }, brainstorm: { title: bsTitle, cards: cards.split('\n').filter(Boolean) }, annotations: strokes.map(s => ({ ...s, created_at: s.createdAt / 1000 })) }
+    try { const saved = await api.patchProject(project.id, undefined, { studio: st }, revRef.current); revRef.current = saved.revision; setProject(saved) }
+    catch { try { const fresh = await api.getProject(project.id); const saved = await api.patchProject(project.id, undefined, { studio: st }, fresh.revision); revRef.current = saved.revision; setProject(saved) } catch (e) { flash(`Autosave do estúdio: ${String(e)}`) } } }
 
   useEffect(() => { // câmera + microfone com nível real
     let stream: MediaStream; let ac: AudioContext; let raf = 0
@@ -98,7 +102,7 @@ export default function Studio({ project, setProject, flash }: { project: Projec
     } catch (e) { flash(`Não foi possível gravar neste navegador: ${String(e)}`) }
   }
   const pauseRec = () => { const r = recRef.current; if (!r) return; if (r.state === 'recording') { r.pause(); pauseStart.current = Date.now(); setRecState('paused') } else if (r.state === 'paused') { r.resume(); pausedMs.current += Date.now() - pauseStart.current; setRecState('recording') } }
-  const convert = async () => { if (!project || !chunks.current.length) return; try { const blob = new Blob(chunks.current, { type: 'video/webm' }); const r = await api.studioConvert(project.id, blob); setMp4(withBase(r.download_url)); flash('MP4 H.264+AAC pronto para baixar.') } catch (e) { flash(String(e)) } }
+  const convert = async () => { if (!project) return flash('Abra um projeto primeiro.'); flash('Convertendo gravação para MP4 H.264+AAC — pode levar até 1 min em 1080p…'); if (!chunks.current.length) return flash('Nada gravado ainda nesta sessão — grave e encerre antes de converter.'); try { const blob = new Blob(chunks.current, { type: 'video/webm' }); const r = await api.studioConvert(project.id, blob); setMp4(withBase(r.download_url)); flash('MP4 H.264+AAC pronto para baixar.') } catch (e) { flash(String(e)) } }
 
   if (!project) return <><h1>Estúdio de gravação</h1><p className="err">Abra ou crie um projeto em “Projetos” primeiro — o estúdio salva cenas, PDFs, roteiro e anotações nele.</p></>
   const slot = slots[activePdf - 1]
