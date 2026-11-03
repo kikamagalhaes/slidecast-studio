@@ -140,7 +140,7 @@ def test_expired_trial_blocks_new_work_but_keeps_reads(client):
     ai_sync = client.post(
         f"/api/projects/{project_id}/ai-sync", json={}, headers=headers
     )
-    assert ai_sync.status_code == 403
+    assert ai_sync.status_code == 404  # rota de IA removida (sem IA)
     # Past work stays readable while logged in.
     assert (
         client.get(f"/api/projects/{project_id}/thumbnail/0", headers=headers).status_code
@@ -177,7 +177,7 @@ def test_protected_endpoints_require_auth(client):
     pid = str(uuid.uuid4())
     assert upload(client, {}).status_code == 401
     assert client.get(f"/api/projects/{pid}/thumbnail/0").status_code == 401
-    assert client.post(f"/api/projects/{pid}/ai-sync", json={}).status_code == 401
+    assert client.post(f"/api/projects/{pid}/ai-sync", json={}).status_code == 404  # rota de IA removida
     assert (
         client.post(f"/api/projects/{pid}/render", json={"durations": [1.0]}).status_code
         == 401

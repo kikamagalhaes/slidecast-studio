@@ -1,66 +1,102 @@
+# Produção (VPS com Traefik externo já existente em 443 — ver docs/deploy-local-e-vps.md).
+# Nenhum serviço publica porta no host, exceto via Traefik. Redis: só rede interna.
+# Comandos sempre com -p slidecast para não tocar outros stacks.
 name: slidecast
-
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_BASE: /slidecast/
     restart: unless-stopped
     expose:
       - "8000"
     environment:
-      - APP_DOMAIN=${APP_DOMAIN:-slidecast-179-199-133-126.sslip.io}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
-      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:-500}
-      - JOB_RETENTION_HOURS=${JOB_RETENTION_HOURS:-24}
-      - QUEUE_BACKEND=${QUEUE_BACKEND:-redis}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
-      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
-      - PROXY_HEADERS=1
-      - RQ_JOB_TIMEOUT=${RQ_JOB_TIMEOUT:-3600}
-      - JOB_RESULT_TTL_HOURS=${JOB_RESULT_TTL_HOURS:-24}
-      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
-      - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-*}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - TRIAL_DAYS=${TRIAL_DAYS:-14}
-      - PLAN_MONTHLY_RENDERS=${PLAN_MONTHLY_RENDERS:-30}
-      - SESSION_DAYS=${SESSION_DAYS:-30}
-      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-1}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - STRIPE_PRICE_ID=${STRIPE_PRICE_ID:-}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
-      - TZ=America/Sao_Paulo
+      APP_DOMAIN: ${APP_DOMAIN:?defina APP_DOMAIN no .env}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      QUEUE_BACKEND: ${QUEUE_BACKEND:-redis}
+      REDIS_URL: redis://redis:6379/0
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
+      MAX_CONCURRENT_RENDERS: ${MAX_CONCURRENT_RENDERS:-1}
+      FFMPEG_THREADS: ${FFMPEG_THREADS:-2}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
+      MAX_AUDIO_SECONDS: ${MAX_AUDIO_SECONDS:-3600}
+      HEALTH_MIN_DISK_MB: ${HEALTH_MIN_DISK_MB:-500}
+      JOB_RETENTION_HOURS: ${JOB_RETENTION_HOURS:-24}
+      JOB_RESULT_TTL_HOURS: ${JOB_RESULT_TTL_HOURS:-24}
+      RQ_JOB_TIMEOUT: ${RQ_JOB_TIMEOUT:-3600}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-120}
+      PROXY_HEADERS: "1"
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-*}
+      SESSION_COOKIE_SECURE: "1"
+      SESSION_DAYS: ${SESSION_DAYS:-30}
+      TRIAL_DAYS: ${TRIAL_DAYS:-14}
+      PLAN_MONTHLY_RENDERS: ${PLAN_MONTHLY_RENDERS:-30}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TZ: America/Sao_Paulo
     volumes:
+      # Bind preserva o storage existente em /opt/slidecast/storage (dados atuais)
       - ./storage:/app/storage
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.slidecast.rule=Host(`${APP_DOMAIN:-slidecast-179-199-133-126.sslip.io}`)"
+      - "traefik.http.middlewares.slidecast-strip.stripprefix.prefixes=/slidecast"
+      - "traefik.http.routers.slidecast.rule=Host(`kikamagalhaes.com.br`) && PathPrefix(`/slidecast`)"
       - "traefik.http.routers.slidecast.entrypoints=websecure"
       - "traefik.http.routers.slidecast.tls=true"
       - "traefik.http.routers.slidecast.tls.certresolver=letsencrypt"
-      - "traefik.http.services.slidecast.loadbalancer.server.port=8000"
-
+      - "traefik.http.routers.slidecast.middlewares=slidecast-strip"
+      - "traefik.http.routers.slidecast.service=slidecast-svc"
+      - "traefik.http.routers.slidecast-legacy.rule=Host(`slidecast-179-199-133-126.sslip.io`)"
+      - "traefik.http.routers.slidecast-legacy.entrypoints=websecure"
+      - "traefik.http.routers.slidecast-legacy.tls=true"
+      - "traefik.http.routers.slidecast-legacy.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.slidecast-legacy.service=slidecast-svc"
+      - "traefik.http.services.slidecast-svc.loadbalancer.server.port=8000"
   worker:
     build: .
     restart: unless-stopped
     command: ["sh", "-c", "rq worker --url \"$$REDIS_URL\" slidecast"]
     environment:
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
-      - PYTHONPATH=/app
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - TZ=America/Sao_Paulo
+      REDIS_URL: redis://redis:6379/0
+      FFMPEG_THREADS: ${FFMPEG_THREADS:-2}
+      RQ_JOB_TIMEOUT: ${RQ_JOB_TIMEOUT:-3600}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TZ: America/Sao_Paulo
     volumes:
       - ./storage:/app/storage
     depends_on:
-      - redis
-
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,redis; from rq import Worker; r=redis.from_url(os.environ['REDIS_URL']); assert Worker.all(connection=r), 'sem worker RQ'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    expose:
+      - "6379"
     volumes:
       - redis-data:/data
-
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 volumes:
   redis-data:

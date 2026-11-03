@@ -7,7 +7,7 @@ silently never worked. The first test pins the call contract with stubs
 """
 
 import math
-import shutil
+
 import struct
 import wave
 
@@ -58,37 +58,21 @@ class _FakePopen:
         pass
 
 
-def test_subtitle_generator_receives_output_path(tmp_path, monkeypatch):
-    recorded = {}
-
-    def fake_subtitles(*, audio_path, output_srt_path, target_language="pt", **kwargs):
-        recorded["audio_path"] = audio_path
-        recorded["output_srt_path"] = output_srt_path
-        recorded["target_language"] = target_language
-        with open(output_srt_path, "w", encoding="utf-8") as handle:
-            handle.write("1\n00:00:00,000 --> 00:00:01,000\nHello\n")
-        return output_srt_path
-
-    monkeypatch.setattr(podcast_builder, "generate_subtitles_with_gemini", fake_subtitles)
-    monkeypatch.setattr("subprocess.Popen", _FakePopen)
-
-    out = podcast_builder.build_podcast_video(
-        cover_image_path=str(tmp_path / "cover.png"),
-        narration_audio_path=str(tmp_path / "narr.wav"),
-        output_video_path=str(tmp_path / "out.mp4"),
-        enable_subtitles=True,
-        subtitles_language="en",
-    )
-
-    assert out.endswith("out.mp4")
-    assert recorded["output_srt_path"].endswith(".srt")  # the missing kwarg, pinned
-    assert recorded["target_language"] == "en"
-    cmd = _FakePopen.instance.cmd
-    joined = " ".join(cmd)
-    assert "subtitles=" in joined  # the SRT is actually burned into the filter
+def test_user_subtitles_required_and_used(tmp_path, monkeypatch):
+    cover = make_cover_png(tmp_path / "cover.png")
+    audio = make_wav(tmp_path / "voice.wav")
+    with pytest.raises(ValueError):
+        podcast_builder.build_podcast_video(cover, audio, str(tmp_path / "o.mp4"),
+                                            enable_subtitles=True)
+    srt = tmp_path / "subs.srt"
+    srt.write_text("1\n00:00:00,000 --> 00:00:01,000\nOlá\n", encoding="utf-8")
+    monkeypatch.setattr(podcast_builder, "run_process_cancellable",
+                        lambda cmd, cancel_check=None: type("R", (), {"returncode": 0, "stderr": ""})())
+    out = podcast_builder.build_podcast_video(cover, audio, str(tmp_path / "o.mp4"),
+                                              enable_subtitles=True, subtitles_path=str(srt))
+    assert out.endswith("o.mp4")
 
 
-@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
 def test_real_render_without_subtitles(tmp_path):
     cover = make_cover_png(tmp_path / "cover.png")
     audio = make_wav(tmp_path / "narr.wav", seconds=1.0)

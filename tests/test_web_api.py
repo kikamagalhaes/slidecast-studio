@@ -130,35 +130,11 @@ def test_thumbnail_is_rendered_once_then_cached(client, tmp_path, monkeypatch):
     assert cached.exists()
 
 
-def test_key_status_unconfigured(client, monkeypatch):
-    monkeypatch.setattr(server_module, "get_gemini_api_key", lambda: None)
-    res = client.get("/api/config/key")
-    assert res.json() == {"configured": False, "masked": None}
+def test_key_route_removed_sem_ia(client):
+    assert client.get("/api/config/key").status_code == 404
+    assert client.post("/api/config/key", data={"key": "x"}).status_code == 404
 
 
-def test_key_save_refused_when_env_managed(client, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "env-key")
-    res = client.post("/api/config/key", data={"key": "other"})
-    assert res.status_code == 409
-
-
-def test_key_save_requires_admin_token_when_configured(client, monkeypatch):
-    monkeypatch.setenv("ADMIN_TOKEN", "secret")
-    saved = []
-    monkeypatch.setattr(server_module, "set_gemini_api_key", saved.append)
-
-    assert client.post("/api/config/key", data={"key": "k"}).status_code == 401
-    assert (
-        client.post(
-            "/api/config/key", data={"key": "k"}, headers={"X-Admin-Token": "wrong"}
-        ).status_code
-        == 401
-    )
-    res = client.post(
-        "/api/config/key", data={"key": "k"}, headers={"X-Admin-Token": "secret"}
-    )
-    assert res.status_code == 200
-    assert saved == ["k"]
 
 
 def test_upload_rejects_wrong_extensions(client):
@@ -192,7 +168,7 @@ def test_delete_job_endpoint_wiring(client, monkeypatch):
     )
     res = client.delete(f"/api/jobs/{job_id}", headers=headers)
     assert res.status_code == 200
-    assert res.json() == {"id": job_id, "status": "cancelled"}
+    assert res.json()["status"] == "cancelled" and res.json()["status_pt"] == "cancelado"
     assert calls["job_id"] == job_id
 
 

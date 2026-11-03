@@ -60,6 +60,61 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 """
 
 
+MIGRATIONS = [
+    (1, """
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT 'Sem título', kind TEXT NOT NULL DEFAULT 'video',
+  revision INTEGER NOT NULL DEFAULT 1, data TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS assets (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL, kind TEXT NOT NULL, filename TEXT NOT NULL,
+  stored_name TEXT NOT NULL, meta TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS durable_jobs (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, project_id TEXT,
+  kind TEXT NOT NULL DEFAULT 'render', idempotency_key TEXT,
+  status TEXT NOT NULL DEFAULT 'aguardando', progress REAL NOT NULL DEFAULT 0,
+  stage TEXT NOT NULL DEFAULT '', params TEXT NOT NULL DEFAULT '{}',
+  output_path TEXT, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_idem ON durable_jobs(user_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+CREATE TABLE IF NOT EXISTS exports (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, project_id TEXT,
+  job_id TEXT, format TEXT NOT NULL, params TEXT NOT NULL DEFAULT '{}',
+  output_path TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS preferences (
+  user_id INTEGER NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
+  PRIMARY KEY (user_id, key));
+CREATE TABLE IF NOT EXISTS automations (
+  id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, name TEXT NOT NULL,
+  trigger TEXT NOT NULL, actions TEXT NOT NULL DEFAULT '{}', enabled INTEGER NOT NULL DEFAULT 1);
+CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_user ON durable_jobs(user_id, status);
+"""),
+]
+
+JOB_STATUSES = ("aguardando", "processando", "concluido", "falhou", "cancelando", "cancelado")
+_LEGACY_TO_PT = {"queued": "aguardando", "rendering": "processando",
+                 "completed": "concluido", "failed": "falhou", "cancelled": "cancelado"}
+
+
+def normalize_job_status(status: str) -> str:
+    return _LEGACY_TO_PT.get(status, status if status in JOB_STATUSES else "falhou")
+
+
+def apply_migrations(conn: sqlite3.Connection) -> None:
+    conn.execute("CREATE TABLE IF NOT EXISTS schema_migrations "
+                 "(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
+    done = {r[0] for r in conn.execute("SELECT version FROM schema_migrations")}
+    for version, sql in MIGRATIONS:
+        if version not in done:
+            conn.executescript(sql)
+            conn.execute("INSERT INTO schema_migrations VALUES (?,?)",
+                         (version, utcnow_iso()))
+    conn.commit()
+
+
 def utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -91,4 +146,5 @@ def connect(db_path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
     conn.executescript(SCHEMA)
+    apply_migrations(conn)
     return conn

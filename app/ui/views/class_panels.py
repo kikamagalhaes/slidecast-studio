@@ -542,6 +542,12 @@ def build_setup_view(view) -> QWidget:
     view.lbl_pdf_status.setStyleSheet("color: #94a3b8; font-weight: 500;")
 
     cs_layout.addWidget(btn_pick_pdf)
+    btn_pick_pdf2 = QPushButton("📁 PDF 2 (material complementar)...")
+    btn_pick_pdf2.clicked.connect(lambda: view._pick_pdf_slot(2))
+    cs_layout.addWidget(btn_pick_pdf2)
+    btn_pick_pdf3 = QPushButton("📁 PDF 3 (slides extras)...")
+    btn_pick_pdf3.clicked.connect(lambda: view._pick_pdf_slot(3))
+    cs_layout.addWidget(btn_pick_pdf3)
     cs_layout.addWidget(view.lbl_pdf_status)
     cs_layout.addStretch()
     cf_layout.addWidget(view.card_slides)
@@ -1146,6 +1152,34 @@ def build_studio_view(view) -> QWidget:
     nav_slide_bar.addWidget(view.lbl_slide_counter)
     nav_slide_bar.addWidget(view.btn_next_slide)
     nav_slide_bar.addStretch()
+    # Studio scenes + multi-PDF slots (SlideCast Studio parity with web)
+    studio_bar = QHBoxLayout()
+    view.btn_pdf_slots = []
+    for _slot in (1, 2, 3):
+        _b = QPushButton(f"PDF {_slot}")
+        _b.setCursor(Qt.PointingHandCursor)
+        _b.clicked.connect(lambda _=False, s=_slot: view._switch_pdf_slot(s))
+        view.btn_pdf_slots.append(_b)
+        studio_bar.addWidget(_b)
+    studio_bar.addSpacing(10)
+    for _label, _scene in (("Slides", "slide"), ("Bíblia", "bible"), ("Quadro", "whiteboard"),
+                           ("Brainstorm", "brainstorm"), ("Quiz", "quiz"), ("Abertura", "title")):
+        _b = QPushButton(_label)
+        _b.setCursor(Qt.PointingHandCursor)
+        _b.clicked.connect(lambda _=False, sc=_scene: view._show_scene(sc))
+        studio_bar.addWidget(_b)
+    view.combo_pen = QComboBox()
+    view.combo_pen.addItems(["Caneta: desligada", "Caneta temporária", "Caneta permanente", "Marca-texto"])
+    view.combo_pen.currentIndexChanged.connect(view._on_pen_changed)
+    studio_bar.addWidget(view.combo_pen)
+    view.combo_ttl = QComboBox()
+    view.combo_ttl.addItems(["3s", "5s", "8s"])
+    view.combo_ttl.setCurrentIndex(1)
+    view.combo_ttl.currentIndexChanged.connect(view._on_pen_changed)
+    studio_bar.addWidget(view.combo_ttl)
+    studio_bar.addStretch()
+    layout.addLayout(studio_bar)
+
     layout.addWidget(view.nav_slide_bar_widget)
 
     # Bottom Studio Controls

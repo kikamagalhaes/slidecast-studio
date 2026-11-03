@@ -238,7 +238,7 @@ def build_queue_manager():
         return RedisJobQueue(url)
     if backend != "memory":
         logger.warning("Unknown QUEUE_BACKEND=%r; falling back to memory.", backend)
-    return JobQueueManager(max_concurrent=1)
+    return JobQueueManager(max_concurrent=max(1, _env_int("MAX_CONCURRENT_RENDERS", 1)))
 
 
 # Global singleton instance (backend chosen by QUEUE_BACKEND env var)

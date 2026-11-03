@@ -1,11 +1,9 @@
 import logging
 import shutil
-import tempfile
 from pathlib import Path
 from typing import Optional, Callable
 
 from app.core.ffmpeg_utils import get_ffmpeg_paths, run_process_cancellable
-from app.core.subtitles_generator import generate_subtitles_with_gemini
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +15,7 @@ def build_podcast_video(
     bgm_path: Optional[str] = None,
     waveform_color: str = "0x38bdf8",
     enable_subtitles: bool = False,
-    subtitles_language: str = "pt",
+    subtitles_path: str | None = None,
     progress_callback: Optional[Callable[[float, str], None]] = None,
     cancel_check: Optional[Callable[[], bool]] = None,
 ) -> str:
@@ -25,7 +23,7 @@ def build_podcast_video(
     Renders a Full HD video for a podcast episode:
     - Cover image with animated audio waveform pulsing to the voice
     - Narration audio mixed with optional looped background music (ducking)
-    - Optional burned-in AI-translated subtitles
+    - Optional burned-in user-provided subtitles
     """
     ffmpeg_exe, _ = get_ffmpeg_paths()
     out_file = Path(output_video_path).resolve()
@@ -39,20 +37,9 @@ def build_podcast_video(
 
     # Optional Subtitles generation (SRT only needs to exist during rendering).
     subs_temp_dir: Optional[Path] = None
-    srt_path = None
-    if enable_subtitles:
-        if progress_callback:
-            progress_callback(0.20, "Transcrevendo e traduzindo legendas com IA Gemini...")
-        try:
-            subs_temp_dir = Path(tempfile.mkdtemp(prefix="podcast_subs_"))
-            srt_path = generate_subtitles_with_gemini(
-                audio_path=narration_audio_path,
-                output_srt_path=str(subs_temp_dir / "subtitles.srt"),
-                target_language=subtitles_language,
-            )
-        except Exception as exc:
-            logger.warning("Falha ao gerar legendas no podcast: %s", exc)
-            srt_path = None
+    srt_path = subtitles_path  # legendas fornecidas pelo usuário (SRT/VTT); sem transcrição
+    if enable_subtitles and not srt_path:
+        raise ValueError("Legendas ativadas, mas nenhum arquivo de legendas foi fornecido.")
 
     if progress_callback:
         progress_callback(0.40, "Iniciando renderização de vídeo e sincronização de áudio...")

@@ -1,0 +1,65 @@
+# Desenvolvimento local: API só em 127.0.0.1:8000, Redis sem porta pública.
+# Uso: docker compose up --build  (frontend dev separado: cd frontend && npm run dev)
+name: slidecast-dev
+services:
+  web:
+    build: .
+    restart: "no"
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      QUEUE_BACKEND: ${QUEUE_BACKEND:-redis}
+      REDIS_URL: redis://redis:6379/0
+      UVICORN_WORKERS: "1"
+      MAX_CONCURRENT_RENDERS: ${MAX_CONCURRENT_RENDERS:-1}
+      FFMPEG_THREADS: ${FFMPEG_THREADS:-2}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
+      MAX_AUDIO_SECONDS: ${MAX_AUDIO_SECONDS:-3600}
+      HEALTH_MIN_DISK_MB: ${HEALTH_MIN_DISK_MB:-500}
+      SESSION_COOKIE_SECURE: "0"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TZ: America/Sao_Paulo
+    volumes:
+      - storage-data:/app/storage
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+  worker:
+    build: .
+    restart: "no"
+    command: ["sh", "-c", "rq worker --url \"$$REDIS_URL\" slidecast"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      FFMPEG_THREADS: ${FFMPEG_THREADS:-2}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TZ: America/Sao_Paulo
+    volumes:
+      - storage-data:/app/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,redis; from rq import Worker; r=redis.from_url(os.environ['REDIS_URL']); assert Worker.all(connection=r), 'sem worker RQ'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    command: ["redis-server", "--appendonly", "yes"]
+    expose:
+      - "6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+volumes:
+  storage-data:
+  redis-data:

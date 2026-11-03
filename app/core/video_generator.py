@@ -73,9 +73,14 @@ def generate_video(
         f"format=yuv420p"
     )
 
+    try:
+        ffmpeg_threads = max(1, int(os.environ.get("FFMPEG_THREADS", "2")))
+    except ValueError:
+        ffmpeg_threads = 2
     cmd = [
         ffmpeg_path,
         "-y",
+        "-threads", str(ffmpeg_threads),
         "-f", "concat",
         "-safe", "0",
         "-i", concat_file_path,
