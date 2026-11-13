@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QApplication
 
 from app.core.logging_config import setup_logging
 from app.ui.main_window import MainWindow
-from app.ui.styles import DARK_THEME_QSS
+from app.ui.styles import LIGHT_THEME_QSS
 
 
 def self_test() -> int:
@@ -143,7 +143,7 @@ def main():
     app.setApplicationVersion("1.0.0")
 
     # Apply Dark Theme QSS
-    app.setStyleSheet(DARK_THEME_QSS)
+    app.setStyleSheet(LIGHT_THEME_QSS)
 
     window = MainWindow()
     window.show()

@@ -291,7 +291,7 @@ class RecordPodcastView(QWidget):
 
         # Capas prontas neutras (quadradas) — alternativa a enviar uma imagem
         lbl_presets = QLabel("Ou escolha uma capa pronta (já quadrada, sem precisar enviar nada):")
-        lbl_presets.setStyleSheet("color: #cbd5e1; font-size: 12px; font-weight: 600;")
+        lbl_presets.setStyleSheet("color: #43564f; font-size: 12px; font-weight: 600;")
         cc_layout.addWidget(lbl_presets)
 
         row_presets = QHBoxLayout()
@@ -334,7 +334,7 @@ class RecordPodcastView(QWidget):
             "Escolha as cores para combinar com a arte:"
         )
         lbl_textos.setWordWrap(True)
-        lbl_textos.setStyleSheet("color: #cbd5e1; font-size: 12px;")
+        lbl_textos.setStyleSheet("color: #43564f; font-size: 12px;")
         col_textos.addWidget(lbl_textos)
 
         grid_cores = QGridLayout()
@@ -347,7 +347,7 @@ class RecordPodcastView(QWidget):
         ]):
             cell = QVBoxLayout()
             lbl_c = QLabel(label_text)
-            lbl_c.setStyleSheet("color: #e2e8f0; font-size: 12px;")
+            lbl_c.setStyleSheet("color: #1b2a28; font-size: 12px;")
             btn_c = QPushButton(getattr(self, attr))
             btn_c.setCursor(Qt.PointingHandCursor)
             self._update_color_button(btn_c, getattr(self, attr))
@@ -371,7 +371,7 @@ class RecordPodcastView(QWidget):
         col_textos.addLayout(row_cover_actions)
 
         self.lbl_cover_final_status = QLabel("Escolha uma capa para gerar a prévia final.")
-        self.lbl_cover_final_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        self.lbl_cover_final_status.setStyleSheet("color: #5c6f68; font-size: 12px;")
         self.lbl_cover_final_status.setWordWrap(True)
         col_textos.addWidget(self.lbl_cover_final_status)
         col_textos.addStretch()
@@ -552,8 +552,8 @@ class RecordPodcastView(QWidget):
                 )
             else:
                 btn.setStyleSheet(
-                    "background: #1a1e28; color: #94a3b8; font-weight: 600; "
-                    "border: 1px solid #2d3343; padding: 8px 14px; border-radius: 8px;"
+                    "background: #efe7d3; color: #43564f; font-weight: 600; "
+                    "border: 1px solid #d8cdb2; padding: 8px 14px; border-radius: 8px;"
                 )
 
     # ----------------------------------------------------
