@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtCore import Qt, QSize, Signal, QThread
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtWidgets import (
     QWidget,
@@ -168,7 +168,7 @@ class SlideCardWidget(QFrame):
         pix = QPixmap(image_path)
         if not pix.isNull():
             scaled = pix.scaled(
-                self.thumb_frame.size() - Qt.QSize(4, 4),
+                self.thumb_frame.size() - QSize(4, 4),
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )

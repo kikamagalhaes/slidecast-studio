@@ -39,6 +39,18 @@ export const api = {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Falha na conversão')
     return r.json() as Promise<{ download_url: string }>
   },
+  podcastCovers: () => req<{ covers: { id: string; name: string; url: string }[] }>('/api/podcast/covers'),
+  composePodcastCover: async (a: { image?: File | null; presetId?: string; title: string; author: string; titleColor: string; titleOutlineColor: string; authorColor: string; authorOutlineColor: string }) => {
+    const fd = new FormData()
+    if (a.image) fd.append('image', a.image)
+    if (a.presetId) fd.append('preset_id', a.presetId)
+    fd.append('title', a.title); fd.append('author', a.author)
+    fd.append('title_color', a.titleColor); fd.append('title_outline_color', a.titleOutlineColor)
+    fd.append('author_color', a.authorColor); fd.append('author_outline_color', a.authorOutlineColor)
+    const r = await fetch(withBase('/api/podcast/cover/compose'), { method: 'POST', credentials: 'include', body: fd })
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Falha ao gerar a capa')
+    return r.blob()
+  },
   upload: async (pdf: File, audio: File) => {
     const fd = new FormData(); fd.append('pdf_file', pdf); fd.append('audio_file', audio)
     const r = await fetch(withBase('/api/upload'), { method: 'POST', credentials: 'include', body: fd })

@@ -9,7 +9,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from fastapi import Depends, FastAPI, UploadFile, File, HTTPException, Header
+from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Header
 from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -540,6 +540,86 @@ async def studio_convert_recording(project_id: str, recording: UploadFile = File
         raise HTTPException(status_code=400, detail="Não foi possível converter a gravação.")
     services.record_export(user["id"], project_id, None, "mp4", {"source": "studio-recording"}, str(out), _db_path())
     return {"download_url": f"/api/projects/{project_id}/studio/recording/download"}
+
+
+# --- Podcast: capas prontas (quadradas) e capa final com título/assinatura --
+@app.get("/api/podcast/covers")
+async def podcast_covers(user: dict = Depends(auth_module.current_user)):
+    from app.core.podcast_cover import PRESET_COVERS, ensure_preset_covers
+
+    ensure_preset_covers()
+    return {"covers": [
+        {"id": p["id"], "name": p["name"], "url": f"/api/podcast/covers/{p['id']}"}
+        for p in PRESET_COVERS
+    ]}
+
+
+@app.get("/api/podcast/covers/{preset_id}")
+async def podcast_cover_image(preset_id: str, user: dict = Depends(auth_module.current_user)):
+    from app.core.podcast_cover import preset_cover_path
+
+    try:
+        path = preset_cover_path(preset_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Capa pronta não encontrada")
+    return FileResponse(str(path), media_type="image/png")
+
+
+@app.post("/api/podcast/cover/compose")
+async def podcast_cover_compose(
+    image: UploadFile = File(default=None),
+    preset_id: str = Form(default=""),
+    title: str = Form(default=""),
+    author: str = Form(default=""),
+    title_color: str = Form(default="#ffffff"),
+    title_outline_color: str = Form(default="#000000"),
+    author_color: str = Form(default="#f2d492"),
+    author_outline_color: str = Form(default="#000000"),
+    user: dict = Depends(auth_module.current_user),
+):
+    """Grava título e assinatura sobre a capa (pronta ou enviada) e devolve o PNG final."""
+    import tempfile
+
+    from app.core.podcast_cover import compose_podcast_cover, preset_cover_path
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="podcast_cover_"))
+    try:
+        if image is not None and image.filename:
+            ext = Path(image.filename).suffix.lower()
+            if ext not in (".png", ".jpg", ".jpeg", ".webp"):
+                raise HTTPException(status_code=400, detail="A capa deve ser PNG, JPG ou WebP.")
+            base_path = tmp_dir / f"base{ext}"
+            try:
+                await _save_upload_capped(image, base_path, get_max_upload_bytes())
+            finally:
+                await image.close()
+        elif preset_id:
+            try:
+                base_path = preset_cover_path(preset_id)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Capa pronta não encontrada.")
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Envie uma imagem de capa ou escolha uma capa pronta.",
+            )
+        out_path = tmp_dir / "capa-podcast.png"
+        try:
+            compose_podcast_cover(
+                base_path, out_path, title=title, author=author,
+                title_color=title_color, title_outline_color=title_outline_color,
+                author_color=author_color, author_outline_color=author_outline_color,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Imagem de capa inválida: {exc}")
+        return Response(
+            content=out_path.read_bytes(), media_type="image/png",
+            headers={"Content-Disposition": 'inline; filename="capa-podcast.png"'},
+        )
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 @app.get("/api/projects/{project_id}/studio/recording/download")

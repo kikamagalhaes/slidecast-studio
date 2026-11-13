@@ -5,12 +5,13 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal, QThread
-from PySide6.QtGui import QPixmap, QKeyEvent
+from PySide6.QtCore import Qt, QTimer, QUrl, QSize, Signal, QThread
+from PySide6.QtGui import QPixmap, QKeyEvent, QColor, QIcon
 from PySide6.QtMultimedia import (
     QMediaDevices,
     QAudioInput,
     QMediaCaptureSession,
+    QMediaFormat,
     QMediaRecorder,
 )
 from PySide6.QtWidgets import (
@@ -30,11 +31,18 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QProgressBar,
     QSizePolicy,
+    QColorDialog,
+    QGridLayout,
 )
 
 from app.core.ffmpeg_utils import format_duration
 from app.core.subtitles_generator import SUPPORTED_LANGUAGES
 from app.core.podcast_video_builder import build_podcast_video
+from app.core.podcast_cover import (
+    PRESET_COVERS,
+    compose_podcast_cover,
+    ensure_preset_covers,
+)
 from app.ui.teleprompter_widget import TeleprompterWidget
 from app.ui.dialogs.generate_cover_dialog import GenerateCoverDialog
 
@@ -98,6 +106,17 @@ class RecordPodcastView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.cover_image_path: Optional[str] = None
+        self.composed_cover_path: Optional[str] = None
+        # Cores do título e da assinatura gravados sobre a capa final
+        self.title_color = "#ffffff"
+        self.title_outline_color = "#000000"
+        self.author_color = "#f2d492"
+        self.author_outline_color = "#000000"
+        self._color_buttons = {}
+        self._cover_preview_timer = QTimer(self)
+        self._cover_preview_timer.setSingleShot(True)
+        self._cover_preview_timer.setInterval(450)
+        self._cover_preview_timer.timeout.connect(self._refresh_cover_preview)
         self.bgm_path: Optional[str] = None
         self.output_video_path: Optional[str] = None
         self.worker = None
@@ -113,6 +132,13 @@ class RecordPodcastView(QWidget):
         self.capture_session.setAudioInput(self.audio_input)
         self.recorder = QMediaRecorder(self)
         self.capture_session.setRecorder(self.recorder)
+        # A parada do gravador é assíncrona: só renderizamos quando o Qt
+        # avisa que parou (arquivo de áudio já fechado). Erros do microfone
+        # também chegam por sinal — sem isto, a gravação falhava em silêncio.
+        self._pending_render = False
+        self._record_elapsed_base = 0.0
+        self.recorder.recorderStateChanged.connect(self._on_recorder_state_changed)
+        self.recorder.errorOccurred.connect(self._on_recorder_error)
 
         # Timer
         self.record_timer = QTimer(self)
@@ -262,6 +288,98 @@ class RecordPodcastView(QWidget):
         row_cover.addWidget(self.lbl_cover_status)
         row_cover.addStretch()
         cc_layout.addLayout(row_cover)
+
+        # Capas prontas neutras (quadradas) — alternativa a enviar uma imagem
+        lbl_presets = QLabel("Ou escolha uma capa pronta (já quadrada, sem precisar enviar nada):")
+        lbl_presets.setStyleSheet("color: #cbd5e1; font-size: 12px; font-weight: 600;")
+        cc_layout.addWidget(lbl_presets)
+
+        row_presets = QHBoxLayout()
+        row_presets.setSpacing(10)
+        try:
+            preset_paths = ensure_preset_covers()
+        except Exception:
+            preset_paths = []
+        for preset, preset_path in zip(PRESET_COVERS, preset_paths):
+            btn_preset = QPushButton(preset["name"])
+            btn_preset.setCursor(Qt.PointingHandCursor)
+            btn_preset.setToolTip(f"Usar a capa pronta “{preset['name']}”")
+            pix_preset = QPixmap(str(preset_path))
+            if not pix_preset.isNull():
+                btn_preset.setIcon(QIcon(pix_preset))
+                btn_preset.setIconSize(pix_preset.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation).size())
+            btn_preset.setStyleSheet("padding: 6px; font-size: 11px;")
+            btn_preset.clicked.connect(lambda _, p=str(preset_path): self._set_cover(p))
+            row_presets.addWidget(btn_preset)
+        row_presets.addStretch()
+        cc_layout.addLayout(row_presets)
+
+        # Prévia da capa final + cores do título e da assinatura
+        row_final = QHBoxLayout()
+        row_final.setSpacing(14)
+
+        self.lbl_cover_preview = QLabel("A prévia da capa final\naparece aqui")
+        self.lbl_cover_preview.setAlignment(Qt.AlignCenter)
+        self.lbl_cover_preview.setFixedSize(168, 168)
+        self.lbl_cover_preview.setStyleSheet(
+            "background-color: #0b0d13; border: 1.5px solid #232938; border-radius: 8px; color: #64748b; font-size: 12px;"
+        )
+        row_final.addWidget(self.lbl_cover_preview)
+
+        col_textos = QVBoxLayout()
+        col_textos.setSpacing(8)
+        lbl_textos = QLabel(
+            "O <b>título do episódio</b> e o <b>nome de quem apresenta</b> (campos do passo 1, acima) "
+            "são gravados sobre a capa — valem para capa pronta, enviada ou gerada por IA. "
+            "Escolha as cores para combinar com a arte:"
+        )
+        lbl_textos.setWordWrap(True)
+        lbl_textos.setStyleSheet("color: #cbd5e1; font-size: 12px;")
+        col_textos.addWidget(lbl_textos)
+
+        grid_cores = QGridLayout()
+        grid_cores.setSpacing(8)
+        for idx, (label_text, attr) in enumerate([
+            ("Cor do título", "title_color"),
+            ("Contorno do título", "title_outline_color"),
+            ("Cor da assinatura", "author_color"),
+            ("Contorno da assinatura", "author_outline_color"),
+        ]):
+            cell = QVBoxLayout()
+            lbl_c = QLabel(label_text)
+            lbl_c.setStyleSheet("color: #e2e8f0; font-size: 12px;")
+            btn_c = QPushButton(getattr(self, attr))
+            btn_c.setCursor(Qt.PointingHandCursor)
+            self._update_color_button(btn_c, getattr(self, attr))
+            btn_c.clicked.connect(lambda _, a=attr: self._pick_color(a))
+            self._color_buttons[attr] = btn_c
+            cell.addWidget(lbl_c)
+            cell.addWidget(btn_c)
+            grid_cores.addLayout(cell, idx // 2, idx % 2)
+        col_textos.addLayout(grid_cores)
+
+        row_cover_actions = QHBoxLayout()
+        btn_refresh_preview = QPushButton("↻ Atualizar prévia")
+        btn_refresh_preview.setCursor(Qt.PointingHandCursor)
+        btn_refresh_preview.clicked.connect(self._refresh_cover_preview)
+        btn_download_cover = QPushButton("⬇ Baixar capa final (PNG)")
+        btn_download_cover.setCursor(Qt.PointingHandCursor)
+        btn_download_cover.clicked.connect(self._download_final_cover)
+        row_cover_actions.addWidget(btn_refresh_preview)
+        row_cover_actions.addWidget(btn_download_cover)
+        row_cover_actions.addStretch()
+        col_textos.addLayout(row_cover_actions)
+
+        self.lbl_cover_final_status = QLabel("Escolha uma capa para gerar a prévia final.")
+        self.lbl_cover_final_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        self.lbl_cover_final_status.setWordWrap(True)
+        col_textos.addWidget(self.lbl_cover_final_status)
+        col_textos.addStretch()
+        row_final.addLayout(col_textos, stretch=1)
+        cc_layout.addLayout(row_final)
+
+        self.edit_title.textChanged.connect(lambda _: self._schedule_cover_preview())
+        self.edit_host.textChanged.connect(lambda _: self._schedule_cover_preview())
         p1_lay.addWidget(card_cover)
 
         # Section 5 (placed in Step 1): Microfone
@@ -411,11 +529,15 @@ class RecordPodcastView(QWidget):
         s3_nav.addStretch()
         p3_lay.addLayout(s3_nav)
 
-        # Assemble step pages
+        # Assemble step pages (rolável: em janelas menores nada fica cortado)
         self.step_stack.addWidget(page1)
         self.step_stack.addWidget(page2)
         self.step_stack.addWidget(page3)
-        layout.addWidget(self.step_stack, stretch=1)
+        step_scroll = QScrollArea()
+        step_scroll.setWidgetResizable(True)
+        step_scroll.setFrameShape(QFrame.NoFrame)
+        step_scroll.setWidget(self.step_stack)
+        layout.addWidget(step_scroll, stretch=1)
         self._switch_step(0)
 
         return widget
@@ -582,6 +704,10 @@ class RecordPodcastView(QWidget):
         self.btn_play_video.setCursor(Qt.PointingHandCursor)
         self.btn_play_video.clicked.connect(self._open_result_file)
 
+        self.btn_open_cover = QPushButton("🖼️ Abrir Capa Final")
+        self.btn_open_cover.setCursor(Qt.PointingHandCursor)
+        self.btn_open_cover.clicked.connect(self._open_cover_file)
+
         self.btn_open_folder = QPushButton("📁 Abrir Pasta")
         self.btn_open_folder.setCursor(Qt.PointingHandCursor)
         self.btn_open_folder.clicked.connect(self._open_result_folder)
@@ -591,6 +717,7 @@ class RecordPodcastView(QWidget):
         self.btn_new_recording.clicked.connect(lambda: self.stack.setCurrentIndex(0))
 
         bc_layout.addWidget(self.btn_play_video)
+        bc_layout.addWidget(self.btn_open_cover)
         bc_layout.addWidget(self.btn_open_folder)
         bc_layout.addWidget(self.btn_new_recording)
         self.result_btn_container.hide()
@@ -629,6 +756,91 @@ class RecordPodcastView(QWidget):
         self.cover_image_path = file_path
         self.lbl_cover_status.setText(f"✓ {Path(file_path).name}")
         self.lbl_cover_status.setStyleSheet("color: #10b981; font-weight: 600;")
+        self._refresh_cover_preview()
+
+    # ----------------------------------------------------
+    # CAPA FINAL (título + assinatura sobre a arte escolhida)
+    # ----------------------------------------------------
+    @staticmethod
+    def _update_color_button(btn: QPushButton, hex_color: str):
+        # Texto branco sobre cores escuras e preto sobre claras (senão o
+        # hex some, ex.: botão de contorno preto com texto preto).
+        try:
+            r, g, b = (int(hex_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+            fg = "#ffffff" if (0.299 * r + 0.587 * g + 0.114 * b) < 140 else "#000000"
+        except Exception:
+            fg = "#000000"
+        btn.setText(hex_color)
+        btn.setFixedWidth(150)
+        btn.setStyleSheet(
+            f"background-color: {hex_color}; color: {fg}; font-weight: 700; "
+            "border: 1.5px solid #475569; border-radius: 6px; padding: 4px 8px;"
+        )
+
+    def _pick_color(self, attr: str):
+        chosen = QColorDialog.getColor(QColor(getattr(self, attr)), self, "Escolha a cor")
+        if chosen.isValid():
+            setattr(self, attr, chosen.name())
+            self._update_color_button(self._color_buttons[attr], chosen.name())
+            self._schedule_cover_preview()
+
+    def _schedule_cover_preview(self):
+        if getattr(self, "_cover_preview_timer", None) is not None:
+            self._cover_preview_timer.start()
+
+    def _refresh_cover_preview(self, final: bool = False) -> Optional[str]:
+        if not self.cover_image_path or not Path(self.cover_image_path).exists():
+            return None
+        covers_dir = Path.home() / "SlideCast_Materials" / "covers"
+        covers_dir.mkdir(parents=True, exist_ok=True)
+        out_path = covers_dir / (
+            f"capa_final_{int(time.time())}.png" if final else "capa_final_preview.png"
+        )
+        try:
+            composed = compose_podcast_cover(
+                self.cover_image_path,
+                out_path,
+                title=self.edit_title.text(),
+                author=self.edit_host.text(),
+                title_color=self.title_color,
+                title_outline_color=self.title_outline_color,
+                author_color=self.author_color,
+                author_outline_color=self.author_outline_color,
+            )
+        except Exception as e:
+            self.lbl_cover_final_status.setText(f"Não foi possível montar a capa final: {e}")
+            self.lbl_cover_final_status.setStyleSheet("color: #f87171; font-size: 12px;")
+            return None
+        self.composed_cover_path = composed
+        pix = QPixmap(composed)
+        if not pix.isNull():
+            self.lbl_cover_preview.setText("")
+            self.lbl_cover_preview.setPixmap(
+                pix.scaled(168, 168, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
+        self.lbl_cover_final_status.setText(
+            "✓ Capa final pronta: título e assinatura já estão gravados na imagem "
+            "(é esta imagem que entra no vídeo)."
+        )
+        self.lbl_cover_final_status.setStyleSheet("color: #10b981; font-size: 12px;")
+        return composed
+
+    def _download_final_cover(self):
+        composed = self._refresh_cover_preview(final=True)
+        if not composed:
+            QMessageBox.warning(self, "Capa Necessária", "Escolha uma capa (pronta, enviada ou gerada por IA) primeiro.")
+            return
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Salvar Capa Final do Podcast", "capa-podcast.png", "Imagem PNG (*.png)"
+        )
+        if dest:
+            try:
+                import shutil
+
+                shutil.copyfile(composed, dest)
+                QMessageBox.information(self, "Capa Salva", f"Capa final salva em:\n{dest}")
+            except Exception as e:
+                QMessageBox.warning(self, "Aviso", f"Não foi possível salvar a capa:\n{e}")
 
     def _pick_txt_script(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -673,11 +885,14 @@ class RecordPodcastView(QWidget):
         else:
             self.prompter.hide()
 
+        # A partir daqui vale a capa final (título + assinatura já gravados)
+        self._refresh_cover_preview(final=True)
+
         # Update cover preview
-        pix = QPixmap(self.cover_image_path)
+        pix = QPixmap(self.composed_cover_path or self.cover_image_path)
         if not pix.isNull():
             scaled = pix.scaled(
-                self.cover_display_frame.size() - Qt.QSize(30, 80),
+                self.cover_display_frame.size() - QSize(30, 80),
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )
@@ -713,15 +928,40 @@ class RecordPodcastView(QWidget):
             self.btn_toggle_prompter.setText("📝 Teleprompter Visível")
 
     def _start_recording(self):
+        if not QMediaDevices.audioInputs():
+            QMessageBox.warning(
+                self, "Microfone não encontrado",
+                "Nenhum microfone foi detectado neste computador. "
+                "Conecte um microfone e tente novamente.",
+            )
+            return
         try:
             temp_dir = Path.home() / "SlideCast_Materials"
             temp_dir.mkdir(parents=True, exist_ok=True)
-            self.temp_audio_file = str(temp_dir / f"podcast_rec_{int(time.time())}.m4a")
+
+            # Formato explícito e suportado (sem isto, o Qt pode não gravar
+            # nada dependendo do backend): AAC/M4A, com WAV de reserva.
+            fmt = QMediaFormat()
+            fmt.setFileFormat(QMediaFormat.FileFormat.MPEG4)
+            fmt.setAudioCodec(QMediaFormat.AudioCodec.AAC)
+            ext = ".m4a"
+            if not fmt.isSupported(QMediaFormat.ConversionMode.Encode):
+                fmt = QMediaFormat()
+                fmt.setFileFormat(QMediaFormat.FileFormat.Wave)
+                fmt.setAudioCodec(QMediaFormat.AudioCodec.Wave)
+                ext = ".wav"
+            self.recorder.setMediaFormat(fmt)
+            self.temp_audio_file = str(temp_dir / f"podcast_rec_{int(time.time())}{ext}")
+
+            selected_dev = self.combo_mics.currentData()
+            if selected_dev:
+                self.audio_input.setDevice(selected_dev)
 
             self.recorder.setOutputLocation(QUrl.fromLocalFile(self.temp_audio_file))
             self.recorder.record()
 
             self.is_recording = True
+            self._record_elapsed_base = 0.0
             self.record_start_time = time.time()
             self.record_timer.start()
 
@@ -733,7 +973,7 @@ class RecordPodcastView(QWidget):
             self.btn_rec_finish.setEnabled(True)
 
             if self.prompter.isVisible():
-                self.prompter.start_scrolling()
+                self.prompter.play()
 
         except Exception as e:
             QMessageBox.critical(self, "Erro ao Gravar", f"Não foi possível iniciar a gravação de áudio:\n{e}")
@@ -743,18 +983,20 @@ class RecordPodcastView(QWidget):
             return
         if self.recorder.recorderState() == QMediaRecorder.RecordingState:
             self.recorder.pause()
+            self._record_elapsed_base = time.time() - self.record_start_time
             self.record_timer.stop()
             self.lbl_rec_indicator.setText("⏸ GRAVAÇÃO PAUSADA")
             self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #eab308; font-size: 13px;")
             self.btn_rec_pause.setText("▶ Continuar")
-            self.prompter.pause_scrolling()
+            self.prompter.pause()
         else:
             self.recorder.record()
+            self.record_start_time = time.time() - self._record_elapsed_base
             self.record_timer.start()
             self.lbl_rec_indicator.setText("🔴 GRAVANDO PODCAST AO VIVO")
             self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #ef4444; font-size: 13px;")
             self.btn_rec_pause.setText("⏸ Pausar")
-            self.prompter.start_scrolling()
+            self.prompter.play()
 
     def _stop_recording_discard(self):
         self.is_recording = False
@@ -766,19 +1008,72 @@ class RecordPodcastView(QWidget):
             except Exception:
                 pass
 
+    def _on_recorder_state_changed(self, state):
+        # stop() é assíncrono: o arquivo só está fechado/pronto neste sinal.
+        if self._pending_render and state == QMediaRecorder.StoppedState:
+            QTimer.singleShot(400, self._begin_render_if_pending)
+
+    def _on_recorder_error(self, error, error_string: str = ""):
+        if error == QMediaRecorder.NoError:
+            return
+        self._pending_render = False
+        self.is_recording = False
+        self.record_timer.stop()
+        self.btn_rec_start.setEnabled(True)
+        self.btn_rec_pause.setEnabled(False)
+        self.btn_rec_finish.setEnabled(False)
+        self.lbl_rec_indicator.setText("● ERRO NA GRAVAÇÃO")
+        self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #ef4444; font-size: 13px;")
+        QMessageBox.critical(
+            self, "Erro na Gravação",
+            f"O gravador não conseguiu gravar do microfone:\n{error_string or error}\n\n"
+            "Verifique se o microfone está conectado, se outro programa não está "
+            "usando o microfone e tente novamente.",
+        )
+
+    def _begin_render_if_pending(self):
+        if self._pending_render:
+            self._pending_render = False
+            self._begin_render()
+
     def _finish_recording(self):
         self.is_recording = False
         self.record_timer.stop()
-        self.recorder.stop()
-        self.prompter.pause_scrolling()
+        self.prompter.pause()
+        was_active = self.recorder.recorderState() != QMediaRecorder.StoppedState
+        if was_active:
+            self.recorder.stop()
 
         # Switch to result view
         self.stack.setCurrentIndex(2)
         self.lbl_result_icon.setText("⏳")
+        self.result_btn_container.hide()
+        self.btn_cancel_render.hide()
+        if was_active:
+            # NÃO renderizar já: o arquivo de áudio ainda está sendo fechado
+            # pelo Qt. Renderizar agora era o que quebrava a gravação ao vivo.
+            self._pending_render = True
+            self.lbl_result_title.setText("Finalizando a gravação...")
+            self.lbl_result_status.setText("Fechando o arquivo de áudio do microfone...")
+            self.render_progress_bar.setValue(2)
+            QTimer.singleShot(8000, self._begin_render_if_pending)
+        else:
+            self._begin_render()
+
+    def _begin_render(self):
+        audio = Path(self.temp_audio_file) if self.temp_audio_file else None
+        if audio is None or not audio.exists() or audio.stat().st_size == 0:
+            self.lbl_result_icon.setText("❌")
+            self.lbl_result_title.setText("Gravação sem áudio")
+            self.lbl_result_status.setText(
+                "Nenhum áudio foi gravado do microfone. Verifique o microfone "
+                "selecionado no Passo 1 e grave novamente."
+            )
+            self.result_btn_container.show()
+            return
         self.lbl_result_title.setText("Renderizando seu Podcast em Vídeo...")
         self.lbl_result_status.setText("Sincronizando áudio, visualizador de ondas e legendas...")
         self.render_progress_bar.setValue(5)
-        self.result_btn_container.hide()
 
         timestamp = int(time.time())
         title_slug = self.edit_title.text().strip().lower().replace(" ", "_") or "podcast"
@@ -790,7 +1085,7 @@ class RecordPodcastView(QWidget):
 
         # Start Render Worker
         self.worker = PodcastVideoRenderWorker(
-            cover_image=self.cover_image_path,
+            cover_image=self.composed_cover_path or self.cover_image_path,
             audio_path=self.temp_audio_file,
             output_path=self.output_video_path,
             bgm_path=self.bgm_path,
@@ -854,6 +1149,21 @@ class RecordPodcastView(QWidget):
                     subprocess.Popen(["xdg-open", self.output_video_path])
             except Exception as e:
                 QMessageBox.warning(self, "Aviso", f"Não foi possível abrir o vídeo:\n{e}")
+
+    def _open_cover_file(self):
+        cover = self.composed_cover_path
+        if cover and Path(cover).exists():
+            try:
+                if sys.platform == "win32":
+                    os.startfile(cover)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", cover])
+                else:
+                    subprocess.Popen(["xdg-open", cover])
+            except Exception as e:
+                QMessageBox.warning(self, "Aviso", f"Não foi possível abrir a capa:\n{e}")
+        else:
+            QMessageBox.information(self, "Capa Final", "A capa final ainda não foi gerada nesta sessão.")
 
     def _open_result_folder(self):
         if self.output_video_path and Path(self.output_video_path).exists():
