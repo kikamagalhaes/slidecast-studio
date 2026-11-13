@@ -1,3 +1,49 @@
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f4f6fb;color:#16233c}
-a{color:#1d4ed8}button{background:#2563eb;color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}button.sec{background:#e2e8f0;color:#16233c}button.danger{background:#dc2626;color:#fff}input,select,textarea{background:#fff;color:#16233c;border:1px solid #cbd5e1;border-radius:8px;padding:8px;width:100%}
-.layout{display:flex;min-height:100vh}.side{width:230px;background:#fff;border-right:1px solid #e2e8f0;padding:18px;display:flex;flex-direction:column;gap:6px}.side button{text-align:left;background:transparent;color:#16233c}.side button.on{background:#2563eb;color:#fff}.main{flex:1;padding:24px;overflow:auto}.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}.thumb{width:100%;border-radius:8px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.muted{color:#5b6b82;font-size:.9em}.err{color:#dc2626}.ok{color:#15803d}video{max-width:100%;background:#000;border-radius:10px}canvas{width:100%;background:#fff;border-radius:8px}.wrap{position:relative}.cam{position:absolute;right:10px;bottom:10px;width:180px;border:2px solid #fff;border-radius:10px}
+:root {
+  color-scheme: light;
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --text: #16233c;
+  --muted: #5b6b82;
+  --border: #e2e8f0;
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --sec-bg: #e2e8f0;
+  --link: #1d4ed8;
+  --canvas-bg: #ffffff;
+}
+[data-theme="escuro"] {
+  color-scheme: dark;
+  --bg: #12141a;
+  --surface: #1a1e28;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #2d3343;
+  --input-bg: #12141c;
+  --input-border: #3e4862;
+  --sec-bg: #272d3e;
+  --link: #8ab4f8;
+  --canvas-bg: #0b0d13;
+}
+* { box-sizing: border-box }
+body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text) }
+a { color: var(--link) }
+button { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer }
+button.sec { background: var(--sec-bg); color: var(--text) }
+button.danger { background: #dc2626; color: #fff }
+input, select, textarea { background: var(--input-bg); color: var(--text); border: 1px solid var(--input-border); border-radius: 8px; padding: 8px; width: 100% }
+.layout { display: flex; min-height: 100vh }
+.side { width: 230px; background: var(--surface); border-right: 1px solid var(--border); padding: 18px; display: flex; flex-direction: column; gap: 6px }
+.side button { text-align: left; background: transparent; color: var(--text) }
+.side button.on { background: #2563eb; color: #fff }
+.main { flex: 1; padding: 24px; overflow: auto }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px }
+.thumb { width: 100%; border-radius: 8px }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center }
+.muted { color: var(--muted); font-size: .9em }
+.err { color: #dc2626 }
+.ok { color: #15803d }
+video { max-width: 100%; background: #000; border-radius: 10px }
+canvas { width: 100%; background: var(--canvas-bg); border-radius: 8px }
+.wrap { position: relative }
+.cam { position: absolute; right: 10px; bottom: 10px; width: 180px; border: 2px solid #fff; border-radius: 10px }

@@ -16,13 +16,16 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [current, setCurrent] = useState<Project | null>(null)
   const [msg, setMsg] = useState('')
+  const [theme, setTheme] = useState(() => localStorage.getItem('slidecast-theme') || 'claro')
+  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('slidecast-theme', theme) }, [theme])
   const load = useCallback(async () => { try { setProjects((await api.listProjects()).projects) } catch { /* sem sessão */ } }, [])
   useEffect(() => { api.me().then(r => { setUser(r.user); load() }).catch(() => setUser(null)) }, [load])
   if (!user) return <Auth onOk={u => { setUser(u); load() }} />
   const open = async (p: Project) => { setCurrent(await api.getProject(p.id)); setView('criar') }
   return <div className="layout"><aside className="side"><strong>SlideCast Studio</strong><p className="muted">{user.email}</p>
     {NAV.map(n => <button key={n.id} className={view === n.id ? 'on' : ''} onClick={() => setView(n.id)}>{n.label}</button>)}
-    <button className="sec" onClick={() => { api.logout(); setUser(null) }}>Sair</button>{msg && <p className="muted">{msg}</p>}</aside>
+    <button className="sec" onClick={() => { api.logout(); setUser(null) }}>Sair</button>
+    <button className="sec" onClick={() => setTheme(theme === 'escuro' ? 'claro' : 'escuro')}>{theme === 'escuro' ? 'Tema claro' : 'Tema escuro'}</button>{msg && <p className="muted">{msg}</p>}</aside>
     <main className="main">
       {view === 'projetos' && <Projetos projects={projects} reload={load} open={open} setCurrent={setCurrent} setView={setView} flash={setMsg} />}
       {view === 'criar' && <CriarVideo project={current} setProject={setCurrent} reload={load} flash={setMsg} />}
