@@ -134,7 +134,9 @@ function Podcast({ flash, reload }: { flash: (s: string) => void; reload: () => 
   const canvas = useRef<HTMLCanvasElement>(null); const [fade, setFade] = useState(1); const [norm, setNorm] = useState(false); const [duck, setDuck] = useState(0)
   const wave = async (f: File) => { const buf = await new AudioContext().decodeAudioData(await f.arrayBuffer()); const ch = buf.getChannelData(0); const c = canvas.current!; const ctx = c.getContext('2d')!; ctx.clearRect(0, 0, c.width, c.height); ctx.fillStyle = '#8ab4f8'; for (let x = 0; x < c.width; x++) { const v = Math.abs(ch[Math.floor(x / c.width * ch.length)] || 0); ctx.fillRect(x, (1 - v) * 40, 1, v * 80) } flash(`Onda real desenhada de ${f.name} (${fmt(buf.duration)}).`) ; await api.createProject(`Podcast — ${f.name}`, 'podcast', { fade, normalizacao: norm, ducking: duck }); reload() }
   // Capa final: capas prontas ou imagem enviada + título/assinatura com cores
-  const [covers, setCovers] = useState<{ id: string; name: string; url: string }[]>([])
+  const [covers, setCovers] = useState<{ id: string; name: string; url: string; palette: { bg: string; mic: string; accent: string } }[]>([])
+  const [coverFormat, setCoverFormat] = useState('quadrada')
+  const [presetBg, setPresetBg] = useState('#10151f'); const [presetMic, setPresetMic] = useState('#e8eef4'); const [presetAccent, setPresetAccent] = useState('#f0b35c')
   const [presetId, setPresetId] = useState(''); const [coverFile, setCoverFile] = useState<File | null>(null)
   const [epTitle, setEpTitle] = useState(''); const [epAuthor, setEpAuthor] = useState('')
   const [titleColor, setTitleColor] = useState('#ffffff'); const [titleOutline, setTitleOutline] = useState('#000000')
@@ -145,7 +147,7 @@ function Podcast({ flash, reload }: { flash: (s: string) => void; reload: () => 
   const gerarCapa = async () => {
     if (!coverFile && !presetId) return flash('Escolha uma capa pronta ou envie uma imagem primeiro.')
     setBusy(true)
-    try { const blob = await api.composePodcastCover({ image: coverFile, presetId, title: epTitle, author: epAuthor, titleColor, titleOutlineColor: titleOutline, authorColor, authorOutlineColor: authorOutline }); setFinalUrl(URL.createObjectURL(blob)); flash('Capa final gerada: título e assinatura já estão na imagem.') }
+    try { const blob = await api.composePodcastCover({ image: coverFile, presetId, title: epTitle, author: epAuthor, titleColor, titleOutlineColor: titleOutline, authorColor, authorOutlineColor: authorOutline, coverFormat, presetBg: !coverFile && presetId ? presetBg : undefined, presetMic: !coverFile && presetId ? presetMic : undefined, presetAccent: !coverFile && presetId ? presetAccent : undefined }); setFinalUrl(URL.createObjectURL(blob)); flash('Capa final gerada: título e assinatura já estão na imagem.') }
     catch (e) { flash(String(e)) } finally { setBusy(false) }
   }
   const cor = (label: string, v: string, set: (s: string) => void) => <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '.9em' }}>{label}<span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="color" value={v} onChange={e => set(e.target.value)} style={{ width: 52, height: 34, padding: 2 }} /><span className="muted">{v}</span></span></label>
@@ -153,22 +155,27 @@ function Podcast({ flash, reload }: { flash: (s: string) => void; reload: () => 
     <div className="card"><h3>Capa do podcast</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 300px) 1fr', gap: 18, alignItems: 'start' }}>
         <div>
-          {(finalUrl || baseUrl) ? <img src={finalUrl || baseUrl} alt="Capa do podcast" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, border: '1px solid #e2e8f0' }} /> : <div style={{ width: '100%', aspectRatio: '1', border: '1.5px dashed #cbd5e1', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 12 }} className="muted">Escolha uma capa pronta ou envie uma imagem</div>}
+          {(finalUrl || baseUrl) ? <img src={finalUrl || baseUrl} alt="Capa do podcast" style={{ width: '100%', aspectRatio: coverFormat === 'widescreen' ? '16/9' : '1', objectFit: 'cover', borderRadius: 10, border: '1px solid #e2e8f0' }} /> : <div style={{ width: '100%', aspectRatio: coverFormat === 'widescreen' ? '16/9' : '1', border: '1.5px dashed #cbd5e1', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 12 }} className="muted">Escolha uma capa pronta ou envie uma imagem</div>}
           {finalUrl && <p><a href={finalUrl} download="capa-podcast.png"><button type="button">Baixar capa final (PNG)</button></a></p>}
         </div>
         <div>
           <p className="muted" style={{ marginTop: 0 }}>Capas prontas (quadradas, prontas para usar):</p>
-          <div className="row">{covers.map(c => <button key={c.id} type="button" className="sec" onClick={() => { setPresetId(c.id); setCoverFile(null); setFinalUrl('') }} style={presetId === c.id && !coverFile ? { outline: '3px solid #2563eb', padding: 4 } : { padding: 4 }}><img src={withBase(c.url)} alt={c.name} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, display: 'block' }} /><span style={{ fontSize: '.8em' }}>{c.name}</span></button>)}</div>
+          <div className="row">{covers.map(c => <button key={c.id} type="button" className="sec" onClick={() => { setPresetId(c.id); setCoverFile(null); setFinalUrl(''); setPresetBg(c.palette.bg); setPresetMic(c.palette.mic); setPresetAccent(c.palette.accent) }} style={presetId === c.id && !coverFile ? { outline: '3px solid #2563eb', padding: 4 } : { padding: 4 }}><img src={withBase(c.url)} alt={c.name} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, display: 'block' }} /><span style={{ fontSize: '.8em' }}>{c.name}</span></button>)}</div>
           <p><label>Ou envie a sua imagem de capa <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { setCoverFile(e.target.files?.[0] || null); setFinalUrl('') }} /></label></p>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
             <label>Título do episódio<input placeholder="Ex.: Por que a Nova Jerusalém tem formato de cubo?" value={epTitle} onChange={e => setEpTitle(e.target.value)} /></label>
             <label>Quem apresenta (assinatura)<input placeholder="Ex.: Kika Magalhães" value={epAuthor} onChange={e => setEpAuthor(e.target.value)} /></label>
           </div>
+          <div className="row" style={{ marginTop: 10 }}><label>Formato da capa final <select value={coverFormat} onChange={e => setCoverFormat(e.target.value)}><option value="quadrada">Quadrada 1:1 (1080×1080)</option><option value="widescreen">Retangular Widescreen 16:9 (1920×1080)</option></select></label></div>
+          <p className="muted" style={{ marginBottom: 4 }}>Cores do desenho da capa pronta (fundo, microfone e ondas):</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(110px, 1fr))', gap: 10 }}>
+            {cor('Fundo da capa', presetBg, setPresetBg)}{cor('Microfone e PODCAST', presetMic, setPresetMic)}{cor('Ondas e moldura', presetAccent, setPresetAccent)}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(110px, 1fr))', gap: 10, marginTop: 10 }}>
             {cor('Cor do título', titleColor, setTitleColor)}{cor('Contorno do título', titleOutline, setTitleOutline)}{cor('Cor da assinatura', authorColor, setAuthorColor)}{cor('Contorno da assinatura', authorOutline, setAuthorOutline)}
           </div>
           <p><button onClick={gerarCapa} disabled={busy}>{busy ? 'Gerando…' : 'Gerar capa final'}</button></p>
-          <p className="muted">O título e o nome são gravados sobre a capa escolhida — pronta ou enviada — e a imagem final sai quadrada (1080×1080).</p>
+          <p className="muted">O título e o nome são gravados sobre a capa escolhida — pronta ou enviada — e a imagem final sai no formato escolhido (1080×1080 ou 1920×1080).</p>
         </div>
       </div>
     </div>

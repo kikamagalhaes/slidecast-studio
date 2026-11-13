@@ -39,14 +39,18 @@ export const api = {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Falha na conversão')
     return r.json() as Promise<{ download_url: string }>
   },
-  podcastCovers: () => req<{ covers: { id: string; name: string; url: string }[] }>('/api/podcast/covers'),
-  composePodcastCover: async (a: { image?: File | null; presetId?: string; title: string; author: string; titleColor: string; titleOutlineColor: string; authorColor: string; authorOutlineColor: string }) => {
+  podcastCovers: () => req<{ covers: { id: string; name: string; url: string; palette: { bg: string; mic: string; accent: string } }[] }>('/api/podcast/covers'),
+  composePodcastCover: async (a: { image?: File | null; presetId?: string; title: string; author: string; titleColor: string; titleOutlineColor: string; authorColor: string; authorOutlineColor: string; coverFormat?: string; presetBg?: string; presetMic?: string; presetAccent?: string }) => {
     const fd = new FormData()
     if (a.image) fd.append('image', a.image)
     if (a.presetId) fd.append('preset_id', a.presetId)
     fd.append('title', a.title); fd.append('author', a.author)
     fd.append('title_color', a.titleColor); fd.append('title_outline_color', a.titleOutlineColor)
     fd.append('author_color', a.authorColor); fd.append('author_outline_color', a.authorOutlineColor)
+    fd.append('cover_format', a.coverFormat || 'quadrada')
+    if (a.presetBg) fd.append('preset_bg_color', a.presetBg)
+    if (a.presetMic) fd.append('preset_mic_color', a.presetMic)
+    if (a.presetAccent) fd.append('preset_accent_color', a.presetAccent)
     const r = await fetch(withBase('/api/podcast/cover/compose'), { method: 'POST', credentials: 'include', body: fd })
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Falha ao gerar a capa')
     return r.blob()

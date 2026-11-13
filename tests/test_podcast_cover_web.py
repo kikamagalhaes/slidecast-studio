@@ -65,6 +65,35 @@ def test_compose_from_preset_and_from_upload(client):
         assert img.size == (1080, 1080)
 
 
+def test_compose_preset_with_custom_artwork_colors(client):
+    h = _auth(client)
+    covers = client.get("/api/podcast/covers", headers=h).json()["covers"]
+    assert set(covers[0]["palette"]) == {"bg", "mic", "accent"}
+    custom = client.post("/api/podcast/cover/compose", headers=h, data={
+        "preset_id": "estudio", "title": "Cores Minhas",
+        "preset_bg_color": "#5b21b6", "preset_mic_color": "#fef08a",
+        "preset_accent_color": "#22c55e",
+    })
+    plain = client.post("/api/podcast/cover/compose", headers=h,
+                        data={"preset_id": "estudio", "title": "Cores Minhas"})
+    assert custom.status_code == 200 and plain.status_code == 200
+    assert custom.content != plain.content
+
+
+def test_compose_widescreen_web(client):
+    h = _auth(client)
+    res = client.post("/api/podcast/cover/compose", headers=h, data={
+        "preset_id": "noite", "title": "Episódio Wide", "author": "Kika Magalhães",
+        "cover_format": "widescreen",
+    })
+    assert res.status_code == 200, res.text
+    with Image.open(io.BytesIO(res.content)) as img:
+        assert img.size == (1920, 1080)
+    bad = client.post("/api/podcast/cover/compose", headers=h,
+                      data={"preset_id": "noite", "cover_format": "retrato"})
+    assert bad.status_code == 400
+
+
 def test_compose_rejects_missing_base_and_bad_color(client):
     h = _auth(client)
     assert client.post("/api/podcast/cover/compose", headers=h, data={"title": "X"}).status_code == 400

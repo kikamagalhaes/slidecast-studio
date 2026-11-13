@@ -100,16 +100,59 @@ def _spaced(text: str) -> str:
     return " ".join(list(text))
 
 
-def _render_preset(preset_id: str, size: int = COVER_SIZE) -> Image.Image:
-    palettes = {
-        "estudio": dict(top=(16, 21, 31), bottom=(29, 43, 58), body=(232, 238, 244),
-                        accent=(240, 179, 92), word=(232, 238, 244)),
-        "noite": dict(top=(23, 35, 63), bottom=(36, 54, 94), body=(240, 244, 248),
-                      accent=(126, 200, 227), word=(240, 244, 248)),
-        "claro": dict(top=(236, 231, 221), bottom=(216, 208, 191), body=(51, 58, 66),
-                      accent=(176, 121, 63), word=(51, 58, 66)),
-    }
-    pal = palettes[preset_id]
+_PRESET_PALETTES = {
+    "estudio": dict(top=(16, 21, 31), bottom=(29, 43, 58), body=(232, 238, 244),
+                    accent=(240, 179, 92), word=(232, 238, 244)),
+    "noite": dict(top=(23, 35, 63), bottom=(36, 54, 94), body=(240, 244, 248),
+                  accent=(126, 200, 227), word=(240, 244, 248)),
+    "claro": dict(top=(236, 231, 221), bottom=(216, 208, 191), body=(51, 58, 66),
+                  accent=(176, 121, 63), word=(51, 58, 66)),
+}
+
+
+def _rgb_hex(rgb) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+
+def _blend(rgb, other, ratio: float):
+    return tuple(int(rgb[i] + (other[i] - rgb[i]) * ratio) for i in range(3))
+
+
+def get_preset_palette(preset_id: str) -> dict:
+    """Paleta padrão de uma capa pronta, em hex (fundo/microfone/detalhes)."""
+    if preset_id not in _PRESET_PALETTES:
+        raise ValueError(f"Capa pronta desconhecida: {preset_id!r}")
+    pal = _PRESET_PALETTES[preset_id]
+    return {"bg": _rgb_hex(pal["top"]), "mic": _rgb_hex(pal["body"]),
+            "accent": _rgb_hex(pal["accent"])}
+
+
+def render_preset_cover(preset_id: str, output_path, bg_color: Optional[str] = None,
+                        mic_color: Optional[str] = None,
+                        accent_color: Optional[str] = None,
+                        size: int = COVER_SIZE) -> str:
+    """Desenha a capa pronta com as cores escolhidas (qualquer cor vale)."""
+    if preset_id not in _PRESET_PALETTES:
+        raise ValueError(f"Capa pronta desconhecida: {preset_id!r}")
+    pal = dict(_PRESET_PALETTES[preset_id])
+    if bg_color:
+        top = parse_hex_color(bg_color)
+        # Fundo vira um degradê suave a partir da cor escolhida
+        luminance = 0.299 * top[0] + 0.587 * top[1] + 0.114 * top[2]
+        pal["top"] = top
+        pal["bottom"] = _blend(top, (255, 255, 255), 0.14) if luminance < 128 else _blend(top, (0, 0, 0), 0.10)
+    if mic_color:
+        pal["body"] = pal["word"] = parse_hex_color(mic_color)
+    if accent_color:
+        pal["accent"] = parse_hex_color(accent_color)
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    _render_preset(preset_id, size=size, palette=pal).save(out, format="PNG")
+    return str(out)
+
+
+def _render_preset(preset_id: str, size: int = COVER_SIZE, palette: Optional[dict] = None) -> Image.Image:
+    pal = palette if palette is not None else _PRESET_PALETTES[preset_id]
     img = _vertical_gradient(size, pal["top"], pal["bottom"])
     draw = ImageDraw.Draw(img)
     # Moldura fina interna
@@ -170,6 +213,9 @@ def _fit_title_font(draw: ImageDraw.ImageDraw, title: str, max_width: int):
     return _font(30, _FONT_CANDIDATES_BOLD)
 
 
+COVER_FORMATS = {"quadrada": (1080, 1080), "widescreen": (1920, 1080)}
+
+
 def compose_podcast_cover(
     base_image_path,
     output_path,
@@ -180,51 +226,65 @@ def compose_podcast_cover(
     author_color: str = "#f2d492",
     author_outline_color: str = "#000000",
     size: int = COVER_SIZE,
+    cover_format: str = "quadrada",
 ) -> str:
-    """Grava título e assinatura sobre a capa e salva a imagem final quadrada.
+    """Grava título e assinatura sobre a capa e salva a imagem final.
 
+    Formatos: "quadrada" (1080x1080) ou "widescreen" (1920x1080, 16:9).
     Funciona igual para capa enviada, capa pronta ou capa gerada por IA.
     Título/autor vazios simplesmente não são desenhados.
     """
+    if cover_format not in COVER_FORMATS:
+        raise ValueError(f"Formato de capa inválido: {cover_format!r} (use 'quadrada' ou 'widescreen')")
     title_rgb = parse_hex_color(title_color)
     title_outline_rgb = parse_hex_color(title_outline_color)
     author_rgb = parse_hex_color(author_color)
     author_outline_rgb = parse_hex_color(author_outline_color)
 
+    out_w, out_h = COVER_FORMATS[cover_format]
+    if cover_format == "quadrada":
+        out_w = out_h = size
+
     with Image.open(base_image_path) as src:
         img = src.convert("RGB")
-    # Recorte central quadrado + redimensionamento (a capa final é sempre 1:1)
-    side = min(img.size)
-    left, top = (img.width - side) // 2, (img.height - side) // 2
-    img = img.crop((left, top, left + side, top + side)).resize((size, size), Image.LANCZOS)
+    # Recorte central na proporção do formato + redimensionamento
+    target_ratio = out_w / out_h
+    src_ratio = img.width / img.height
+    if src_ratio > target_ratio:
+        crop_w, crop_h = int(img.height * target_ratio), img.height
+    else:
+        crop_w, crop_h = img.width, int(img.width / target_ratio)
+    left, top = (img.width - crop_w) // 2, (img.height - crop_h) // 2
+    img = img.crop((left, top, left + crop_w, top + crop_h)).resize((out_w, out_h), Image.LANCZOS)
 
+    ref = min(out_w, out_h)  # referência p/ tamanhos de fonte e contornos
     title, author = (title or "").strip(), (author or "").strip()
     if title or author:
         # Faixa inferior escurecida com degradê, para o texto ficar legível
         # sobre qualquer arte, sem esconder a capa inteira.
-        overlay = Image.new("L", (1, size))
-        for y in range(size):
-            start = int(size * 0.52)
-            overlay.putpixel((0, y), 0 if y < start else int(175 * (y - start) / max(size - start, 1)))
-        shade = Image.new("RGB", (size, size), (5, 8, 14))
-        img = Image.composite(shade, img, overlay.resize((size, size)))
+        overlay = Image.new("L", (1, out_h))
+        for y in range(out_h):
+            start = int(out_h * 0.52)
+            overlay.putpixel((0, y), 0 if y < start else int(175 * (y - start) / max(out_h - start, 1)))
+        shade = Image.new("RGB", (out_w, out_h), (5, 8, 14))
+        img = Image.composite(shade, img, overlay.resize((out_w, out_h)))
 
         draw = ImageDraw.Draw(img)
-        margin = int(size * 0.07)
-        max_width = size - 2 * margin
-        cursor_y = int(size * 0.945)
+        margin = int(out_w * 0.07)
+        max_width = out_w - 2 * margin
+        cursor_y = int(out_h * 0.945)
 
         if author:
-            font_author = _font(int(size * 0.042), _FONT_CANDIDATES_SERIF_ITALIC)
+            font_author = _font(int(ref * 0.042), _FONT_CANDIDATES_SERIF_ITALIC)
             # Linha decorativa curta acima da assinatura
-            line_w = int(size * 0.09)
-            line_y = cursor_y - int(size * 0.075)
-            draw.line([(size // 2 - line_w, line_y), (size // 2 + line_w, line_y)],
-                      fill=author_rgb, width=max(3, int(size * 0.004)))
-            draw.text((size // 2, cursor_y), author, font=font_author, fill=author_rgb,
-                      anchor="ms", stroke_width=max(1, int(size * 0.002)),
+            line_w = int(ref * 0.09)
+            line_y = cursor_y - int(ref * 0.075)
+            draw.line([(out_w // 2 - line_w, line_y), (out_w // 2 + line_w, line_y)],
+                      fill=author_rgb, width=max(2, int(ref * 0.003)))
+            draw.text((out_w // 2, cursor_y), author, font=font_author, fill=author_rgb,
+                      anchor="ms", stroke_width=max(1, int(ref * 0.001)),
                       stroke_fill=author_outline_rgb)
-            cursor_y -= int(size * 0.105)
+            cursor_y -= int(ref * 0.105)
 
         if title:
             font_title = _fit_title_font(draw, title, max_width)
@@ -232,8 +292,8 @@ def compose_podcast_cover(
             line_h = int(font_title.size * 1.18)
             y = cursor_y - line_h * len(lines)
             for line in lines:
-                draw.text((size // 2, y), line, font=font_title, fill=title_rgb,
-                          anchor="ma", stroke_width=max(2, int(size * 0.004)),
+                draw.text((out_w // 2, y), line, font=font_title, fill=title_rgb,
+                          anchor="ma", stroke_width=max(1, int(ref * 0.002)),
                           stroke_fill=title_outline_rgb)
                 y += line_h
 

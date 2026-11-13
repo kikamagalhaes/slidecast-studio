@@ -42,6 +42,8 @@ from app.core.podcast_cover import (
     PRESET_COVERS,
     compose_podcast_cover,
     ensure_preset_covers,
+    get_preset_palette,
+    render_preset_cover,
 )
 from app.ui.teleprompter_widget import TeleprompterWidget
 from app.ui.dialogs.generate_cover_dialog import GenerateCoverDialog
@@ -108,6 +110,12 @@ class RecordPodcastView(QWidget):
         self.cover_image_path: Optional[str] = None
         self.composed_cover_path: Optional[str] = None
         # Cores do título e da assinatura gravados sobre a capa final
+        self.cover_format = "quadrada"
+        self.current_preset_id: Optional[str] = None
+        self.preset_bg_color = "#10151f"
+        self.preset_mic_color = "#e8eef4"
+        self.preset_accent_color = "#f0b35c"
+        self.prerecorded_audio_path: Optional[str] = None
         self.title_color = "#ffffff"
         self.title_outline_color = "#000000"
         self.author_color = "#f2d492"
@@ -309,10 +317,50 @@ class RecordPodcastView(QWidget):
                 btn_preset.setIcon(QIcon(pix_preset))
                 btn_preset.setIconSize(pix_preset.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation).size())
             btn_preset.setStyleSheet("padding: 6px; font-size: 11px;")
-            btn_preset.clicked.connect(lambda _, p=str(preset_path): self._set_cover(p))
+            btn_preset.clicked.connect(
+                lambda _, pid=preset["id"], p=str(preset_path): self._pick_preset(pid, p)
+            )
             row_presets.addWidget(btn_preset)
         row_presets.addStretch()
         cc_layout.addLayout(row_presets)
+
+        # Formato da capa final: quadrada ou retangular widescreen
+        row_formato = QHBoxLayout()
+        lbl_formato = QLabel("Formato da capa final:")
+        lbl_formato.setStyleSheet("color: #43564f; font-size: 12px; font-weight: 600;")
+        self.combo_cover_format = QComboBox()
+        self.combo_cover_format.addItem("Quadrada 1:1 (1080×1080) — Spotify/Instagram", "quadrada")
+        self.combo_cover_format.addItem("Retangular Widescreen 16:9 (1920×1080) — YouTube", "widescreen")
+        self.combo_cover_format.currentIndexChanged.connect(self._on_cover_format_changed)
+        row_formato.addWidget(lbl_formato)
+        row_formato.addWidget(self.combo_cover_format)
+        row_formato.addStretch()
+        cc_layout.addLayout(row_formato)
+
+        # Cores do desenho da capa pronta (fundo, microfone, ondas/detalhes)
+        lbl_desenho = QLabel("Cores do desenho da capa pronta (valem ao escolher uma capa pronta acima):")
+        lbl_desenho.setStyleSheet("color: #43564f; font-size: 12px; font-weight: 600;")
+        cc_layout.addWidget(lbl_desenho)
+        row_desenho = QHBoxLayout()
+        row_desenho.setSpacing(10)
+        for label_text, attr in [
+            ("Fundo", "preset_bg_color"),
+            ("Microfone e “PODCAST”", "preset_mic_color"),
+            ("Ondas e moldura", "preset_accent_color"),
+        ]:
+            cell = QVBoxLayout()
+            lbl_d = QLabel(label_text)
+            lbl_d.setStyleSheet("color: #1b2a28; font-size: 12px;")
+            btn_d = QPushButton(getattr(self, attr))
+            btn_d.setCursor(Qt.PointingHandCursor)
+            self._update_color_button(btn_d, getattr(self, attr))
+            btn_d.clicked.connect(lambda _, a=attr: self._pick_color(a))
+            self._color_buttons[attr] = btn_d
+            cell.addWidget(lbl_d)
+            cell.addWidget(btn_d)
+            row_desenho.addLayout(cell)
+        row_desenho.addStretch()
+        cc_layout.addLayout(row_desenho)
 
         # Prévia da capa final + cores do título e da assinatura
         row_final = QHBoxLayout()
@@ -520,6 +568,26 @@ class RecordPodcastView(QWidget):
         btn_enter_studio.setStyleSheet("font-size: 15px; font-weight: 700;")
         btn_enter_studio.clicked.connect(self._enter_live_studio)
         p3_lay.addWidget(btn_enter_studio)
+
+        # Alternativa: áudio já gravado, sem passar pelo estúdio ao vivo
+        row_pre = QHBoxLayout()
+        btn_pick_pre = QPushButton("📁 Enviar Áudio Já Gravado (MP3/WAV/M4A)...")
+        btn_pick_pre.setCursor(Qt.PointingHandCursor)
+        btn_pick_pre.clicked.connect(self._pick_prerecorded_audio)
+        self.lbl_pre_status = QLabel("Nenhum áudio enviado (opcional)")
+        self.lbl_pre_status.setStyleSheet("color: #5c6f68; font-size: 12px;")
+        row_pre.addWidget(btn_pick_pre)
+        row_pre.addWidget(self.lbl_pre_status)
+        row_pre.addStretch()
+        p3_lay.addLayout(row_pre)
+
+        self.btn_render_pre = QPushButton("🎬 Gerar Vídeo com o Áudio Enviado (sem gravar ao vivo)")
+        self.btn_render_pre.setCursor(Qt.PointingHandCursor)
+        self.btn_render_pre.setFixedHeight(42)
+        self.btn_render_pre.setStyleSheet("font-size: 14px; font-weight: 700;")
+        self.btn_render_pre.setEnabled(False)
+        self.btn_render_pre.clicked.connect(self._render_prerecorded)
+        p3_lay.addWidget(self.btn_render_pre)
 
         s3_nav = QHBoxLayout()
         btn_prev_s3 = QPushButton("◀ Passo Anterior")
@@ -743,6 +811,7 @@ class RecordPodcastView(QWidget):
             "Imagens (*.png *.jpg *.jpeg *.webp)",
         )
         if file_path:
+            self.current_preset_id = None
             self._set_cover(file_path)
 
     def _open_ai_cover_generator(self):
@@ -750,6 +819,7 @@ class RecordPodcastView(QWidget):
         dlg = GenerateCoverDialog(self, default_topic=topic, default_aspect="1:1")
         if dlg.exec():
             if dlg.generated_cover_path:
+                self.current_preset_id = None
                 self._set_cover(dlg.generated_cover_path)
 
     def _set_cover(self, file_path: str):
@@ -782,7 +852,44 @@ class RecordPodcastView(QWidget):
         if chosen.isValid():
             setattr(self, attr, chosen.name())
             self._update_color_button(self._color_buttons[attr], chosen.name())
+            if attr.startswith("preset_") and self.current_preset_id:
+                self._recolor_current_preset()
             self._schedule_cover_preview()
+
+    def _on_cover_format_changed(self):
+        self.cover_format = self.combo_cover_format.currentData() or "quadrada"
+        self._schedule_cover_preview()
+
+    def _pick_preset(self, preset_id: str, preset_path: str):
+        self.current_preset_id = preset_id
+        palette = get_preset_palette(preset_id)
+        self.preset_bg_color = palette["bg"]
+        self.preset_mic_color = palette["mic"]
+        self.preset_accent_color = palette["accent"]
+        for attr, key in [("preset_bg_color", "bg"), ("preset_mic_color", "mic"),
+                          ("preset_accent_color", "accent")]:
+            if attr in self._color_buttons:
+                self._update_color_button(self._color_buttons[attr], palette[key])
+        self._set_cover(preset_path)
+
+    def _recolor_current_preset(self):
+        if not self.current_preset_id:
+            return
+        covers_dir = Path.home() / "SlideCast_Materials" / "covers"
+        covers_dir.mkdir(parents=True, exist_ok=True)
+        out_path = covers_dir / f"capa_pronta_{self.current_preset_id}_cores_suas.png"
+        try:
+            self.cover_image_path = render_preset_cover(
+                self.current_preset_id, out_path,
+                bg_color=self.preset_bg_color,
+                mic_color=self.preset_mic_color,
+                accent_color=self.preset_accent_color,
+            )
+        except Exception as e:
+            self.lbl_cover_final_status.setText(f"Não foi possível recolorir a capa pronta: {e}")
+            return
+        self.lbl_cover_status.setText("✓ Capa pronta com as suas cores")
+        self.lbl_cover_status.setStyleSheet("color: #10b981; font-weight: 600;")
 
     def _schedule_cover_preview(self):
         if getattr(self, "_cover_preview_timer", None) is not None:
@@ -806,6 +913,7 @@ class RecordPodcastView(QWidget):
                 title_outline_color=self.title_outline_color,
                 author_color=self.author_color,
                 author_outline_color=self.author_outline_color,
+                cover_format=self.cover_format,
             )
         except Exception as e:
             self.lbl_cover_final_status.setText(f"Não foi possível montar a capa final: {e}")
@@ -867,6 +975,39 @@ class RecordPodcastView(QWidget):
             self.bgm_path = file_path
             self.lbl_bgm_status.setText(f"✓ {Path(file_path).name}")
             self.lbl_bgm_status.setStyleSheet("color: #10b981; font-weight: 600;")
+
+    def _pick_prerecorded_audio(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Selecionar Áudio Já Gravado do Podcast",
+            "",
+            "Arquivos de Áudio (*.mp3 *.wav *.m4a *.aac *.ogg *.flac)",
+        )
+        if file_path:
+            self.prerecorded_audio_path = file_path
+            self.lbl_pre_status.setText(f"✓ {Path(file_path).name}")
+            self.lbl_pre_status.setStyleSheet("color: #10b981; font-weight: 600;")
+            self.btn_render_pre.setEnabled(True)
+
+    def _render_prerecorded(self):
+        """Gera o vídeo direto do áudio enviado, sem gravar no estúdio."""
+        if not self.cover_image_path or not Path(self.cover_image_path).exists():
+            QMessageBox.warning(
+                self, "Capa Necessária",
+                "Escolha uma capa (pronta, enviada ou gerada por IA) antes de gerar o vídeo.",
+            )
+            return
+        if not self.prerecorded_audio_path or not Path(self.prerecorded_audio_path).exists():
+            QMessageBox.warning(self, "Áudio Necessário", "Envie um áudio já gravado primeiro.")
+            return
+        self._refresh_cover_preview(final=True)
+        self.temp_audio_file = self.prerecorded_audio_path
+        self._pending_render = False
+        self.stack.setCurrentIndex(2)
+        self.lbl_result_icon.setText("⏳")
+        self.result_btn_container.hide()
+        self.btn_cancel_render.hide()
+        self._begin_render()
 
     def _enter_live_studio(self):
         if not self.cover_image_path or not Path(self.cover_image_path).exists():

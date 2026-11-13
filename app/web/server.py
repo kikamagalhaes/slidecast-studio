@@ -545,11 +545,12 @@ async def studio_convert_recording(project_id: str, recording: UploadFile = File
 # --- Podcast: capas prontas (quadradas) e capa final com título/assinatura --
 @app.get("/api/podcast/covers")
 async def podcast_covers(user: dict = Depends(auth_module.current_user)):
-    from app.core.podcast_cover import PRESET_COVERS, ensure_preset_covers
+    from app.core.podcast_cover import PRESET_COVERS, ensure_preset_covers, get_preset_palette
 
     ensure_preset_covers()
     return {"covers": [
-        {"id": p["id"], "name": p["name"], "url": f"/api/podcast/covers/{p['id']}"}
+        {"id": p["id"], "name": p["name"], "url": f"/api/podcast/covers/{p['id']}",
+         "palette": get_preset_palette(p["id"])}
         for p in PRESET_COVERS
     ]}
 
@@ -575,12 +576,16 @@ async def podcast_cover_compose(
     title_outline_color: str = Form(default="#000000"),
     author_color: str = Form(default="#f2d492"),
     author_outline_color: str = Form(default="#000000"),
+    cover_format: str = Form(default="quadrada"),
+    preset_bg_color: str = Form(default=""),
+    preset_mic_color: str = Form(default=""),
+    preset_accent_color: str = Form(default=""),
     user: dict = Depends(auth_module.current_user),
 ):
     """Grava título e assinatura sobre a capa (pronta ou enviada) e devolve o PNG final."""
     import tempfile
 
-    from app.core.podcast_cover import compose_podcast_cover, preset_cover_path
+    from app.core.podcast_cover import compose_podcast_cover, preset_cover_path, render_preset_cover
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="podcast_cover_"))
     try:
@@ -595,9 +600,17 @@ async def podcast_cover_compose(
                 await image.close()
         elif preset_id:
             try:
-                base_path = preset_cover_path(preset_id)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Capa pronta não encontrada.")
+                if preset_bg_color or preset_mic_color or preset_accent_color:
+                    base_path = Path(render_preset_cover(
+                        preset_id, tmp_dir / "preset_custom.png",
+                        bg_color=preset_bg_color or None,
+                        mic_color=preset_mic_color or None,
+                        accent_color=preset_accent_color or None,
+                    ))
+                else:
+                    base_path = preset_cover_path(preset_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
         else:
             raise HTTPException(
                 status_code=400,
@@ -609,6 +622,7 @@ async def podcast_cover_compose(
                 base_path, out_path, title=title, author=author,
                 title_color=title_color, title_outline_color=title_outline_color,
                 author_color=author_color, author_outline_color=author_outline_color,
+                cover_format=cover_format,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
