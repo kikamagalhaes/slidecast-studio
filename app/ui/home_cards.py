@@ -4,6 +4,7 @@ Extracted from ``MainWindow`` so the menu structure is data (``MENU_CARDS``)
 plus two small builders, both usable without a window instance.
 """
 
+from app.ui.styles import apply_style
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Callable, Tuple
@@ -42,69 +43,22 @@ class MenuCardSpec:
 
 
 MENU_CARDS: Tuple[MenuCardSpec, ...] = (
-    MenuCardSpec(
-        icon="🎬",
-        title="1. Criar Vídeo",
-        title_color="#38bdf8",
-        subtitle="Slides (PDF) + Narração em Áudio",
-        description=(
-            "Transforme sua apresentação de slides em PDF e áudio em um vídeo MP4 "
-            "com sincronização inteligente de transições utilizando IA."
-        ),
-        button_text="Abrir Criador de Vídeos →",
-        target=MainView.CREATE_VIDEO,
-        primary=True,
-    ),
-    MenuCardSpec(
-        icon="🎓",
-        title="2. Gravar Aula",
-        title_color="#a78bfa",
-        subtitle="Estúdio Educacional & Tutoriais de Tela",
-        description=(
-            "Grave videoaulas com apresentação de slides ou tutoriais de aplicativos capturando a tela "
-            "do computador, com teleprompter no topo, câmera opcional, fundo musical e legendas IA."
-        ),
-        button_text="Abrir Gravador de Aula →",
-        target=MainView.RECORD_CLASS,
-    ),
-    MenuCardSpec(
-        icon="👥",
-        title="3. Gravar Reunião do Meet",
-        title_color="#34d399",
-        subtitle="Captura do Google Meet & Chamadas",
-        description=(
-            "Grave reuniões completas do Google Meet diretamente do seu desktop, "
-            "capturando com perfeição o som dos participantes e o microfone."
-        ),
-        button_text="Abrir Gravador do Meet →",
-        target=MainView.RECORD_MEET,
-    ),
-    MenuCardSpec(
-        icon="🎙️",
-        title="4. Gravar Podcast",
-        title_color="#f59e0b",
-        subtitle="Áudio ao Vivo + Ondas Sonoras Dinâmicas",
-        description=(
-            "Grave episódios de podcast com capa fixa e ondas sonoras animadas em tempo real, "
-            "teleprompter integrado no topo, microfone, fundo musical e legendas IA."
-        ),
-        button_text="Abrir Gravador de Podcast →",
-        target=MainView.RECORD_PODCAST,
-    ),
-    MenuCardSpec(
-        icon="🪄",
-        title="5. Gerar Materiais da Aula",
-        title_color="#818cf8",
-        subtitle="Slides em PDF (até 100) & Prompts por Voz",
-        description=(
-            "Gere apresentações visuais de altíssimo padrão por IA (de 1 a 100 slides) com prompts "
-            "digitados ou falados pelo microfone, exportando em PDF e E-books didáticos."
-        ),
-        button_text="Abrir Gerador de Materiais →",
-        target=MainView.GENERATE_MATERIALS,
-    ),
+    MenuCardSpec("01", "Criar vídeo", "", "PDF ou MP4 + até quatro áudios",
+        "Combine páginas ou um vídeo com narração, música e efeitos. Ajuste os tempos e exporte seu MP4.",
+        "Criar meu vídeo →", MainView.CREATE_VIDEO, True),
+    MenuCardSpec("02", "Gravar aula", "", "Seu conteúdo em cena",
+        "Apresente até três PDFs, escreva no quadro e use quiz, Bíblia e teleprompter durante a gravação.",
+        "Entrar no estúdio →", MainView.RECORD_CLASS),
+    MenuCardSpec("03", "Gravar tela / reunião", "", "Demonstre enquanto explica",
+        "Capture a tela para tutoriais e reuniões, com as fontes de áudio disponíveis no seu computador.",
+        "Preparar gravação →", MainView.RECORD_MEET),
+    MenuCardSpec("04", "Podcast", "", "Uma ideia que merece ser ouvida",
+        "Grave ou importe seu áudio. Personalize a capa e transforme o episódio em vídeo com ondas sonoras.",
+        "Criar episódio →", MainView.RECORD_PODCAST),
+    MenuCardSpec("05", "Materiais da aula", "", "Recursos de IA opcionais",
+        "Prepare slides, capas e materiais de apoio. As ferramentas de geração usam serviços online configurados por você.",
+        "Preparar materiais →", MainView.GENERATE_MATERIALS),
 )
-
 
 def build_menu_card(spec: MenuCardSpec, on_open: Callable[[], None]) -> QFrame:
     """Builds one clickable home menu card from a spec."""
@@ -115,14 +69,16 @@ def build_menu_card(spec: MenuCardSpec, on_open: Callable[[], None]) -> QFrame:
     card_layout.setSpacing(12)
 
     icon = QLabel(spec.icon)
-    icon.setStyleSheet("font-size: 38px; margin-bottom: 2px;")
+    apply_style(icon, "font-size: 30px; font-weight: 700; color: @primary@;")
     title = QLabel(spec.title)
-    title.setStyleSheet(f"font-size: 17px; font-weight: 700; color: {spec.title_color};")
+    title.setWordWrap(True)
+    apply_style(title, "font-size: 20px; font-weight: 700; color: @text@;")
     subtitle = QLabel(spec.subtitle)
-    subtitle.setStyleSheet("font-size: 11px; font-weight: 600; color: #94a3b8;")
+    subtitle.setWordWrap(True)
+    apply_style(subtitle, "font-size: 12px; font-weight: 600; color: @primary@;")
     description = QLabel(spec.description)
     description.setWordWrap(True)
-    description.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
+    apply_style(description, "color: @secondary@; font-size: 13px;")
 
     button = QPushButton(spec.button_text)
     if spec.primary:
