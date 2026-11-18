@@ -7,8 +7,56 @@ from PySide6.QtCore import QThread, Signal
 
 from app.core.pdf_processor import render_all_slides_to_dir
 from app.core.video_generator import generate_video
+from app.core.multitrack import MultimediaProject
+from app.core.multitrack_video_builder import generate_multimedia_video
 
 logger = logging.getLogger(__name__)
+
+
+class MultimediaRenderWorker(QThread):
+    """QThread worker to render a MultimediaProject (PDF or MP4 + up to 4 audio tracks)."""
+    progress_changed = Signal(float, str)  # (fraction 0.0 - 1.0, status_text)
+    render_finished = Signal(str)  # output_video_path
+    render_error = Signal(str)
+    render_cancelled = Signal()
+
+    def __init__(
+        self,
+        project: MultimediaProject,
+        output_path: str = "",
+        dpi: int = 150,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.project = project
+        self.output_path = output_path or project.export_settings.get("output_path", "")
+        self.dpi = dpi
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
+
+    def run(self):
+        try:
+            out_file = generate_multimedia_video(
+                project=self.project,
+                output_path=self.output_path,
+                progress_callback=lambda frac, msg: self.progress_changed.emit(frac, msg),
+                cancel_check=lambda: self._is_cancelled,
+                dpi=self.dpi,
+            )
+            if self._is_cancelled:
+                self.render_cancelled.emit()
+                return
+
+            self.render_finished.emit(out_file)
+
+        except InterruptedError:
+            self.render_cancelled.emit()
+        except Exception as e:
+            logger.exception("Falha na renderização multimídia")
+            self.render_error.emit(str(e))
+
 
 
 class VideoRenderWorker(QThread):

@@ -38,8 +38,10 @@ Thumbs.db
 tmp_slides/
 
 # Local web storage (uploaded projects and rendered outputs)
-storage/projects/
-storage/*.mp4
+storage/
+*.db
+*.db-shm
+*.db-wal
 
 # Secrets (never commit real keys)
 .env
