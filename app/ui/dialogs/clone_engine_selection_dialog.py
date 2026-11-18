@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import os
 import sys
 import webbrowser
@@ -50,19 +51,19 @@ class CloneEngineSelectionDialog(QDialog):
 
         # Header
         lbl_title = QLabel("🎭 Escolha a Tecnologia de Sincronia do seu Clone")
-        lbl_title.setStyleSheet("font-size: 18px; font-weight: 800; color: #f8fafc;")
+        apply_style(lbl_title, "font-size: 18px; font-weight: 800; color: @text@;")
         lbl_sub = QLabel(
             "Selecione como a inteligência artificial deve animar os lábios e os movimentos da professora nesta videoaula:"
         )
         lbl_sub.setWordWrap(True)
-        lbl_sub.setStyleSheet("color: #94a3b8; font-size: 13px; margin-bottom: 2px;")
+        apply_style(lbl_sub, "color: @muted@; font-size: 13px; margin-bottom: 2px;")
         root.addWidget(lbl_title)
         root.addWidget(lbl_sub)
 
         # Scroll area for cards so content is never cut off on smaller screens
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        apply_style(scroll, "QScrollArea { border: none; background: transparent; }")
 
         scroll_content = QWidget()
         sc_layout = QVBoxLayout(scroll_content)
@@ -75,9 +76,7 @@ class CloneEngineSelectionDialog(QDialog):
         # OPTION 1: CLOUD NEURAL (REPLICATE)
         # ----------------------------------------------------
         self.card_cloud = QFrame()
-        self.card_cloud.setStyleSheet(
-            "QFrame { background-color: #1e1b4b; border: 2px solid #818cf8; border-radius: 10px; padding: 4px; }"
-        )
+        apply_style(self.card_cloud, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; padding: 4px; }")
         cc_layout = QVBoxLayout(self.card_cloud)
         cc_layout.setContentsMargins(16, 14, 16, 14)
         cc_layout.setSpacing(10)
@@ -85,13 +84,11 @@ class CloneEngineSelectionDialog(QDialog):
         top_cloud = QHBoxLayout()
         self.radio_cloud = QRadioButton("🌐 Opção 1: Sincronia Neural em Nuvem (IA Replicate - Lipsync-2)")
         self.radio_cloud.setChecked(True)
-        self.radio_cloud.setStyleSheet("font-size: 13px; font-weight: 700; color: #ffffff;")
+        apply_style(self.radio_cloud, "font-size: 13px; font-weight: 700; color: @text@;")
         self.button_group.addButton(self.radio_cloud, 1)
 
         badge_cloud = QLabel("⭐ ALTA FIDELIDADE")
-        badge_cloud.setStyleSheet(
-            "background: #4338ca; color: #a5b4fc; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;"
-        )
+        apply_style(badge_cloud, "background: @primary@; color: @primary@; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;")
         top_cloud.addWidget(self.radio_cloud)
         top_cloud.addStretch()
         top_cloud.addWidget(badge_cloud)
@@ -103,15 +100,15 @@ class CloneEngineSelectionDialog(QDialog):
             "• Requer Token de API do Replicate (gratuito para testes)."
         )
         lbl_cloud_desc.setWordWrap(True)
-        lbl_cloud_desc.setStyleSheet("color: #cbd5e1; font-size: 12px; margin-left: 22px; line-height: 1.4;")
+        apply_style(lbl_cloud_desc, "color: @text@; font-size: 12px; margin-left: 22px; line-height: 1.4;")
         cc_layout.addWidget(lbl_cloud_desc)
 
         # Token input box (PROMINENT & CLEAR)
         self.token_box = QFrame()
-        self.token_box.setStyleSheet("""
+        apply_style(self.token_box, """
             QFrame {
-                background: #0f172a;
-                border: 2px solid #6366f1;
+                background: @surface_alt@;
+                border: 2px solid @focus@;
                 border-radius: 8px;
             }
         """)
@@ -120,7 +117,7 @@ class CloneEngineSelectionDialog(QDialog):
         tb_layout.setSpacing(8)
 
         lbl_t_prompt = QLabel("🔑 ONDE COLOCAR SEU TOKEN REPLICATE (Começa com r8_):")
-        lbl_t_prompt.setStyleSheet("font-size: 12px; font-weight: 800; color: #38bdf8; border: none;")
+        apply_style(lbl_t_prompt, "font-size: 12px; font-weight: 800; color: @primary@; border: none;")
         tb_layout.addWidget(lbl_t_prompt)
 
         t_row = QHBoxLayout()
@@ -130,32 +127,24 @@ class CloneEngineSelectionDialog(QDialog):
         self.edit_token.setPlaceholderText("Cole aqui seu token que começa com r8_...")
         curr_token = get_replicate_api_key() or ""
         self.edit_token.setText(curr_token)
-        self.edit_token.setStyleSheet(
-            "background: #1e293b; color: #f8fafc; font-family: monospace; font-size: 12px; "
-            "padding: 8px 10px; border-radius: 6px; border: 1px solid #475569;"
-        )
+        apply_style(self.edit_token, "background: @surface_alt@; color: @text@; font-family: monospace; font-size: 12px; "
+            "padding: 8px 10px; border-radius: 6px; border: 1px solid @border_strong@;")
         self.edit_token.textChanged.connect(self._on_token_changed)
 
         btn_paste = QPushButton("📋 Colar Token")
         btn_paste.setCursor(Qt.PointingHandCursor)
-        btn_paste.setStyleSheet(
-            "background: #4f46e5; color: #ffffff; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;"
-        )
+        apply_style(btn_paste, "background: @primary@; color: @on_primary@; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;")
         btn_paste.clicked.connect(self._paste_token)
 
         self.btn_toggle = QPushButton("👁️")
         self.btn_toggle.setCursor(Qt.PointingHandCursor)
         self.btn_toggle.setToolTip("Mostrar ou ocultar token")
-        self.btn_toggle.setStyleSheet(
-            "background: #334155; color: #f8fafc; font-size: 13px; padding: 7px 10px; border-radius: 6px;"
-        )
+        apply_style(self.btn_toggle, "background: @surface_alt@; color: @text@; font-size: 13px; padding: 7px 10px; border-radius: 6px;")
         self.btn_toggle.clicked.connect(self._toggle_token_visibility)
 
         btn_how_token = QPushButton("🌐 Pegar Token no Replicate")
         btn_how_token.setCursor(Qt.PointingHandCursor)
-        btn_how_token.setStyleSheet(
-            "background: #0284c7; color: #ffffff; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;"
-        )
+        apply_style(btn_how_token, "background: @primary@; color: @on_primary@; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;")
         btn_how_token.clicked.connect(self._open_replicate_guide)
 
         t_row.addWidget(self.edit_token, stretch=3)
@@ -169,7 +158,7 @@ class CloneEngineSelectionDialog(QDialog):
             "acesse <i>API Tokens</i>, copie o código que começa com <code>r8_</code> e clique em <b>'Colar Token'</b> acima."
         )
         lbl_token_hint.setWordWrap(True)
-        lbl_token_hint.setStyleSheet("color: #94a3b8; font-size: 11px; border: none;")
+        apply_style(lbl_token_hint, "color: @muted@; font-size: 11px; border: none;")
         tb_layout.addWidget(lbl_token_hint)
 
         cc_layout.addWidget(self.token_box)
@@ -179,22 +168,18 @@ class CloneEngineSelectionDialog(QDialog):
         # OPTION 2: LOCAL SMART CADENCE (100% OFFLINE & FREE)
         # ----------------------------------------------------
         self.card_local = QFrame()
-        self.card_local.setStyleSheet(
-            "QFrame { background-color: #0f172a; border: 1.5px solid #2d3748; border-radius: 10px; padding: 4px; }"
-        )
+        apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; padding: 4px; }")
         cl_layout = QVBoxLayout(self.card_local)
         cl_layout.setContentsMargins(16, 14, 16, 14)
         cl_layout.setSpacing(10)
 
         top_l = QHBoxLayout()
         self.radio_local = QRadioButton("💻 Opção 2: Motor Local Inteligente (Gratuito / Sem Replicate)")
-        self.radio_local.setStyleSheet("font-size: 13px; font-weight: 700; color: #ffffff;")
+        apply_style(self.radio_local, "font-size: 13px; font-weight: 700; color: @text@;")
         self.button_group.addButton(self.radio_local, 2)
 
         badge_l = QLabel("🌿 100% GRATUITO & OFFLINE")
-        badge_l.setStyleSheet(
-            "background: #065f46; color: #6ee7b7; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;"
-        )
+        apply_style(badge_l, "background: @surface_alt@; color: @success@; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;")
         top_l.addWidget(self.radio_local)
         top_l.addStretch()
         top_l.addWidget(badge_l)
@@ -206,7 +191,7 @@ class CloneEngineSelectionDialog(QDialog):
             "• 100% offline e imediato (menos de 5 segundos): não requer internet, computador potente nem chaves de API."
         )
         lbl_l_desc.setWordWrap(True)
-        lbl_l_desc.setStyleSheet("color: #cbd5e1; font-size: 12px; margin-left: 22px; line-height: 1.5;")
+        apply_style(lbl_l_desc, "color: @text@; font-size: 12px; margin-left: 22px; line-height: 1.5;")
         cl_layout.addWidget(lbl_l_desc)
 
         sc_layout.addWidget(self.card_local)
@@ -225,15 +210,13 @@ class CloneEngineSelectionDialog(QDialog):
 
         btn_cancel = QPushButton("Cancelar")
         btn_cancel.setCursor(Qt.PointingHandCursor)
-        btn_cancel.setStyleSheet("background: #1e293b; color: #cbd5e1; padding: 10px 18px; border-radius: 8px;")
+        apply_style(btn_cancel, "background: @surface_alt@; color: @text@; padding: 10px 18px; border-radius: 8px;")
         btn_cancel.clicked.connect(self.reject)
 
         self.btn_proceed = QPushButton("▶ Iniciar Renderização da Videoaula")
         self.btn_proceed.setCursor(Qt.PointingHandCursor)
-        self.btn_proceed.setStyleSheet(
-            "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #ec4899); "
-            "color: #ffffff; font-weight: 800; font-size: 13px; padding: 12px 24px; border-radius: 8px;"
-        )
+        apply_style(self.btn_proceed, "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @primary@, stop:1 @primary@); "
+            "color: @on_primary@; font-weight: 800; font-size: 13px; padding: 12px 24px; border-radius: 8px;")
         self.btn_proceed.clicked.connect(self._on_proceed)
 
         btn_bar.addWidget(btn_cancel)
@@ -263,20 +246,12 @@ class CloneEngineSelectionDialog(QDialog):
 
     def _update_cards_style(self):
         if self.radio_cloud.isChecked():
-            self.card_cloud.setStyleSheet(
-                "QFrame { background-color: #1e1b4b; border: 2px solid #818cf8; border-radius: 10px; }"
-            )
-            self.card_local.setStyleSheet(
-                "QFrame { background-color: #0f172a; border: 1.5px solid #2d3748; border-radius: 10px; }"
-            )
+            apply_style(self.card_cloud, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
+            apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
             self.token_box.show()
         else:
-            self.card_cloud.setStyleSheet(
-                "QFrame { background-color: #0f172a; border: 1.5px solid #2d3748; border-radius: 10px; }"
-            )
-            self.card_local.setStyleSheet(
-                "QFrame { background-color: #064e3b; border: 2px solid #34d399; border-radius: 10px; }"
-            )
+            apply_style(self.card_cloud, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
+            apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
             self.token_box.hide()
 
     def _open_replicate_guide(self):

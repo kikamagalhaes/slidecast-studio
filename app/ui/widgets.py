@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 from pathlib import Path
 from typing import List, Optional
 from PySide6.QtCore import Qt, Signal, QByteArray
@@ -56,19 +57,19 @@ class DropAreaWidget(QFrame):
 
         self.lbl_icon = QLabel(self.icon_text)
         self.lbl_icon.setAlignment(Qt.AlignCenter)
-        self.lbl_icon.setStyleSheet("font-size: 36px; margin-bottom: 4px;")
+        apply_style(self.lbl_icon, "font-size: 36px; margin-bottom: 4px;")
 
         self.lbl_title = QLabel(self.title_text)
         self.lbl_title.setAlignment(Qt.AlignCenter)
-        self.lbl_title.setStyleSheet("font-size: 16px; font-weight: 600; color: #f1f5f9;")
+        apply_style(self.lbl_title, "font-size: 16px; font-weight: 600; color: @text@;")
 
         self.lbl_sub = QLabel(self.subtitle_text)
         self.lbl_sub.setAlignment(Qt.AlignCenter)
-        self.lbl_sub.setStyleSheet("font-size: 12px; color: #94a3b8;")
+        apply_style(self.lbl_sub, "font-size: 12px; color: @muted@;")
 
         self.btn_browse = QPushButton("Procurar Arquivo...")
         self.btn_browse.setCursor(Qt.PointingHandCursor)
-        self.btn_browse.setStyleSheet("margin-top: 6px;")
+        apply_style(self.btn_browse, "margin-top: 6px;")
         self.btn_browse.clicked.connect(self._open_file_dialog)
 
         empty_layout.addWidget(self.lbl_icon)
@@ -84,16 +85,16 @@ class DropAreaWidget(QFrame):
 
         self.lbl_loaded_icon = QLabel(self.icon_text)
         self.lbl_loaded_icon.setAlignment(Qt.AlignCenter)
-        self.lbl_loaded_icon.setStyleSheet("font-size: 32px;")
+        apply_style(self.lbl_loaded_icon, "font-size: 32px;")
 
         self.lbl_filename = QLabel("")
         self.lbl_filename.setAlignment(Qt.AlignCenter)
         self.lbl_filename.setWordWrap(True)
-        self.lbl_filename.setStyleSheet("font-size: 14px; font-weight: 600; color: #38bdf8;")
+        apply_style(self.lbl_filename, "font-size: 14px; font-weight: 600; color: @primary@;")
 
         self.lbl_info = QLabel("")
         self.lbl_info.setAlignment(Qt.AlignCenter)
-        self.lbl_info.setStyleSheet("font-size: 12px; color: #a7f3d0;")
+        apply_style(self.lbl_info, "font-size: 12px; color: @success@;")
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
@@ -208,10 +209,10 @@ class SlideThumbWidget(QFrame):
         self._duration = duration
 
         self.setProperty("class", "card")
-        self.setStyleSheet("""
+        apply_style(self, """
             QFrame.card {
-                background-color: #171b26;
-                border: 1px solid #2e3547;
+                background-color: @surface_alt@;
+                border: 1px solid @border_strong@;
                 border-radius: 8px;
                 padding: 6px;
             }
@@ -224,7 +225,7 @@ class SlideThumbWidget(QFrame):
 
         # Header badge: Slide #
         self.lbl_title = QLabel(f"Slide {slide_index + 1}")
-        self.lbl_title.setStyleSheet("font-size: 11px; font-weight: 700; color: #93c5fd;")
+        apply_style(self.lbl_title, "font-size: 11px; font-weight: 700; color: @primary@;")
         self.lbl_title.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.lbl_title)
 
@@ -232,7 +233,7 @@ class SlideThumbWidget(QFrame):
         self.lbl_image = QLabel()
         self.lbl_image.setAlignment(Qt.AlignCenter)
         self.lbl_image.setFixedHeight(95)
-        self.lbl_image.setStyleSheet("background-color: #0b0d13; border-radius: 4px;")
+        apply_style(self.lbl_image, "background-color: @surface@; border-radius: 4px;")
 
         qimg = QImage.fromData(thumbnail_bytes)
         pix = QPixmap.fromImage(qimg)
@@ -244,7 +245,7 @@ class SlideThumbWidget(QFrame):
         dur_row = QHBoxLayout()
         dur_row.setSpacing(4)
         lbl_sec = QLabel("Duração:")
-        lbl_sec.setStyleSheet("font-size: 11px; color: #94a3b8;")
+        apply_style(lbl_sec, "font-size: 11px; color: @muted@;")
 
         self.spin_duration = QDoubleSpinBox()
         self.spin_duration.setRange(0.1, 7200.0)
@@ -252,7 +253,7 @@ class SlideThumbWidget(QFrame):
         self.spin_duration.setDecimals(1)
         self.spin_duration.setSuffix(" s")
         self.spin_duration.setValue(duration)
-        self.spin_duration.setStyleSheet("font-size: 11px; font-weight: 600;")
+        apply_style(self.spin_duration, "font-size: 11px; font-weight: 600;")
         self.spin_duration.valueChanged.connect(self._on_value_changed)
 
         dur_row.addWidget(lbl_sec)

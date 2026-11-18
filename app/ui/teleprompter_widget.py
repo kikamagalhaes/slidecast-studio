@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -44,10 +45,10 @@ class TeleprompterWidget(QFrame):
         self._build_ui()
 
     def _apply_frame_style(self, active: bool = False):
-        border_color = "#6366f1" if active else "#2d3748"
-        self.setStyleSheet(f"""
+        border_color = "@focus@" if active else "@border_strong@"
+        apply_style(self, f"""
             QFrame#teleprompterFrame {{
-                background-color: #161922;
+                background-color: @surface_alt@;
                 border: 1.5px solid {border_color};
                 border-radius: 12px;
             }}
@@ -62,7 +63,7 @@ class TeleprompterWidget(QFrame):
         self.text_edit = TeleprompterTextEdit()
         self.text_edit.setReadOnly(True)
         self.text_edit.viewport().setAutoFillBackground(False)
-        self.text_edit.viewport().setStyleSheet("background-color: transparent;")
+        apply_style(self.text_edit.viewport(), "background-color: transparent;")
         self.text_edit.setCursor(Qt.PointingHandCursor)
         self.text_edit.setToolTip("Clique no texto ou pressione Espaço para Iniciar / Pausar a rolagem")
         self.text_edit.clicked.connect(self.toggle_play)
@@ -80,29 +81,29 @@ class TeleprompterWidget(QFrame):
 
         # 2. Sleek Minimalist Bottom Controls (Dark theme matching modules)
         bottom_bar = QFrame()
-        bottom_bar.setStyleSheet("""
+        apply_style(bottom_bar, """
             QFrame {
-                background-color: #12141c;
-                border-top: 1px solid #232938;
+                background-color: @surface_alt@;
+                border-top: 1px solid @border_strong@;
                 border-radius: 8px;
                 padding: 2px 4px;
             }
             QPushButton {
-                background-color: #1a1e28;
-                color: #cbd5e1;
-                border: 1px solid #2e3547;
+                background-color: @surface_alt@;
+                color: @text@;
+                border: 1px solid @border_strong@;
                 border-radius: 5px;
                 padding: 3px 7px;
                 font-size: 11px;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #272f44;
-                border-color: #6366f1;
-                color: #ffffff;
+                background-color: @surface_alt@;
+                border-color: @focus@;
+                color: @text@;
             }
             QPushButton:pressed {
-                background-color: #1e1b4b;
+                background-color: @surface_alt@;
             }
         """)
         b_layout = QHBoxLayout(bottom_bar)
@@ -112,10 +113,8 @@ class TeleprompterWidget(QFrame):
         # Play / Pause button
         self.btn_play = QPushButton("▶ Iniciar (Espaço)")
         self.btn_play.setCursor(Qt.PointingHandCursor)
-        self.btn_play.setStyleSheet(
-            "background-color: #4f46e5; color: #ffffff; border: 1px solid #6366f1; "
-            "padding: 3px 10px; font-weight: 700;"
-        )
+        apply_style(self.btn_play, "background-color: @primary@; color: @on_primary@; border: 1px solid @focus@; "
+            "padding: 3px 10px; font-weight: 700;")
         self.btn_play.clicked.connect(self.toggle_play)
         b_layout.addWidget(self.btn_play)
 
@@ -129,7 +128,7 @@ class TeleprompterWidget(QFrame):
 
         # Speed Label
         self.lbl_speed = QLabel("1.0x")
-        self.lbl_speed.setStyleSheet("font-size: 11px; font-weight: 700; color: #38bdf8; min-width: 30px;")
+        apply_style(self.lbl_speed, "font-size: 11px; font-weight: 700; color: @primary@; min-width: 30px;")
         self.lbl_speed.setAlignment(Qt.AlignCenter)
         b_layout.addWidget(self.lbl_speed)
 
@@ -181,10 +180,8 @@ class TeleprompterWidget(QFrame):
     def play(self):
         self.is_playing = True
         self.btn_play.setText("⏸ Pausar")
-        self.btn_play.setStyleSheet(
-            "background-color: #d97706; color: #ffffff; border: 1px solid #f59e0b; "
-            "padding: 3px 10px; font-weight: 700;"
-        )
+        apply_style(self.btn_play, "background-color: @warning@; color: @on_primary@; border: 1px solid @focus@; "
+            "padding: 3px 10px; font-weight: 700;")
         self._apply_frame_style(active=True)
         self.timer.start()
         self.toggled_play.emit(True)
@@ -192,10 +189,8 @@ class TeleprompterWidget(QFrame):
     def pause(self):
         self.is_playing = False
         self.btn_play.setText("▶ Retomar")
-        self.btn_play.setStyleSheet(
-            "background-color: #4f46e5; color: #ffffff; border: 1px solid #6366f1; "
-            "padding: 3px 10px; font-weight: 700;"
-        )
+        apply_style(self.btn_play, "background-color: @primary@; color: @on_primary@; border: 1px solid @focus@; "
+            "padding: 3px 10px; font-weight: 700;")
         self._apply_frame_style(active=False)
         self.timer.stop()
         self.toggled_play.emit(False)
@@ -217,16 +212,16 @@ class TeleprompterWidget(QFrame):
         self._update_font_style()
 
     def _update_font_style(self):
-        self.text_edit.setStyleSheet(f"""
+        apply_style(self.text_edit, f"""
             QTextEdit {{
-                background-color: #12141c;
-                border: 1px solid #232938;
+                background-color: @surface_alt@;
+                border: 1px solid @border_strong@;
                 border-radius: 8px;
-                color: #f8fafc;
+                color: @on_primary@;
                 font-size: {self.font_size}px;
                 line-height: 1.6;
                 padding: 8px 12px;
-                selection-background-color: #4f46e5;
+                selection-background-color: @primary@;
             }}
         """)
 

@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QApplication
 
 from app.core.logging_config import setup_logging
 from app.ui.main_window import MainWindow
-from app.ui.styles import LIGHT_THEME_QSS
+from app.ui.styles import theme_manager
 
 
 def self_test() -> int:
@@ -142,8 +142,8 @@ def main():
     app.setOrganizationName("SlideCast")
     app.setApplicationVersion("1.0.0")
 
-    # Apply Dark Theme QSS
-    app.setStyleSheet(LIGHT_THEME_QSS)
+    # Restore the operator theme before building any screens.
+    theme_manager()
 
     window = MainWindow()
     window.show()

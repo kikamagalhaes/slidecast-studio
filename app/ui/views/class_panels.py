@@ -3,6 +3,7 @@
 Extracted verbatim from the view: each builder receives the view instance
 as ``view`` and wires widgets onto it, exactly as the former methods did.
 """
+from app.ui.styles import apply_style
 
 import logging
 import os
@@ -82,7 +83,7 @@ def build_setup_view(view) -> QWidget:
     btn_back.clicked.connect(view.back_to_home.emit)
 
     title = QLabel("🎓 Gravar Aula - Configuração Inicial")
-    title.setStyleSheet("font-size: 16px; font-weight: 700; color: #a78bfa;")
+    apply_style(title, "font-size: 16px; font-weight: 700; color: @track2@;")
     nav.addWidget(btn_back)
     nav.addWidget(title)
     nav.addStretch()
@@ -115,10 +116,10 @@ def build_setup_view(view) -> QWidget:
     scroll_p1 = QScrollArea()
     scroll_p1.setWidgetResizable(True)
     scroll_p1.setFrameShape(QFrame.NoFrame)
-    scroll_p1.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+    apply_style(scroll_p1, "QScrollArea { border: none; background: transparent; }")
 
     page1 = QWidget()
-    page1.setStyleSheet("background: transparent;")
+    apply_style(page1, "background: transparent;")
     p1_lay = QVBoxLayout(page1)
     p1_lay.setContentsMargins(0, 4, 10, 4)
     p1_lay.setSpacing(14)
@@ -160,7 +161,7 @@ def build_setup_view(view) -> QWidget:
     cover_row.setSpacing(12)
 
     view.lbl_cover_status = QLabel("Nenhuma imagem de capa selecionada (Opcional)")
-    view.lbl_cover_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+    apply_style(view.lbl_cover_status, "color: @muted@; font-size: 12px;")
 
     btn_pick_cover = QPushButton("Escolher Capa (16:9 / 1280x720)...")
     btn_pick_cover.setCursor(Qt.PointingHandCursor)
@@ -168,11 +169,11 @@ def build_setup_view(view) -> QWidget:
 
     btn_gen_cover = QPushButton("✨ Gerar Capa com IA...")
     btn_gen_cover.setCursor(Qt.PointingHandCursor)
-    btn_gen_cover.setStyleSheet("background: #4338ca; color: #ffffff; font-weight: 600; padding: 5px 12px; border-radius: 6px;")
+    apply_style(btn_gen_cover, "background: @primary@; color: @text@; font-weight: 600; padding: 5px 12px; border-radius: 6px;")
     btn_gen_cover.clicked.connect(view._generate_cover_ai)
 
     lbl_yt_hint = QLabel("💡 A capa será usada na miniatura e na vinheta de abertura automática!")
-    lbl_yt_hint.setStyleSheet("color: #38bdf8; font-size: 11px;")
+    apply_style(lbl_yt_hint, "color: @primary@; font-size: 11px;")
 
     cover_row.addWidget(btn_pick_cover)
     cover_row.addWidget(btn_gen_cover)
@@ -192,7 +193,7 @@ def build_setup_view(view) -> QWidget:
     cfp_title = QLabel("2. Formato de Publicação do Vídeo")
     cfp_title.setProperty("class", "section-title")
     cfp_sub = QLabel("Escolha a plataforma de destino para adaptar a proporção e o enquadramento:")
-    cfp_sub.setStyleSheet("color: #94a3b8; font-size: 12px;")
+    apply_style(cfp_sub, "color: @muted@; font-size: 12px;")
     cfp_layout.addWidget(cfp_title)
     cfp_layout.addWidget(cfp_sub)
 
@@ -207,14 +208,14 @@ def build_setup_view(view) -> QWidget:
     cf_yt_lay.setSpacing(6)
 
     view.radio_fmt_yt = QRadioButton("📺 YouTube Widescreen (16:9)")
-    view.radio_fmt_yt.setStyleSheet("font-weight: 700; color: #38bdf8; font-size: 13px;")
+    apply_style(view.radio_fmt_yt, "font-weight: 700; color: @primary@; font-size: 13px;")
     view.radio_fmt_yt.setChecked(True)
 
     lbl_yt_res = QLabel("1920x1080 Full HD Horizontal")
-    lbl_yt_res.setStyleSheet("color: #cbd5e1; font-size: 11px; font-weight: 600; margin-left: 22px;")
+    apply_style(lbl_yt_res, "color: @text@; font-size: 11px; font-weight: 600; margin-left: 22px;")
 
     lbl_yt_desc = QLabel("Padrão para computadores, TVs e canais do YouTube. Slides em tela cheia com avatar PIP no canto inferior direito.")
-    lbl_yt_desc.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_yt_desc, "color: @muted@; font-size: 11px; margin-left: 22px;")
     lbl_yt_desc.setWordWrap(True)
 
     cf_yt_lay.addWidget(view.radio_fmt_yt)
@@ -230,13 +231,13 @@ def build_setup_view(view) -> QWidget:
     cf_sh_lay.setSpacing(6)
 
     view.radio_fmt_shorts = QRadioButton("🔴 YouTube Shorts (9:16)")
-    view.radio_fmt_shorts.setStyleSheet("font-weight: 700; color: #f87171; font-size: 13px;")
+    apply_style(view.radio_fmt_shorts, "font-weight: 700; color: @danger@; font-size: 13px;")
 
     lbl_sh_res = QLabel("1080x1920 Vertical Dinâmico")
-    lbl_sh_res.setStyleSheet("color: #cbd5e1; font-size: 11px; font-weight: 600; margin-left: 22px;")
+    apply_style(lbl_sh_res, "color: @text@; font-size: 11px; font-weight: 600; margin-left: 22px;")
 
     lbl_sh_desc = QLabel("Vídeo vertical para Shorts. Fundo dinâmico desfocado, slide no topo, avatar central e legendas acima da barra de ações.")
-    lbl_sh_desc.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_sh_desc, "color: @muted@; font-size: 11px; margin-left: 22px;")
     lbl_sh_desc.setWordWrap(True)
 
     cf_sh_lay.addWidget(view.radio_fmt_shorts)
@@ -252,13 +253,13 @@ def build_setup_view(view) -> QWidget:
     cf_re_lay.setSpacing(6)
 
     view.radio_fmt_reels = QRadioButton("🟣 Instagram Reels (9:16)")
-    view.radio_fmt_reels.setStyleSheet("font-weight: 700; color: #c084fc; font-size: 13px;")
+    apply_style(view.radio_fmt_reels, "font-weight: 700; color: @track2@; font-size: 13px;")
 
     lbl_re_res = QLabel("1080x1920 com Safe Zone 4:5")
-    lbl_re_res.setStyleSheet("color: #cbd5e1; font-size: 11px; font-weight: 600; margin-left: 22px;")
+    apply_style(lbl_re_res, "color: @text@; font-size: 11px; font-weight: 600; margin-left: 22px;")
 
     lbl_re_desc = QLabel("Vídeo vertical com slide e avatar concentrados no centro (área 1080x1350) para nunca cortar na grade ou no feed do Instagram.")
-    lbl_re_desc.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_re_desc, "color: @muted@; font-size: 11px; margin-left: 22px;")
     lbl_re_desc.setWordWrap(True)
 
     cf_re_lay.addWidget(view.radio_fmt_reels)
@@ -286,17 +287,15 @@ def build_setup_view(view) -> QWidget:
 
     # Vertical Layout Style Panel (Shorts & Reels)
     view.box_vert_layout = QFrame()
-    view.box_vert_layout.setStyleSheet(
-        "background: #0b0f19; border: 1.5px solid #3b82f6; border-radius: 8px; margin-top: 10px;"
-    )
+    apply_style(view.box_vert_layout, "background: @surface@; border: 1.5px solid @focus@; border-radius: 8px; margin-top: 10px;")
     bvl_lay = QVBoxLayout(view.box_vert_layout)
     bvl_lay.setContentsMargins(14, 12, 14, 12)
     bvl_lay.setSpacing(8)
 
     lbl_bvl_title = QLabel("📱 Estilo Visual nos Vídeos Verticais (Shorts & Reels):")
-    lbl_bvl_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #60a5fa;")
+    apply_style(lbl_bvl_title, "font-size: 13px; font-weight: 700; color: @primary@;")
     lbl_bvl_sub = QLabel("Experimente os dois jeitos para descobrir qual estilo você prefere para o seu público:")
-    lbl_bvl_sub.setStyleSheet("font-size: 11px; color: #94a3b8;")
+    apply_style(lbl_bvl_sub, "font-size: 11px; color: @muted@;")
     bvl_lay.addWidget(lbl_bvl_title)
     bvl_lay.addWidget(lbl_bvl_sub)
 
@@ -307,10 +306,10 @@ def build_setup_view(view) -> QWidget:
     box_opt_pres = QVBoxLayout()
     box_opt_pres.setSpacing(3)
     view.radio_vlayout_presenter = QRadioButton("👤 Foco no Apresentador & Legendas (Sem Slides)")
-    view.radio_vlayout_presenter.setStyleSheet("font-weight: 700; color: #ffffff; font-size: 12px;")
+    apply_style(view.radio_vlayout_presenter, "font-weight: 700; color: @text@; font-size: 12px;")
     view.radio_vlayout_presenter.setChecked(True)
     lbl_vlp_desc = QLabel("Destaque total para o clone ou sua imagem na tela vertical com fundo cinematográfico e legendas dinâmicas. Ideal para vídeos curtos e reels virais.")
-    lbl_vlp_desc.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_vlp_desc, "color: @muted@; font-size: 11px; margin-left: 22px;")
     lbl_vlp_desc.setWordWrap(True)
     box_opt_pres.addWidget(view.radio_vlayout_presenter)
     box_opt_pres.addWidget(lbl_vlp_desc)
@@ -319,9 +318,9 @@ def build_setup_view(view) -> QWidget:
     box_opt_split = QVBoxLayout()
     box_opt_split.setSpacing(3)
     view.radio_vlayout_split = QRadioButton("📊 Dividido com Slides (Slide no Topo + Apresentador)")
-    view.radio_vlayout_split.setStyleSheet("font-weight: 700; color: #ffffff; font-size: 12px;")
+    apply_style(view.radio_vlayout_split, "font-weight: 700; color: @text@; font-size: 12px;")
     lbl_vls_desc = QLabel("Exibe o slide na metade superior e o apresentador embaixo. Ideal quando o conteúdo visual e tópicos do slide forem indispensáveis.")
-    lbl_vls_desc.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_vls_desc, "color: @muted@; font-size: 11px; margin-left: 22px;")
     lbl_vls_desc.setWordWrap(True)
     box_opt_split.addWidget(view.radio_vlayout_split)
     box_opt_split.addWidget(lbl_vls_desc)
@@ -352,7 +351,7 @@ def build_setup_view(view) -> QWidget:
     cv_title = QLabel("3. Vinhetas de Abertura & Encerramento")
     cv_title.setProperty("class", "section-title")
     cv_sub = QLabel("Configure como a sua aula deve começar e finalizar:")
-    cv_sub.setStyleSheet("color: #94a3b8; font-size: 12px;")
+    apply_style(cv_sub, "color: @muted@; font-size: 12px;")
     cv_layout.addWidget(cv_title)
     cv_layout.addWidget(cv_sub)
 
@@ -361,25 +360,25 @@ def build_setup_view(view) -> QWidget:
 
     # Left Column: Abertura (Intro)
     box_intro = QFrame()
-    box_intro.setStyleSheet("background: #0f172a; border: 1.5px solid #334155; border-radius: 10px;")
+    apply_style(box_intro, "background: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px;")
     bi_lay = QVBoxLayout(box_intro)
     bi_lay.setContentsMargins(14, 12, 14, 12)
     bi_lay.setSpacing(8)
 
     lbl_bi_title = QLabel("🎬 Vinheta de Abertura (Intro)")
-    lbl_bi_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #38bdf8;")
+    apply_style(lbl_bi_title, "font-size: 13px; font-weight: 700; color: @primary@;")
     bi_lay.addWidget(lbl_bi_title)
 
     view.radio_intro_auto = QRadioButton("✨ Cartela Automática da Aula")
-    view.radio_intro_auto.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.radio_intro_auto, "font-weight: 600; color: @text@;")
     view.radio_intro_auto.setChecked(True)
     lbl_intro_auto_d = QLabel("Gera vinheta moderna de 3.5s com capa, título e professor.")
-    lbl_intro_auto_d.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_intro_auto_d, "color: @muted@; font-size: 11px; margin-left: 22px;")
     bi_lay.addWidget(view.radio_intro_auto)
     bi_lay.addWidget(lbl_intro_auto_d)
 
     view.radio_intro_custom = QRadioButton("📁 Arquivo de Vídeo MP4 / MOV...")
-    view.radio_intro_custom.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.radio_intro_custom, "font-weight: 600; color: @text@;")
     bi_lay.addWidget(view.radio_intro_custom)
 
     row_intro_pick = QHBoxLayout()
@@ -387,18 +386,18 @@ def build_setup_view(view) -> QWidget:
     row_intro_pick.setSpacing(8)
     btn_pick_intro = QPushButton("Escolher Vídeo...")
     btn_pick_intro.setCursor(Qt.PointingHandCursor)
-    btn_pick_intro.setStyleSheet("background: #1e293b; color: #38bdf8; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px;")
+    apply_style(btn_pick_intro, "background: @surface_alt@; color: @primary@; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px;")
     btn_pick_intro.clicked.connect(view._pick_custom_intro)
     view.lbl_intro_file = QLabel("Nenhum arquivo selecionado")
-    view.lbl_intro_file.setStyleSheet("color: #94a3b8; font-size: 11px;")
+    apply_style(view.lbl_intro_file, "color: @muted@; font-size: 11px;")
     row_intro_pick.addWidget(btn_pick_intro)
     row_intro_pick.addWidget(view.lbl_intro_file, stretch=1)
     bi_lay.addLayout(row_intro_pick)
 
     view.radio_intro_none = QRadioButton("🚫 Sem Vinheta de Abertura")
-    view.radio_intro_none.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.radio_intro_none, "font-weight: 600; color: @text@;")
     lbl_intro_none_d = QLabel("Inicia a aula direto no primeiro slide sem introdução.")
-    lbl_intro_none_d.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_intro_none_d, "color: @muted@; font-size: 11px; margin-left: 22px;")
     bi_lay.addWidget(view.radio_intro_none)
     bi_lay.addWidget(lbl_intro_none_d)
     bi_lay.addStretch()
@@ -413,25 +412,25 @@ def build_setup_view(view) -> QWidget:
 
     # Right Column: Encerramento (Outro)
     box_outro = QFrame()
-    box_outro.setStyleSheet("background: #0f172a; border: 1.5px solid #334155; border-radius: 10px;")
+    apply_style(box_outro, "background: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px;")
     bo_lay = QVBoxLayout(box_outro)
     bo_lay.setContentsMargins(14, 12, 14, 12)
     bo_lay.setSpacing(8)
 
     lbl_bo_title = QLabel("🏁 Vinheta de Encerramento (Final)")
-    lbl_bo_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #c084fc;")
+    apply_style(lbl_bo_title, "font-size: 13px; font-weight: 700; color: @track2@;")
     bo_lay.addWidget(lbl_bo_title)
 
     view.radio_outro_auto = QRadioButton("✨ Cartela Final Automática")
-    view.radio_outro_auto.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.radio_outro_auto, "font-weight: 600; color: @text@;")
     view.radio_outro_auto.setChecked(True)
     lbl_outro_auto_d = QLabel("Gera tela final de 3.5s com 'Obrigado por assistir!' e chamada para inscrição.")
-    lbl_outro_auto_d.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_outro_auto_d, "color: @muted@; font-size: 11px; margin-left: 22px;")
     bo_lay.addWidget(view.radio_outro_auto)
     bo_lay.addWidget(lbl_outro_auto_d)
 
     view.radio_outro_custom = QRadioButton("📁 Arquivo de Vídeo MP4 / MOV...")
-    view.radio_outro_custom.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.radio_outro_custom, "font-weight: 600; color: @text@;")
     bo_lay.addWidget(view.radio_outro_custom)
 
     row_outro_pick = QHBoxLayout()
@@ -439,18 +438,18 @@ def build_setup_view(view) -> QWidget:
     row_outro_pick.setSpacing(8)
     btn_pick_outro = QPushButton("Escolher Vídeo...")
     btn_pick_outro.setCursor(Qt.PointingHandCursor)
-    btn_pick_outro.setStyleSheet("background: #1e293b; color: #c084fc; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px;")
+    apply_style(btn_pick_outro, "background: @surface_alt@; color: @track2@; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px;")
     btn_pick_outro.clicked.connect(view._pick_custom_outro)
     view.lbl_outro_file = QLabel("Nenhum arquivo selecionado")
-    view.lbl_outro_file.setStyleSheet("color: #94a3b8; font-size: 11px;")
+    apply_style(view.lbl_outro_file, "color: @muted@; font-size: 11px;")
     row_outro_pick.addWidget(btn_pick_outro)
     row_outro_pick.addWidget(view.lbl_outro_file, stretch=1)
     bo_lay.addLayout(row_outro_pick)
 
     view.radio_outro_none = QRadioButton("🚫 Sem Vinheta de Encerramento")
-    view.radio_outro_none.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.radio_outro_none, "font-weight: 600; color: @text@;")
     lbl_outro_none_d = QLabel("Finaliza o vídeo assim que o conteúdo principal terminar.")
-    lbl_outro_none_d.setStyleSheet("color: #94a3b8; font-size: 11px; margin-left: 22px;")
+    apply_style(lbl_outro_none_d, "color: @muted@; font-size: 11px; margin-left: 22px;")
     bo_lay.addWidget(view.radio_outro_none)
     bo_lay.addWidget(lbl_outro_none_d)
     bo_lay.addStretch()
@@ -502,13 +501,13 @@ def build_setup_view(view) -> QWidget:
 
     format_row = QHBoxLayout()
     view.radio_slides = QRadioButton("📊 Apresentação de Slides (PDF)")
-    view.radio_slides.setStyleSheet("font-weight: 700; color: #38bdf8; font-size: 13px;")
+    apply_style(view.radio_slides, "font-weight: 700; color: @primary@; font-size: 13px;")
     view.radio_slides.setCursor(Qt.PointingHandCursor)
     view.radio_slides.setChecked(True)
     view.radio_slides.toggled.connect(view._on_format_changed)
 
     view.radio_screen = QRadioButton("🖥️ Gravação da Tela do Computador (Tutorial de Aplicativo)")
-    view.radio_screen.setStyleSheet("font-weight: 700; color: #a78bfa; font-size: 13px;")
+    apply_style(view.radio_screen, "font-weight: 700; color: @track2@; font-size: 13px;")
     view.radio_screen.setCursor(Qt.PointingHandCursor)
 
     view.format_group = QButtonGroup(view)
@@ -523,12 +522,12 @@ def build_setup_view(view) -> QWidget:
     view.lbl_format_desc = QLabel(
         "Apresente seus slides em PDF com narração sincronizada."
     )
-    view.lbl_format_desc.setStyleSheet("color: #94a3b8; font-size: 12px;")
+    apply_style(view.lbl_format_desc, "color: @muted@; font-size: 12px;")
     cf_layout.addWidget(view.lbl_format_desc)
 
     # Slides Picker (visible when in slides mode)
     view.card_slides = QFrame()
-    view.card_slides.setStyleSheet("background: #0f172a; border-radius: 8px; border: 1px dashed #334155;")
+    apply_style(view.card_slides, "background: @surface_alt@; border-radius: 8px; border: 1px dashed @border_strong@;")
     cs_layout = QHBoxLayout(view.card_slides)
     cs_layout.setContentsMargins(12, 8, 12, 8)
     cs_layout.setSpacing(12)
@@ -539,7 +538,7 @@ def build_setup_view(view) -> QWidget:
     btn_pick_pdf.clicked.connect(view._pick_pdf)
 
     view.lbl_pdf_status = QLabel("Nenhum arquivo PDF carregado.")
-    view.lbl_pdf_status.setStyleSheet("color: #94a3b8; font-weight: 500;")
+    apply_style(view.lbl_pdf_status, "color: @muted@; font-weight: 500;")
 
     cs_layout.addWidget(btn_pick_pdf)
     btn_pick_pdf2 = QPushButton("📁 PDF 2 (material complementar)...")
@@ -571,10 +570,10 @@ def build_setup_view(view) -> QWidget:
     # Card 2: Apresentador da Aula (Câmera Real vs Clone IA)
     view.box_presenter_mode = QFrame()
     view.box_presenter_mode.setObjectName("boxPresenterMode")
-    view.box_presenter_mode.setStyleSheet("""
+    apply_style(view.box_presenter_mode, """
         QFrame#boxPresenterMode {
-            background-color: #161922;
-            border: 1.5px solid #2d3748;
+            background-color: @surface_alt@;
+            border: 1.5px solid @border_strong@;
             border-radius: 12px;
         }
     """)
@@ -595,13 +594,13 @@ def build_setup_view(view) -> QWidget:
     cpl_layout.setSpacing(3)
 
     view.radio_pres_live = QRadioButton("📹 Gravar com Câmera Real / Ao Vivo")
-    view.radio_pres_live.setStyleSheet("font-size: 13px; font-weight: 700; color: #ffffff;")
+    apply_style(view.radio_pres_live, "font-size: 13px; font-weight: 700; color: @text@;")
     view.radio_pres_live.setCursor(Qt.PointingHandCursor)
     view.radio_pres_live.setChecked(True)
     view.radio_pres_live.toggled.connect(view._on_presenter_mode_changed)
 
     desc_pres_live = QLabel("Grave suas aulas com imagem real pela webcam (Picture-in-Picture) e microfone em tempo real.")
-    desc_pres_live.setStyleSheet("font-size: 11px; color: #94a3b8; margin-left: 24px;")
+    apply_style(desc_pres_live, "font-size: 11px; color: @muted@; margin-left: 24px;")
     desc_pres_live.setWordWrap(True)
 
     cpl_layout.addWidget(view.radio_pres_live)
@@ -618,11 +617,11 @@ def build_setup_view(view) -> QWidget:
     cpc_layout.setSpacing(3)
 
     view.radio_pres_clone = QRadioButton("✨ Apresentar com Meu Clone Digital (Avatar IA - Sem precisar se filmar)")
-    view.radio_pres_clone.setStyleSheet("font-size: 13px; font-weight: 700; color: #c084fc;")
+    apply_style(view.radio_pres_clone, "font-size: 13px; font-weight: 700; color: @track2@;")
     view.radio_pres_clone.setCursor(Qt.PointingHandCursor)
 
     desc_pres_clone = QLabel("A IA fala com a sua voz e anima seu rosto perfeitamente sincronizado aos slides. Não precisa se filmar!")
-    desc_pres_clone.setStyleSheet("font-size: 11px; color: #cbd5e1; margin-left: 24px;")
+    apply_style(desc_pres_clone, "font-size: 11px; color: @text@; margin-left: 24px;")
     desc_pres_clone.setWordWrap(True)
 
     cpc_layout.addWidget(view.radio_pres_clone)
@@ -636,32 +635,28 @@ def build_setup_view(view) -> QWidget:
 
     # Clone Digital Status & Controls Card inside presenter box
     view.card_clone_status = QFrame()
-    view.card_clone_status.setStyleSheet(
-        "background: #1e1b4b; border: 1.5px solid #6366f1; border-radius: 8px; padding: 8px;"
-    )
+    apply_style(view.card_clone_status, "background: @surface_alt@; border: 1.5px solid @focus@; border-radius: 8px; padding: 8px;")
     ccs_layout = QHBoxLayout(view.card_clone_status)
     ccs_layout.setContentsMargins(12, 8, 12, 8)
     ccs_layout.setSpacing(12)
 
     view.lbl_clone_face = QLabel("🎭")
-    view.lbl_clone_face.setStyleSheet("font-size: 30px; background: #0f172a; border-radius: 24px; border: 1px solid #4338ca;")
+    apply_style(view.lbl_clone_face, "font-size: 30px; background: @surface_alt@; border-radius: 24px; border: 1px solid @focus@;")
     view.lbl_clone_face.setFixedSize(48, 48)
     view.lbl_clone_face.setAlignment(Qt.AlignCenter)
 
     clone_info_v = QVBoxLayout()
     clone_info_v.setSpacing(2)
     view.lbl_clone_name = QLabel("Meu Clone Digital")
-    view.lbl_clone_name.setStyleSheet("font-size: 13px; font-weight: 700; color: #ffffff;")
+    apply_style(view.lbl_clone_name, "font-size: 13px; font-weight: 700; color: @text@;")
     view.lbl_clone_engine = QLabel("Motor: Local Gratuito (Neural Edge-TTS)")
-    view.lbl_clone_engine.setStyleSheet("font-size: 11px; color: #a5b4fc;")
+    apply_style(view.lbl_clone_engine, "font-size: 11px; color: @primary@;")
     clone_info_v.addWidget(view.lbl_clone_name)
     clone_info_v.addWidget(view.lbl_clone_engine)
 
     view.btn_open_calibration = QPushButton("🎭 Calibrar / Gerenciar Clone...")
     view.btn_open_calibration.setCursor(Qt.PointingHandCursor)
-    view.btn_open_calibration.setStyleSheet(
-        "background: #4338ca; color: #ffffff; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 6px;"
-    )
+    apply_style(view.btn_open_calibration, "background: @primary@; color: @text@; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 6px;")
     view.btn_open_calibration.clicked.connect(view._open_clone_calibration)
 
     ccs_layout.addWidget(view.lbl_clone_face)
@@ -727,7 +722,7 @@ def build_setup_view(view) -> QWidget:
     # Cam
     cam_box = QVBoxLayout()
     view.chk_enable_camera = QCheckBox("Habilitar Câmera / Webcam")
-    view.chk_enable_camera.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.chk_enable_camera, "font-weight: 600; color: @text@;")
     view.chk_enable_camera.setChecked(False)
     view.chk_enable_camera.setToolTip("Desmarque para gravar a aula mostrando apenas os slides em tela cheia com a narração.")
 
@@ -736,7 +731,7 @@ def build_setup_view(view) -> QWidget:
     btn_refresh_cams = QPushButton("🔄 Atualizar")
     btn_refresh_cams.setCursor(Qt.PointingHandCursor)
     btn_refresh_cams.setToolTip("Atualizar lista de câmeras conectadas")
-    btn_refresh_cams.setStyleSheet("background: #1e293b; color: #38bdf8; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;")
+    apply_style(btn_refresh_cams, "background: @surface_alt@; color: @primary@; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;")
     btn_refresh_cams.clicked.connect(view._refresh_audio_and_video_devices)
     cam_hdr.addWidget(lbl_cam)
     cam_hdr.addStretch()
@@ -763,28 +758,24 @@ def build_setup_view(view) -> QWidget:
 
     # Informative hint when Clone is active
     view.card_clone_dev_hint = QFrame()
-    view.card_clone_dev_hint.setStyleSheet(
-        "background: #1e1b4b; border: 1.5px solid #6366f1; border-radius: 10px; padding: 14px;"
-    )
+    apply_style(view.card_clone_dev_hint, "background: @surface_alt@; border: 1.5px solid @focus@; border-radius: 10px; padding: 14px;")
     ccdh_layout = QVBoxLayout(view.card_clone_dev_hint)
     ccdh_layout.setSpacing(6)
     lbl_hint_title = QLabel("✨ Modo Clone Digital IA Ativo")
-    lbl_hint_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #c084fc;")
+    apply_style(lbl_hint_title, "font-size: 14px; font-weight: 700; color: @track2@;")
     lbl_hint_desc = QLabel(
         "Como você escolheu apresentar a aula com o seu Clone Digital IA, a sua webcam física "
         "não será ligada durante a aula. A IA gerará a animação do seu rosto e a fala com sua voz clonada.\n"
         "Se ainda não gravou sua amostra de 15 segundos ou deseja trocar o avatar, use o botão abaixo:"
     )
-    lbl_hint_desc.setStyleSheet("color: #cbd5e1; font-size: 12px; line-height: 1.4;")
+    apply_style(lbl_hint_desc, "color: @text@; font-size: 12px; line-height: 1.4;")
     lbl_hint_desc.setWordWrap(True)
     ccdh_layout.addWidget(lbl_hint_title)
     ccdh_layout.addWidget(lbl_hint_desc)
 
     btn_calib_step3 = QPushButton("🎭 Abrir Estúdio para Calibrar / Gravar Clone com Câmera...")
     btn_calib_step3.setCursor(Qt.PointingHandCursor)
-    btn_calib_step3.setStyleSheet(
-        "background: #4338ca; color: #ffffff; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 6px; margin-top: 6px;"
-    )
+    apply_style(btn_calib_step3, "background: @primary@; color: @text@; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 6px; margin-top: 6px;")
     btn_calib_step3.clicked.connect(view._open_clone_calibration)
     ccdh_layout.addWidget(btn_calib_step3)
 
@@ -825,7 +816,7 @@ def build_setup_view(view) -> QWidget:
     view.ct_title = QLabel("4. Roteiro da Aula para o Teleprompter (Opcional)")
     view.ct_title.setProperty("class", "section-title")
     view.ct_sub = QLabel("Cole o roteiro abaixo. Ele rolará no topo da tela durante a gravação para você ler olhando para a câmera:")
-    view.ct_sub.setStyleSheet("color: #94a3b8; font-size: 12px;")
+    apply_style(view.ct_sub, "color: @muted@; font-size: 12px;")
     ct_layout.addWidget(view.ct_title)
     ct_layout.addWidget(view.ct_sub)
 
@@ -851,15 +842,13 @@ def build_setup_view(view) -> QWidget:
     # Audio Source for Clone Video (AI TTS vs Live Mic vs File)
     # ----------------------------------------------------
     card_audio_src = QFrame()
-    card_audio_src.setStyleSheet(
-        "background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; margin-top: 8px;"
-    )
+    apply_style(card_audio_src, "background: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 8px; margin-top: 8px;")
     cas_layout = QVBoxLayout(card_audio_src)
     cas_layout.setContentsMargins(14, 12, 14, 12)
     cas_layout.setSpacing(10)
 
     lbl_as_title = QLabel("🎙️ Voz da Aula (Fonte de Áudio do Clone Digital):")
-    lbl_as_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #38bdf8;")
+    apply_style(lbl_as_title, "font-size: 13px; font-weight: 700; color: @primary@;")
     cas_layout.addWidget(lbl_as_title)
 
     view.audio_source_group = QButtonGroup(view)
@@ -869,15 +858,15 @@ def build_setup_view(view) -> QWidget:
 
     view.radio_audio_tts = QRadioButton("🤖 Voz Sintetizada por IA (Edge-TTS)")
     view.radio_audio_tts.setChecked(True)
-    view.radio_audio_tts.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.radio_audio_tts, "font-weight: 600; color: @text@;")
     view.audio_source_group.addButton(view.radio_audio_tts, 1)
 
     view.radio_audio_record = QRadioButton("🎙️ Gravar Minha Própria Voz Agora")
-    view.radio_audio_record.setStyleSheet("font-weight: 600; color: #34d399;")
+    apply_style(view.radio_audio_record, "font-weight: 600; color: @success@;")
     view.audio_source_group.addButton(view.radio_audio_record, 2)
 
     view.radio_audio_import = QRadioButton("📁 Importar Áudio Pronto (MP3 / WAV)")
-    view.radio_audio_import.setStyleSheet("font-weight: 600; color: #c084fc;")
+    apply_style(view.radio_audio_import, "font-weight: 600; color: @track2@;")
     view.audio_source_group.addButton(view.radio_audio_import, 3)
 
     as_row.addWidget(view.radio_audio_tts)
@@ -891,7 +880,7 @@ def build_setup_view(view) -> QWidget:
     pat_lay = QVBoxLayout(view.panel_audio_tts)
     pat_lay.setContentsMargins(0, 2, 0, 2)
     lbl_tts_info = QLabel("💡 A IA lerá o texto do roteiro acima com voz neural fluida em português brasileiro.")
-    lbl_tts_info.setStyleSheet("color: #94a3b8; font-size: 11px;")
+    apply_style(lbl_tts_info, "color: @muted@; font-size: 11px;")
     pat_lay.addWidget(lbl_tts_info)
     cas_layout.addWidget(view.panel_audio_tts)
 
@@ -903,25 +892,19 @@ def build_setup_view(view) -> QWidget:
 
     view.btn_record_voice = QPushButton("🔴 Iniciar Gravação da Minha Voz")
     view.btn_record_voice.setCursor(Qt.PointingHandCursor)
-    view.btn_record_voice.setStyleSheet(
-        "background: #dc2626; color: #ffffff; font-weight: 700; font-size: 12px; padding: 7px 16px; border-radius: 6px;"
-    )
+    apply_style(view.btn_record_voice, "background: @danger@; color: @on_primary@; font-weight: 700; font-size: 12px; padding: 7px 16px; border-radius: 6px;")
     view.btn_record_voice.clicked.connect(view._toggle_voice_recording)
 
     view.lbl_voice_timer = QLabel("00:00")
-    view.lbl_voice_timer.setStyleSheet(
-        "font-size: 14px; font-weight: 800; color: #38bdf8; background: #1e293b; padding: 4px 8px; border-radius: 6px;"
-    )
+    apply_style(view.lbl_voice_timer, "font-size: 14px; font-weight: 800; color: @primary@; background: @surface_alt@; padding: 4px 8px; border-radius: 6px;")
 
     view.lbl_voice_status = QLabel("Leia o texto do roteiro acima em voz alta com seu microfone.")
-    view.lbl_voice_status.setStyleSheet("color: #94a3b8; font-size: 11px;")
+    apply_style(view.lbl_voice_status, "color: @muted@; font-size: 11px;")
 
     view.btn_play_voice = QPushButton("▶ Ouvir Gravação")
     view.btn_play_voice.setCursor(Qt.PointingHandCursor)
     view.btn_play_voice.setEnabled(False)
-    view.btn_play_voice.setStyleSheet(
-        "background: #1e293b; color: #38bdf8; font-weight: 600; font-size: 11px; padding: 6px 12px; border-radius: 6px;"
-    )
+    apply_style(view.btn_play_voice, "background: @surface_alt@; color: @primary@; font-weight: 600; font-size: 11px; padding: 6px 12px; border-radius: 6px;")
     view.btn_play_voice.clicked.connect(view._play_preview_audio)
 
     par_lay.addWidget(view.btn_record_voice)
@@ -939,20 +922,16 @@ def build_setup_view(view) -> QWidget:
 
     btn_pick_human_audio = QPushButton("📁 Selecionar Arquivo de Áudio...")
     btn_pick_human_audio.setCursor(Qt.PointingHandCursor)
-    btn_pick_human_audio.setStyleSheet(
-        "background: #6366f1; color: #ffffff; font-weight: 700; font-size: 12px; padding: 7px 16px; border-radius: 6px;"
-    )
+    apply_style(btn_pick_human_audio, "background: @primary@; color: @on_primary@; font-weight: 700; font-size: 12px; padding: 7px 16px; border-radius: 6px;")
     btn_pick_human_audio.clicked.connect(view._pick_human_audio_file)
 
     view.lbl_import_audio_status = QLabel("Nenhum arquivo selecionado. Selecione um áudio em MP3 ou WAV gravado em outro dispositivo.")
-    view.lbl_import_audio_status.setStyleSheet("color: #94a3b8; font-size: 11px;")
+    apply_style(view.lbl_import_audio_status, "color: @muted@; font-size: 11px;")
 
     view.btn_play_imported = QPushButton("▶ Ouvir Áudio")
     view.btn_play_imported.setCursor(Qt.PointingHandCursor)
     view.btn_play_imported.setEnabled(False)
-    view.btn_play_imported.setStyleSheet(
-        "background: #1e293b; color: #38bdf8; font-weight: 600; font-size: 11px; padding: 6px 12px; border-radius: 6px;"
-    )
+    apply_style(view.btn_play_imported, "background: @surface_alt@; color: @primary@; font-weight: 600; font-size: 11px; padding: 6px 12px; border-radius: 6px;")
     view.btn_play_imported.clicked.connect(view._play_preview_audio)
 
     pai_lay.addWidget(btn_pick_human_audio)
@@ -1010,7 +989,7 @@ def build_setup_view(view) -> QWidget:
     btn_pick_bgm.setCursor(Qt.PointingHandCursor)
     btn_pick_bgm.clicked.connect(view._pick_bgm)
     view.lbl_bgm_status = QLabel("Sem música de fundo (pode adicionar antes ou após gravar)")
-    view.lbl_bgm_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+    apply_style(view.lbl_bgm_status, "color: @muted@; font-size: 12px;")
     bgm_row.addWidget(btn_pick_bgm)
     bgm_row.addWidget(view.lbl_bgm_status)
     bgm_row.addStretch()
@@ -1020,7 +999,7 @@ def build_setup_view(view) -> QWidget:
     sub_row = QHBoxLayout()
     sub_row.setSpacing(14)
     view.chk_subtitles = QCheckBox("Gerar Legendas Automáticas com IA (Gemini)")
-    view.chk_subtitles.setStyleSheet("font-weight: 600; color: #f8fafc;")
+    apply_style(view.chk_subtitles, "font-weight: 600; color: @text@;")
 
     lbl_lang = QLabel("Idioma da Legenda:")
     view.combo_sub_lang = QComboBox()
@@ -1041,17 +1020,15 @@ def build_setup_view(view) -> QWidget:
     view.btn_enter_studio.setProperty("class", "primary")
     view.btn_enter_studio.setFixedHeight(48)
     view.btn_enter_studio.setCursor(Qt.PointingHandCursor)
-    view.btn_enter_studio.setStyleSheet("font-size: 15px; font-weight: 700;")
+    apply_style(view.btn_enter_studio, "font-size: 15px; font-weight: 700;")
     view.btn_enter_studio.clicked.connect(view._enter_live_studio)
     p5_lay.addWidget(view.btn_enter_studio)
 
     view.btn_generate_clone_lesson = QPushButton("✨ Gerar Videoaula com Meu Clone IA (Automático)")
     view.btn_generate_clone_lesson.setFixedHeight(48)
     view.btn_generate_clone_lesson.setCursor(Qt.PointingHandCursor)
-    view.btn_generate_clone_lesson.setStyleSheet(
-        "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #ec4899); "
-        "color: #ffffff; font-size: 15px; font-weight: 800; border-radius: 8px;"
-    )
+    apply_style(view.btn_generate_clone_lesson, "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @primary@, stop:1 @primary@); "
+        "color: @on_primary@; font-size: 15px; font-weight: 800; border-radius: 8px;")
     view.btn_generate_clone_lesson.clicked.connect(view._start_clone_generation)
     view.btn_generate_clone_lesson.hide()
     p5_lay.addWidget(view.btn_generate_clone_lesson)
@@ -1092,10 +1069,10 @@ def build_studio_view(view) -> QWidget:
     btn_leave.clicked.connect(view._leave_studio)
 
     view.lbl_rec_indicator = QLabel("⚪ Não Gravando")
-    view.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #94a3b8; font-size: 13px;")
+    apply_style(view.lbl_rec_indicator, "font-weight: 700; color: @muted@; font-size: 13px;")
 
     view.lbl_rec_timer = QLabel("00:00:00")
-    view.lbl_rec_timer.setStyleSheet("font-size: 18px; font-weight: 800; color: #ffffff; padding: 2px 8px; background: #1a1e28; border-radius: 6px;")
+    apply_style(view.lbl_rec_timer, "font-size: 18px; font-weight: 800; color: @text@; padding: 2px 8px; background: @surface_alt@; border-radius: 6px;")
 
     top_bar.addWidget(btn_leave)
     top_bar.addSpacing(16)
@@ -1116,7 +1093,7 @@ def build_studio_view(view) -> QWidget:
 
     # Slide Area (Center Display)
     view.slide_display_frame = QFrame()
-    view.slide_display_frame.setStyleSheet("background-color: #0b0d13; border: 1.5px solid #232938; border-radius: 10px;")
+    apply_style(view.slide_display_frame, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 10px;")
     sdf_layout = QVBoxLayout(view.slide_display_frame)
     sdf_layout.setContentsMargins(8, 8, 8, 8)
     sdf_layout.setAlignment(Qt.AlignCenter)
@@ -1139,7 +1116,7 @@ def build_studio_view(view) -> QWidget:
     view.btn_prev_slide.clicked.connect(view._go_prev_slide)
 
     view.lbl_slide_counter = QLabel("Slide 1 de 1")
-    view.lbl_slide_counter.setStyleSheet("font-size: 14px; font-weight: 700; color: #38bdf8; min-width: 110px;")
+    apply_style(view.lbl_slide_counter, "font-size: 14px; font-weight: 700; color: @primary@; min-width: 110px;")
     view.lbl_slide_counter.setAlignment(Qt.AlignCenter)
 
     view.btn_next_slide = QPushButton("Próximo Slide ▶ (Seta Direita / Espaço)")
@@ -1190,7 +1167,7 @@ def build_studio_view(view) -> QWidget:
     cf_layout.setSpacing(14)
 
     view.btn_rec_start = QPushButton("🔴 Iniciar Gravação")
-    view.btn_rec_start.setStyleSheet("background: #dc2626; color: #ffffff; font-weight: 700; font-size: 14px; padding: 10px 22px; border-radius: 8px;")
+    apply_style(view.btn_rec_start, "background: @danger@; color: @on_primary@; font-weight: 700; font-size: 14px; padding: 10px 22px; border-radius: 8px;")
     view.btn_rec_start.setCursor(Qt.PointingHandCursor)
     view.btn_rec_start.clicked.connect(view._start_recording)
 
@@ -1201,7 +1178,7 @@ def build_studio_view(view) -> QWidget:
 
     view.btn_rec_finish = QPushButton("⏹ Finalizar Aula & Gerar Vídeo")
     view.btn_rec_finish.setProperty("class", "primary")
-    view.btn_rec_finish.setStyleSheet("font-size: 14px; font-weight: 700; padding: 10px 22px;")
+    apply_style(view.btn_rec_finish, "font-size: 14px; font-weight: 700; padding: 10px 22px;")
     view.btn_rec_finish.setCursor(Qt.PointingHandCursor)
     view.btn_rec_finish.setEnabled(False)
     view.btn_rec_finish.clicked.connect(view._finish_recording)
@@ -1235,15 +1212,15 @@ def build_result_view(view) -> QWidget:
     c_layout.setAlignment(Qt.AlignCenter)
 
     view.lbl_result_icon = QLabel("⏳")
-    view.lbl_result_icon.setStyleSheet("font-size: 54px;")
+    apply_style(view.lbl_result_icon, "font-size: 54px;")
     view.lbl_result_icon.setAlignment(Qt.AlignCenter)
 
     view.lbl_result_title = QLabel("Processando sua Videoaula...")
-    view.lbl_result_title.setStyleSheet("font-size: 20px; font-weight: 700; color: #ffffff;")
+    apply_style(view.lbl_result_title, "font-size: 20px; font-weight: 700; color: @text@;")
     view.lbl_result_title.setAlignment(Qt.AlignCenter)
 
     view.lbl_result_status = QLabel("Aguarde a renderização dos slides e montagem do áudio...")
-    view.lbl_result_status.setStyleSheet("color: #94a3b8; font-size: 13px;")
+    apply_style(view.lbl_result_status, "color: @muted@; font-size: 13px;")
     view.lbl_result_status.setAlignment(Qt.AlignCenter)
 
     view.render_progress_bar = QProgressBar()

@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import os
 import sys
 import time
@@ -83,9 +84,7 @@ class SlideCardWidget(QFrame):
         super().__init__(parent)
         self.slide_num = slide_num
         self.setProperty("class", "card")
-        self.setStyleSheet(
-            "QFrame { background-color: #171b26; border: 1px solid #283042; border-radius: 10px; padding: 12px; }"
-        )
+        apply_style(self, "QFrame { background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 10px; padding: 12px; }")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -99,14 +98,12 @@ class SlideCardWidget(QFrame):
             f"tipografia nítida, iluminação cinematográfica sutil, estilo NotebookLM / Apple Keynote."
         )
         self.text_prompt.setFixedHeight(95)
-        self.text_prompt.setStyleSheet(
-            "background-color: #0f121a; border: 1px solid #232938; border-radius: 6px; color: #f8fafc; font-size: 12px; padding: 8px;"
-        )
+        apply_style(self.text_prompt, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 6px; color: @text@; font-size: 12px; padding: 8px;")
 
         # Header of card
         header = QHBoxLayout()
         self.lbl_title = QLabel(f"Slide {slide_num} de {total}")
-        self.lbl_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #38bdf8;")
+        apply_style(self.lbl_title, "font-size: 14px; font-weight: 700; color: @primary@;")
         header.addWidget(self.lbl_title)
 
         header.addStretch()
@@ -117,7 +114,7 @@ class SlideCardWidget(QFrame):
         self.btn_enhance = QPushButton("✨ Aprimorar com IA")
         self.btn_enhance.setCursor(Qt.PointingHandCursor)
         self.btn_enhance.setToolTip("Usa o Gemini para expandir este prompt em uma descrição visual detalhada e profissional.")
-        self.btn_enhance.setStyleSheet("font-size: 11px; padding: 4px 10px;")
+        apply_style(self.btn_enhance, "font-size: 11px; padding: 4px 10px;")
         self.btn_enhance.clicked.connect(lambda: self.enhance_requested.emit(self.slide_num))
         header.addWidget(self.btn_enhance)
 
@@ -131,16 +128,14 @@ class SlideCardWidget(QFrame):
         # Thumbnail preview
         self.thumb_frame = QFrame()
         self.thumb_frame.setFixedSize(140, 95)
-        self.thumb_frame.setStyleSheet(
-            "background-color: #0b0d13; border: 1px dashed #333c52; border-radius: 6px;"
-        )
+        apply_style(self.thumb_frame, "background-color: @surface@; border: 1px dashed @border_strong@; border-radius: 6px;")
         tf_layout = QVBoxLayout(self.thumb_frame)
         tf_layout.setContentsMargins(2, 2, 2, 2)
         tf_layout.setAlignment(Qt.AlignCenter)
 
         self.lbl_thumb = QLabel("Aguardando\ngeração")
         self.lbl_thumb.setAlignment(Qt.AlignCenter)
-        self.lbl_thumb.setStyleSheet("color: #64748b; font-size: 11px;")
+        apply_style(self.lbl_thumb, "color: @primary@; font-size: 11px;")
         tf_layout.addWidget(self.lbl_thumb)
 
         body_layout.addWidget(self.thumb_frame, stretch=0)
@@ -148,7 +143,7 @@ class SlideCardWidget(QFrame):
 
         # Status indicator
         self.lbl_status = QLabel("● Pronto para gerar")
-        self.lbl_status.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        apply_style(self.lbl_status, "color: @muted@; font-size: 11px;")
         layout.addWidget(self.lbl_status)
 
     def set_total_slides(self, total: int):
@@ -162,7 +157,7 @@ class SlideCardWidget(QFrame):
 
     def set_status(self, status_text: str, color_hex: str = "#94a3b8"):
         self.lbl_status.setText(f"● {status_text}")
-        self.lbl_status.setStyleSheet(f"color: {color_hex}; font-size: 11px; font-weight: 600;")
+        apply_style(self.lbl_status, f"color: {color_hex}; font-size: 11px; font-weight: 600;")
 
     def set_thumbnail(self, image_path: str):
         pix = QPixmap(image_path)
@@ -173,7 +168,7 @@ class SlideCardWidget(QFrame):
                 Qt.SmoothTransformation,
             )
             self.lbl_thumb.setPixmap(scaled)
-            self.thumb_frame.setStyleSheet("background-color: #000000; border: 1px solid #10b981; border-radius: 6px;")
+            apply_style(self.thumb_frame, "background-color: @surface@; border: 1px solid @focus@; border-radius: 6px;")
 
 
 class BatchSlideGenerationWorker(QThread):
@@ -262,7 +257,7 @@ class GenerateMaterialsView(QWidget):
         btn_back.clicked.connect(self.back_to_home.emit)
 
         title = QLabel("🪄 5. Gerar Materiais da Aula - Apresentações e Slides com IA")
-        title.setStyleSheet("font-size: 16px; font-weight: 700; color: #818cf8;")
+        apply_style(title, "font-size: 16px; font-weight: 700; color: @track2@;")
 
         nav_bar.addWidget(btn_back)
         nav_bar.addWidget(title)
@@ -356,9 +351,7 @@ class GenerateMaterialsView(QWidget):
         # AI Assistant Auto-Fill Row
         btn_auto_suggest = QPushButton("✨ Sugerir Roteiro & Prompts com IA Gemini para todos os Slides")
         btn_auto_suggest.setCursor(Qt.PointingHandCursor)
-        btn_auto_suggest.setStyleSheet(
-            "background-color: #1e1b4b; border: 1px solid #4338ca; color: #c7d2fe; font-weight: 600; padding: 8px 14px; border-radius: 8px;"
-        )
+        apply_style(btn_auto_suggest, "background-color: @surface_alt@; border: 1px solid @focus@; color: @text@; font-weight: 600; padding: 8px 14px; border-radius: 8px;")
         btn_auto_suggest.clicked.connect(self._auto_suggest_all_prompts)
         cfg_layout.addWidget(btn_auto_suggest)
 
@@ -380,7 +373,7 @@ class GenerateMaterialsView(QWidget):
             "com todos os slides intercalados com explicações aprofundadas geradas por IA, destaques conceituais e questões de fixação."
         )
         lbl_eb_desc.setWordWrap(True)
-        lbl_eb_desc.setStyleSheet("color: #94a3b8; font-size: 12px; line-height: 1.4;")
+        apply_style(lbl_eb_desc, "color: @muted@; font-size: 12px; line-height: 1.4;")
         ef_layout.addWidget(lbl_eb_desc)
 
         eb_inputs = QHBoxLayout()
@@ -394,7 +387,7 @@ class GenerateMaterialsView(QWidget):
         btn_pick_eb_pdf.clicked.connect(self._pick_external_pdf_for_ebook)
 
         self.lbl_eb_pdf_status = QLabel("Nenhum PDF selecionado")
-        self.lbl_eb_pdf_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        apply_style(self.lbl_eb_pdf_status, "color: @muted@; font-size: 12px;")
 
         eb_inputs.addWidget(self.edit_standalone_teacher, stretch=1)
         eb_inputs.addWidget(btn_pick_eb_pdf)
@@ -404,7 +397,7 @@ class GenerateMaterialsView(QWidget):
 
         btn_run_eb = QPushButton("📚 Gerar E-book Didático com Slides Intercalados")
         btn_run_eb.setCursor(Qt.PointingHandCursor)
-        btn_run_eb.setStyleSheet("background-color: #6d28d9; color: white; font-weight: 700; padding: 10px 20px; border-radius: 6px;")
+        apply_style(btn_run_eb, "background-color: @primary@; color: @text@; font-weight: 700; padding: 10px 20px; border-radius: 6px;")
         btn_run_eb.clicked.connect(self._generate_standalone_ebook)
         ef_layout.addWidget(btn_run_eb, alignment=Qt.AlignLeft)
 
@@ -434,14 +427,14 @@ class GenerateMaterialsView(QWidget):
         sec2_header.addStretch()
 
         lbl_tip = QLabel("💡 Dica: Quanto mais descritivo o prompt, mais impressionante e profissional será a imagem.")
-        lbl_tip.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        apply_style(lbl_tip, "color: @muted@; font-size: 12px;")
         sec2_header.addWidget(lbl_tip)
         self.ssf_layout.addLayout(sec2_header)
 
         # Scroll area exclusivamente para a lista dos até 100 slides
         self.slides_prompts_scroll = QScrollArea()
         self.slides_prompts_scroll.setWidgetResizable(True)
-        self.slides_prompts_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        apply_style(self.slides_prompts_scroll, "QScrollArea { border: none; background: transparent; }")
 
         cards_content = QWidget()
         self.cards_container = QVBoxLayout(cards_content)
@@ -461,7 +454,7 @@ class GenerateMaterialsView(QWidget):
         self.btn_generate.setProperty("class", "primary")
         self.btn_generate.setFixedHeight(44)
         self.btn_generate.setCursor(Qt.PointingHandCursor)
-        self.btn_generate.setStyleSheet("font-size: 14px; font-weight: 700; padding: 0 24px;")
+        apply_style(self.btn_generate, "font-size: 14px; font-weight: 700; padding: 0 24px;")
         self.btn_generate.clicked.connect(self._start_generation)
 
         s2_nav.addWidget(btn_prev_s2)
@@ -487,7 +480,7 @@ class GenerateMaterialsView(QWidget):
         pc_layout.setSpacing(8)
 
         self.lbl_progress = QLabel("Aguardando início da geração...")
-        self.lbl_progress.setStyleSheet("font-size: 14px; color: #38bdf8; font-weight: 700;")
+        apply_style(self.lbl_progress, "font-size: 14px; color: @primary@; font-weight: 700;")
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
@@ -520,17 +513,17 @@ class GenerateMaterialsView(QWidget):
 
         self.btn_send_create_video = QPushButton("🎬 Usar no 'Criar Vídeo'")
         self.btn_send_create_video.setCursor(Qt.PointingHandCursor)
-        self.btn_send_create_video.setStyleSheet("background-color: #0369a1; color: white;")
+        apply_style(self.btn_send_create_video, "background-color: @primary@; color: @text@;")
         self.btn_send_create_video.clicked.connect(self._dispatch_to_create_video)
 
         self.btn_send_record_class = QPushButton("🎓 Usar no 'Gravar Aula'")
         self.btn_send_record_class.setCursor(Qt.PointingHandCursor)
-        self.btn_send_record_class.setStyleSheet("background-color: #6d28d9; color: white;")
+        apply_style(self.btn_send_record_class, "background-color: @primary@; color: @text@;")
         self.btn_send_record_class.clicked.connect(self._dispatch_to_record_class)
 
         self.btn_create_ebook_from_slides = QPushButton("📚 Gerar E-book Didático a partir destes Slides")
         self.btn_create_ebook_from_slides.setCursor(Qt.PointingHandCursor)
-        self.btn_create_ebook_from_slides.setStyleSheet("background-color: #7c3aed; color: white; font-weight: 700;")
+        apply_style(self.btn_create_ebook_from_slides, "background-color: @primary@; color: @text@; font-weight: 700;")
         self.btn_create_ebook_from_slides.clicked.connect(self._create_ebook_from_current_slides)
 
         sc_layout.addWidget(self.btn_download_pdf)
@@ -567,15 +560,11 @@ class GenerateMaterialsView(QWidget):
         self.step_stack.setCurrentIndex(idx)
         for i, btn in enumerate(self.step_buttons):
             if i == idx:
-                btn.setStyleSheet(
-                    "background: #4f46e5; color: #ffffff; font-weight: 700; "
-                    "border: 1.5px solid #818cf8; padding: 8px 14px; border-radius: 8px;"
-                )
+                apply_style(btn, "background: @primary@; color: @on_primary@; font-weight: 700; "
+                    "border: 1.5px solid @focus@; padding: 8px 14px; border-radius: 8px;")
             else:
-                btn.setStyleSheet(
-                    "background: #1a1e28; color: #94a3b8; font-weight: 600; "
-                    "border: 1px solid #2d3343; padding: 8px 14px; border-radius: 8px;"
-                )
+                apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
+                    "border: 1px solid @border_strong@; padding: 8px 14px; border-radius: 8px;")
 
     def _rebuild_slide_cards(self):
         target_count = self.spin_count.value()
@@ -754,7 +743,7 @@ class GenerateMaterialsView(QWidget):
         self.btn_cancel.setEnabled(True)
         self.progress_bar.setValue(100)
         self.lbl_progress.setText(f"✓ Apresentação em PDF concluída! ({len(images)} slides)")
-        self.lbl_progress.setStyleSheet("color: #10b981; font-weight: 700;")
+        apply_style(self.lbl_progress, "color: @success@; font-weight: 700;")
         self.success_container.show()
 
         QMessageBox.information(
@@ -768,7 +757,7 @@ class GenerateMaterialsView(QWidget):
         self.btn_cancel.hide()
         self.btn_cancel.setEnabled(True)
         self.lbl_progress.setText("Geração interrompida.")
-        self.lbl_progress.setStyleSheet("color: #ef4444; font-weight: 700;")
+        apply_style(self.lbl_progress, "color: @danger@; font-weight: 700;")
         QMessageBox.critical(self, "Aviso de Geração", err_msg)
 
     def _save_pdf_as(self):
@@ -853,7 +842,7 @@ class GenerateMaterialsView(QWidget):
         if file_path:
             self.external_pdf_for_ebook = file_path
             self.lbl_eb_pdf_status.setText(f"✓ {Path(file_path).name}")
-            self.lbl_eb_pdf_status.setStyleSheet("color: #10b981; font-weight: 600;")
+            apply_style(self.lbl_eb_pdf_status, "color: @success@; font-weight: 600;")
 
     def _generate_standalone_ebook(self):
         if not self.external_pdf_for_ebook or not Path(self.external_pdf_for_ebook).exists():
@@ -905,7 +894,7 @@ class GenerateMaterialsView(QWidget):
         self.latest_ebook_pdf = pdf_path
         self.progress_bar.setValue(100)
         self.lbl_progress.setText("✓ E-book didático em PDF gerado com sucesso!")
-        self.lbl_progress.setStyleSheet("color: #10b981; font-weight: 700;")
+        apply_style(self.lbl_progress, "color: @success@; font-weight: 700;")
 
         msg = QMessageBox(self)
         msg.setWindowTitle("E-book Gerado com Sucesso!")
@@ -935,5 +924,5 @@ class GenerateMaterialsView(QWidget):
 
     def _on_ebook_error(self, err: str):
         self.lbl_progress.setText("Erro ao gerar e-book.")
-        self.lbl_progress.setStyleSheet("color: #ef4444; font-weight: 700;")
+        apply_style(self.lbl_progress, "color: @danger@; font-weight: 700;")
         QMessageBox.critical(self, "Erro", f"Não foi possível gerar o e-book:\n{err}")

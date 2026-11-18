@@ -1,159 +1,113 @@
-"""Audio Track Widget for SlideCast Multimedia Video Creator.
-
-Renders an individual audio track row with:
-- Track label & custom display name
-- Probed file info and duration badge
-- Gain / Volume control (0% - 200%)
-- Mute toggle
-- Start offset on timeline (seconds)
-- Remove track button
-"""
-from __future__ import annotations
-
+"""Controls edit the engine AudioTrack directly; colors never carry meaning alone."""
 from pathlib import Path
-from typing import Optional
-
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
-    QVBoxLayout,
-    QLabel,
-    QLineEdit,
-    QDoubleSpinBox,
-    QSlider,
-    QCheckBox,
-    QPushButton,
-    QWidget,
-)
-
-from app.core.multitrack import AudioTrack
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QDoubleSpinBox, QCheckBox, QPushButton
+from app.ui.styles import apply_style
 from app.core.ffmpeg_utils import format_duration
 
 
 class AudioTrackItemWidget(QFrame):
-    """Widget representing one audio track in the multitrack editor."""
-    track_changed = Signal(str)      # track_id
-    remove_requested = Signal(str)   # track_id
+    track_changed = Signal(str)
+    remove_requested = Signal(str)
+    replace_requested = Signal(str)
+    selected = Signal(str)
 
-    def __init__(self, track: AudioTrack, index: int = 0, parent: Optional[QWidget] = None):
+    def __init__(self, track, index=0, parent=None):
         super().__init__(parent)
-        self.track = track
-        self.index = index
-        self.setProperty("class", "card")
-        self.setStyleSheet(
-            "QFrame { background-color: #1e2430; border: 1px solid #334155; border-radius: 8px; padding: 6px; } "
-            "QLabel { color: #f8fafc; font-size: 12px; } "
-            "QLineEdit { background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 4px; padding: 4px 8px; font-size: 12px; } "
-            "QDoubleSpinBox { background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 4px; padding: 2px 4px; font-size: 12px; } "
-            "QCheckBox { color: #cbd5e1; font-size: 12px; }"
-        )
-        self._build_ui()
-
-    def _build_ui(self):
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(8, 6, 8, 6)
-        main_layout.setSpacing(6)
-
-        # Top row: Index badge, Name input, File name, Duration, Remove button
-        top_row = QHBoxLayout()
-        top_row.setSpacing(8)
-
-        lbl_idx = QLabel(f"#{self.index + 1}")
-        lbl_idx.setStyleSheet("font-weight: 700; color: #38bdf8; min-width: 24px;")
-        top_row.addWidget(lbl_idx)
-
-        self.edit_name = QLineEdit(self.track.name)
-        self.edit_name.setPlaceholderText("Nome da faixa...")
-        self.edit_name.setMaximumWidth(160)
-        self.edit_name.textChanged.connect(self._on_name_changed)
-        top_row.addWidget(self.edit_name)
-
-        p = Path(self.track.file_path)
-        lbl_file = QLabel(p.name)
-        lbl_file.setStyleSheet("color: #94a3b8; font-style: italic;")
-        lbl_file.setToolTip(str(p))
-        top_row.addWidget(lbl_file, stretch=1)
-
-        dur_text = format_duration(self.track.duration)
-        if self.track.sample_rate:
-            dur_text += f" • {self.track.sample_rate // 1000}kHz"
-        self.lbl_dur = QLabel(dur_text)
-        self.lbl_dur.setStyleSheet("background: #0f172a; color: #34d399; font-weight: 600; padding: 2px 6px; border-radius: 4px;")
-        top_row.addWidget(self.lbl_dur)
-
-        self.btn_remove = QPushButton("✕")
-        self.btn_remove.setCursor(Qt.PointingHandCursor)
-        self.btn_remove.setToolTip("Remover faixa")
-        self.btn_remove.setStyleSheet(
-            "QPushButton { background: #450a0a; color: #f87171; border: 1px solid #991b1b; "
-            "border-radius: 4px; font-weight: 700; padding: 2px 8px; font-size: 11px; } "
-            "QPushButton:hover { background: #7f1d1d; }"
-        )
-        self.btn_remove.clicked.connect(lambda: self.remove_requested.emit(self.track.id))
-        top_row.addWidget(self.btn_remove)
-
-        main_layout.addLayout(top_row)
-
-        # Bottom row: Volume / Gain, Mute, Start Offset
-        ctrl_row = QHBoxLayout()
-        ctrl_row.setSpacing(14)
-
-        # Volume control
-        vol_box = QHBoxLayout()
-        vol_box.setSpacing(6)
-        lbl_vol = QLabel("Volume:")
-        lbl_vol.setStyleSheet("color: #94a3b8;")
+        self.track, self.index = track, index
+        self.setProperty("class", "track")
+        self.setFixedHeight(104)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(4)
+        top = QHBoxLayout()
+        badge = QLabel(f"Faixa {index + 1}")
+        apply_style(badge, f"color: @track{index + 1}@; font-weight: 700;")
+        top.addWidget(badge)
+        self.edit_name = QLineEdit(track.name)
+        self.edit_name.setAccessibleName(f"Nome da faixa {index + 1}")
+        self.edit_name.setMinimumWidth(80)
+        self.edit_name.textEdited.connect(self._name_changed)
+        top.addWidget(self.edit_name, 1)
+        self.btn_replace = QPushButton("Trocar")
+        self.btn_replace.setAccessibleName(f"Substituir arquivo da faixa {index + 1}")
+        self.btn_replace.clicked.connect(lambda: self.replace_requested.emit(track.id))
+        top.addWidget(self.btn_replace)
+        self.btn_remove = QPushButton("Remover")
+        self.btn_remove.setAccessibleName(f"Remover faixa {index + 1}")
+        self.btn_remove.clicked.connect(lambda: self.remove_requested.emit(track.id))
+        top.addWidget(self.btn_remove)
+        layout.addLayout(top)
+        row = QHBoxLayout()
         self.spin_volume = QDoubleSpinBox()
-        self.spin_volume.setRange(0.0, 200.0)
-        self.spin_volume.setSingleStep(5.0)
-        self.spin_volume.setSuffix("%")
-        self.spin_volume.setValue(round(self.track.volume * 100, 1))
-        self.spin_volume.valueChanged.connect(self._on_volume_changed)
-        vol_box.addWidget(lbl_vol)
-        vol_box.addWidget(self.spin_volume)
-        ctrl_row.addLayout(vol_box)
-
-        # Mute checkbox
-        self.chk_mute = QCheckBox("Mutar")
-        self.chk_mute.setChecked(self.track.mute)
-        self.chk_mute.toggled.connect(self._on_mute_toggled)
-        ctrl_row.addWidget(self.chk_mute)
-
-        # Offset control
-        offset_box = QHBoxLayout()
-        offset_box.setSpacing(6)
-        lbl_offset = QLabel("Início (offset):")
-        lbl_offset.setStyleSheet("color: #94a3b8;")
+        self.spin_volume.setRange(0, 200)
+        self.spin_volume.setDecimals(0)
+        self.spin_volume.setSuffix(" %")
+        self.spin_volume.setSingleStep(5)
+        self.spin_volume.setValue(track.volume * 100)
+        self.spin_volume.setAccessibleName(f"Volume da faixa {index + 1}, em porcentagem")
+        self.spin_volume.valueChanged.connect(self._volume_changed)
+        row.addWidget(QLabel("Volume"))
+        row.addWidget(self.spin_volume)
+        self.chk_mute = QCheckBox("Silenciar")
+        self.chk_mute.setChecked(track.mute)
+        self.chk_mute.toggled.connect(self._mute_changed)
+        row.addWidget(self.chk_mute)
+        row.addWidget(QLabel("Início"))
         self.spin_offset = QDoubleSpinBox()
-        self.spin_offset.setRange(0.0, 7200.0)
-        self.spin_offset.setSingleStep(0.5)
-        self.spin_offset.setSuffix("s")
-        self.spin_offset.setValue(round(self.track.offset, 2))
-        self.spin_offset.valueChanged.connect(self._on_offset_changed)
-        offset_box.addWidget(lbl_offset)
-        offset_box.addWidget(self.spin_offset)
-        ctrl_row.addLayout(offset_box)
+        self.spin_offset.setRange(0, 864000)
+        self.spin_offset.setDecimals(2)
+        self.spin_offset.setSuffix(" s")
+        self.spin_offset.setSingleStep(.5)
+        self.spin_offset.setValue(track.offset)
+        self.spin_offset.setAccessibleName(f"Início da faixa {index + 1}, em segundos")
+        self.spin_offset.valueChanged.connect(self._offset_changed)
+        row.addWidget(self.spin_offset)
+        layout.addLayout(row)
+        self.file_label = QLabel()
+        self.file_label.setProperty("class", "muted")
+        self.file_label.setMinimumWidth(0)
+        layout.addWidget(self.file_label)
+        self.update_status(0)
 
-        ctrl_row.addStretch()
-        main_layout.addLayout(ctrl_row)
+    def update_status(self, total):
+        t = self.track
+        if not Path(t.file_path).is_file():
+            message = "Arquivo ausente. Use Trocar para localizar."
+            color = "danger"
+        elif t.mute or t.volume == 0:
+            message, color = "Silenciada", "muted"
+        elif total and t.offset >= total:
+            message, color = "Começa após o fim do vídeo", "warning"
+        elif total and t.effective_end() > total + .05:
+            message, color = "Será cortada no final do vídeo", "warning"
+        elif total and t.effective_end() < total - .05:
+            message, color = "Termina antes do vídeo", "muted"
+        else:
+            message, color = "Áudio validado", "success"
+        text = f"{Path(t.file_path).name} · {format_duration(t.duration)} · {message}"
+        self.file_label.setToolTip(f"{t.file_path}\n{text}")
+        # An elided label cannot force the editor past the notebook width.
+        self.file_label.setText(self.file_label.fontMetrics().elidedText(text, __import__('PySide6.QtCore', fromlist=['Qt']).Qt.ElideMiddle, max(300, self.width()-24)))
+        apply_style(self.file_label, f"font-size: 11px; color: @{color}@;")
 
-    def _on_name_changed(self, text: str):
-        self.track.name = text.strip() or "Faixa de Áudio"
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "file_label"):
+            self.update_status(getattr(self, "total", 0))
+
+    def _name_changed(self, value):
+        self.track.name = value.strip() or f"Faixa {self.index + 1}"
         self.track_changed.emit(self.track.id)
 
-    def _on_volume_changed(self, val: float):
-        self.track.volume = max(0.0, min(2.0, val / 100.0))
+    def _volume_changed(self, value):
+        self.track.volume = value / 100
         self.track_changed.emit(self.track.id)
 
-    def _on_mute_toggled(self, checked: bool):
-        self.track.mute = checked
+    def _mute_changed(self, value):
+        self.track.mute = value
         self.track_changed.emit(self.track.id)
 
-    def _on_offset_changed(self, val: float):
-        self.track.offset = max(0.0, float(val))
+    def _offset_changed(self, value):
+        self.track.offset = value
         self.track_changed.emit(self.track.id)
-
-    def update_index(self, new_index: int):
-        self.index = new_index
-        # Refresh label if needed

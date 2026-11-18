@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import logging
 import os
 import sys
@@ -202,7 +203,7 @@ class RecordMeetView(QWidget):
         btn_back.clicked.connect(self.back_to_home.emit)
 
         title = QLabel("👥 3. Gravar Reunião do Meet - Captura com IA")
-        title.setStyleSheet("font-size: 16px; font-weight: 700; color: #34d399;")
+        apply_style(title, "font-size: 16px; font-weight: 700; color: @success@;")
 
         nav.addWidget(btn_back)
         nav.addWidget(title)
@@ -247,7 +248,7 @@ class RecordMeetView(QWidget):
         mb_layout.setSpacing(14)
 
         lbl_mtitle = QLabel("Selecione o Objetivo da Gravação:")
-        lbl_mtitle.setStyleSheet("font-size: 16px; font-weight: 700; color: #ffffff;")
+        apply_style(lbl_mtitle, "font-size: 16px; font-weight: 700; color: @text@;")
         mb_layout.addWidget(lbl_mtitle)
 
         modes_row = QHBoxLayout()
@@ -255,13 +256,13 @@ class RecordMeetView(QWidget):
 
         # Mode 1 Radio Card
         self.radio_mode1 = QRadioButton("1. Modo Reunião Completa (Daily / Alinhamento / Trabalho)")
-        self.radio_mode1.setStyleSheet("font-weight: 700; color: #38bdf8; font-size: 13px;")
+        apply_style(self.radio_mode1, "font-weight: 700; color: @primary@; font-size: 13px;")
         self.radio_mode1.setChecked(True)
         self.radio_mode1.toggled.connect(self._on_mode_changed)
 
         # Mode 2 Radio Card
         self.radio_mode2 = QRadioButton("2. Modo Aula no Meet (Foco no Professor & E-book da Aula)")
-        self.radio_mode2.setStyleSheet("font-weight: 700; color: #a78bfa; font-size: 13px;")
+        apply_style(self.radio_mode2, "font-weight: 700; color: @track2@; font-size: 13px;")
 
         self.mode_group = QButtonGroup(self)
         self.mode_group.addButton(self.radio_mode1)
@@ -276,7 +277,7 @@ class RecordMeetView(QWidget):
             "o Gemini gera a transcrição integral e um resumo executivo com pauta, decisões e tarefas."
         )
         self.lbl_mode_desc.setWordWrap(True)
-        self.lbl_mode_desc.setStyleSheet("color: #94a3b8; font-size: 12px; line-height: 1.4;")
+        apply_style(self.lbl_mode_desc, "color: @muted@; font-size: 12px; line-height: 1.4;")
         mb_layout.addWidget(self.lbl_mode_desc)
 
         p1_lay.addWidget(mode_box)
@@ -308,16 +309,16 @@ class RecordMeetView(QWidget):
         btr_layout.setSpacing(8)
 
         lbl_role = QLabel("Quem está ministrando a aula no Meet?")
-        lbl_role.setStyleSheet("font-weight: 700; color: #ffffff; font-size: 13px;")
+        apply_style(lbl_role, "font-weight: 700; color: @text@; font-size: 13px;")
 
         role_row = QHBoxLayout()
         self.radio_teacher_self = QRadioButton("👤 Eu mesma sou a Professora (Dando a aula)")
-        self.radio_teacher_self.setStyleSheet("font-weight: 700; color: #34d399; font-size: 13px;")
+        apply_style(self.radio_teacher_self, "font-weight: 700; color: @success@; font-size: 13px;")
         self.radio_teacher_self.setChecked(True)
         self.radio_teacher_self.toggled.connect(self._on_teacher_role_changed)
 
         self.radio_teacher_remote = QRadioButton("👨‍🏫 Outro Professor (Assistindo a aula de terceiro no Meet)")
-        self.radio_teacher_remote.setStyleSheet("font-weight: 700; color: #a78bfa; font-size: 13px;")
+        apply_style(self.radio_teacher_remote, "font-weight: 700; color: @track2@; font-size: 13px;")
 
         self.teacher_role_group = QButtonGroup(self)
         self.teacher_role_group.addButton(self.radio_teacher_self)
@@ -330,7 +331,7 @@ class RecordMeetView(QWidget):
         self.lbl_teacher_role_hint = QLabel(
             "💡 Sua câmera será gravada na videoaula, capturando seus slides na tela, seu microfone e as dúvidas dos alunos no Meet."
         )
-        self.lbl_teacher_role_hint.setStyleSheet("color: #38bdf8; font-size: 12px;")
+        apply_style(self.lbl_teacher_role_hint, "color: @primary@; font-size: 12px;")
         self.lbl_teacher_role_hint.setWordWrap(True)
 
         btr_layout.addWidget(lbl_role)
@@ -352,13 +353,13 @@ class RecordMeetView(QWidget):
 
         # Mode 2 specific: Camera settings when teacher is self
         self.box_my_camera = QFrame()
-        self.box_my_camera.setStyleSheet("background-color: #161c28; border: 1px solid #2e384d; border-radius: 8px;")
+        apply_style(self.box_my_camera, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px;")
         bmc_layout = QVBoxLayout(self.box_my_camera)
         bmc_layout.setContentsMargins(14, 12, 14, 12)
         bmc_layout.setSpacing(10)
 
         self.chk_my_cam = QCheckBox("Habilitar gravação da minha Câmera / Webcam na videoaula")
-        self.chk_my_cam.setStyleSheet("font-weight: 700; color: #f8fafc;")
+        apply_style(self.chk_my_cam, "font-weight: 700; color: @text@;")
         self.chk_my_cam.setChecked(True)
 
         cam_config_row = QHBoxLayout()
@@ -370,9 +371,7 @@ class RecordMeetView(QWidget):
         btn_refresh_meet_cam = QPushButton("🔄 Atualizar")
         btn_refresh_meet_cam.setCursor(Qt.PointingHandCursor)
         btn_refresh_meet_cam.setToolTip("Atualizar lista de câmeras conectadas")
-        btn_refresh_meet_cam.setStyleSheet(
-            "background: #1e293b; color: #38bdf8; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;"
-        )
+        apply_style(btn_refresh_meet_cam, "background: @surface_alt@; color: @primary@; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;")
         btn_refresh_meet_cam.clicked.connect(self._refresh_camera_devices)
         cam_hdr.addWidget(lbl_cdev)
         cam_hdr.addStretch()
@@ -398,12 +397,12 @@ class RecordMeetView(QWidget):
         cam_btn_row = QHBoxLayout()
         self.btn_floating_cam = QPushButton("📷 Ativar Janela Flutuante da Câmera na Tela")
         self.btn_floating_cam.setCursor(Qt.PointingHandCursor)
-        self.btn_floating_cam.setStyleSheet("background: #312e81; color: #c7d2fe; font-weight: 600; padding: 6px 14px; border-radius: 6px;")
+        apply_style(self.btn_floating_cam, "background: @primary@; color: @text@; font-weight: 600; padding: 6px 14px; border-radius: 6px;")
         self.btn_floating_cam.setToolTip("Abre uma janela de vídeo da sua câmera que fica sempre no topo da tela para você se ver enquanto ministra a aula")
         self.btn_floating_cam.clicked.connect(self._toggle_floating_camera)
 
         lbl_float_hint = QLabel("Arraste e posicione na tela onde preferir durante a transmissão do Meet.")
-        lbl_float_hint.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        apply_style(lbl_float_hint, "color: @muted@; font-size: 11px;")
 
         cam_btn_row.addWidget(self.btn_floating_cam)
         cam_btn_row.addWidget(lbl_float_hint)
@@ -437,7 +436,7 @@ class RecordMeetView(QWidget):
         btn_pick_pdf.setCursor(Qt.PointingHandCursor)
         btn_pick_pdf.clicked.connect(self._pick_pdf_presentation)
         self.lbl_pdf_status = QLabel("Opcional: fornece os slides vetoriais para o E-book")
-        self.lbl_pdf_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        apply_style(self.lbl_pdf_status, "color: @muted@; font-size: 12px;")
         bp_layout.addWidget(btn_pick_pdf)
         bp_layout.addWidget(self.lbl_pdf_status)
         bp_layout.addStretch()
@@ -469,7 +468,7 @@ class RecordMeetView(QWidget):
 
         # Mode 2 specific Checkbox: E-book with interleaved slides
         self.chk_gen_ebook = QCheckBox("📚 Gerar E-book Didático / Apostila da Aula em PDF com Slides Intercalados")
-        self.chk_gen_ebook.setStyleSheet("font-weight: 700; color: #a78bfa;")
+        apply_style(self.chk_gen_ebook, "font-weight: 700; color: @track2@;")
         self.chk_gen_ebook.setChecked(True)
         self.fc_layout.addWidget(self.chk_gen_ebook)
         self.chk_gen_ebook.hide()
@@ -479,7 +478,7 @@ class RecordMeetView(QWidget):
         bs_layout = QHBoxLayout(self.box_subs)
         bs_layout.setContentsMargins(0, 0, 0, 0)
         self.chk_subs = QCheckBox("Gerar Legendas no Vídeo com IA (Gemini)")
-        self.chk_subs.setStyleSheet("color: #f8fafc;")
+        apply_style(self.chk_subs, "color: @text@;")
         lbl_slang = QLabel("Idioma:")
         self.combo_slang = QComboBox()
         for c, n in SUPPORTED_LANGUAGES.items():
@@ -499,7 +498,7 @@ class RecordMeetView(QWidget):
         self.btn_start_rec.setProperty("class", "primary")
         self.btn_start_rec.setFixedHeight(50)
         self.btn_start_rec.setCursor(Qt.PointingHandCursor)
-        self.btn_start_rec.setStyleSheet("font-size: 15px; font-weight: 700;")
+        apply_style(self.btn_start_rec, "font-size: 15px; font-weight: 700;")
         self.btn_start_rec.clicked.connect(self._prepare_and_start_recording)
         p2_lay.addWidget(self.btn_start_rec)
 
@@ -523,15 +522,11 @@ class RecordMeetView(QWidget):
         self.step_stack.setCurrentIndex(idx)
         for i, btn in enumerate(self.step_buttons):
             if i == idx:
-                btn.setStyleSheet(
-                    "background: #059669; color: #ffffff; font-weight: 700; "
-                    "border: 1.5px solid #34d399; padding: 8px 14px; border-radius: 8px;"
-                )
+                apply_style(btn, "background: @success@; color: @on_primary@; font-weight: 700; "
+                    "border: 1.5px solid @focus@; padding: 8px 14px; border-radius: 8px;")
             else:
-                btn.setStyleSheet(
-                    "background: #1a1e28; color: #94a3b8; font-weight: 600; "
-                    "border: 1px solid #2d3343; padding: 8px 14px; border-radius: 8px;"
-                )
+                apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
+                    "border: 1px solid @border_strong@; padding: 8px 14px; border-radius: 8px;")
 
     # ----------------------------------------------------
     # SCREEN 1: RECORDING CONTROLS
@@ -551,18 +546,16 @@ class RecordMeetView(QWidget):
         c_layout.setAlignment(Qt.AlignCenter)
 
         self.lbl_rec_pulse = QLabel("🔴 GRAVANDO GOOGLE MEET AO VIVO")
-        self.lbl_rec_pulse.setStyleSheet("font-size: 20px; font-weight: 800; color: #ef4444;")
+        apply_style(self.lbl_rec_pulse, "font-size: 20px; font-weight: 800; color: @danger@;")
         self.lbl_rec_pulse.setAlignment(Qt.AlignCenter)
 
         self.lbl_rec_time = QLabel("00:00")
-        self.lbl_rec_time.setStyleSheet(
-            "font-size: 32px; font-weight: 800; color: #ffffff; "
-            "background-color: #12151f; padding: 8px 24px; border-radius: 8px;"
-        )
+        apply_style(self.lbl_rec_time, "font-size: 32px; font-weight: 800; color: @text@; "
+            "background-color: @surface_alt@; padding: 8px 24px; border-radius: 8px;")
         self.lbl_rec_time.setAlignment(Qt.AlignCenter)
 
         lbl_info = QLabel("A tela e o áudio da reunião estão sendo capturados com perfeição.\nQuando a reunião ou aula terminar, clique abaixo:")
-        lbl_info.setStyleSheet("color: #94a3b8; font-size: 13px; line-height: 1.5;")
+        apply_style(lbl_info, "color: @muted@; font-size: 13px; line-height: 1.5;")
         lbl_info.setAlignment(Qt.AlignCenter)
 
         btn_row = QHBoxLayout()
@@ -573,7 +566,7 @@ class RecordMeetView(QWidget):
         btn_stop.setProperty("class", "primary")
         btn_stop.setFixedHeight(46)
         btn_stop.setCursor(Qt.PointingHandCursor)
-        btn_stop.setStyleSheet("font-size: 14px; font-weight: 700; padding: 0 28px;")
+        apply_style(btn_stop, "font-size: 14px; font-weight: 700; padding: 0 28px;")
         btn_stop.clicked.connect(self._finish_and_process)
 
         btn_cancel = QPushButton("Cancelar")
@@ -604,7 +597,7 @@ class RecordMeetView(QWidget):
         # Header
         header = QHBoxLayout()
         lbl_rtitle = QLabel("🎉 Gravação do Meet Concluída!")
-        lbl_rtitle.setStyleSheet("font-size: 18px; font-weight: 700; color: #34d399;")
+        apply_style(lbl_rtitle, "font-size: 18px; font-weight: 700; color: @success@;")
         header.addWidget(lbl_rtitle)
         header.addStretch()
 
@@ -620,7 +613,7 @@ class RecordMeetView(QWidget):
         self.proc_progress.setValue(0)
         self.proc_progress.setFixedHeight(18)
         self.lbl_proc_status = QLabel("Processando arquivo gravado com inteligência artificial...")
-        self.lbl_proc_status.setStyleSheet("color: #38bdf8; font-weight: 600;")
+        apply_style(self.lbl_proc_status, "color: @primary@; font-weight: 600;")
         layout.addWidget(self.lbl_proc_status)
         layout.addWidget(self.proc_progress)
 
@@ -635,7 +628,7 @@ class RecordMeetView(QWidget):
         tv_layout.setSpacing(14)
 
         self.lbl_video_info = QLabel("Vídeo gravado:")
-        self.lbl_video_info.setStyleSheet("font-weight: 600; color: #f8fafc;")
+        apply_style(self.lbl_video_info, "font-weight: 600; color: @text@;")
         btn_v_row = QHBoxLayout()
         btn_play_v = QPushButton("▶ Assistir Vídeo")
         btn_play_v.setProperty("class", "primary")
@@ -680,7 +673,7 @@ class RecordMeetView(QWidget):
         te_layout.setSpacing(14)
 
         self.lbl_ebook_info = QLabel("📚 E-book Didático / Apostila da Aula Gerada com Sucesso!")
-        self.lbl_ebook_info.setStyleSheet("font-size: 15px; font-weight: 700; color: #a78bfa;")
+        apply_style(self.lbl_ebook_info, "font-size: 15px; font-weight: 700; color: @track2@;")
 
         lbl_edesc = QLabel(
             "A apostila contém todos os capítulos estruturados didaticamente, "
@@ -688,7 +681,7 @@ class RecordMeetView(QWidget):
             "pontos-chave e questões de fixação para os alunos."
         )
         lbl_edesc.setWordWrap(True)
-        lbl_edesc.setStyleSheet("color: #94a3b8; font-size: 13px; line-height: 1.5;")
+        apply_style(lbl_edesc, "color: @muted@; font-size: 13px; line-height: 1.5;")
 
         btn_e_row = QHBoxLayout()
         btn_e_row.setSpacing(12)
@@ -784,14 +777,14 @@ class RecordMeetView(QWidget):
             self.lbl_teacher_role_hint.setText(
                 "💡 Sua câmera será gravada na videoaula, capturando seus slides na tela, seu microfone e as dúvidas dos alunos no Meet."
             )
-            self.lbl_teacher_role_hint.setStyleSheet("color: #34d399; font-size: 12px;")
+            apply_style(self.lbl_teacher_role_hint, "color: @success@; font-size: 12px;")
         else:
             self.lbl_prof.setText("Nome do Professor(a) Remoto:")
             self.box_my_camera.hide()
             self.lbl_teacher_role_hint.setText(
                 "💡 A apresentação e a câmera do professor remoto serão capturadas a partir da tela do Google Meet, preservando a privacidade dos outros alunos."
             )
-            self.lbl_teacher_role_hint.setStyleSheet("color: #a78bfa; font-size: 12px;")
+            apply_style(self.lbl_teacher_role_hint, "color: @track2@; font-size: 12px;")
 
     def _toggle_floating_camera(self):
         if not self.floating_camera:
@@ -817,7 +810,7 @@ class RecordMeetView(QWidget):
         if file_path:
             self.selected_pdf_path = file_path
             self.lbl_pdf_status.setText(f"✓ {Path(file_path).name}")
-            self.lbl_pdf_status.setStyleSheet("color: #10b981; font-weight: 600;")
+            apply_style(self.lbl_pdf_status, "color: @success@; font-weight: 600;")
 
     def _prepare_and_start_recording(self):
         dest_dir = Path.home() / "SlideCast_Materials" / "meet_recordings"
@@ -941,7 +934,7 @@ class RecordMeetView(QWidget):
         self.results_data = results
         self.proc_progress.setValue(100)
         self.lbl_proc_status.setText("✓ Concluído com sucesso!")
-        self.lbl_proc_status.setStyleSheet("color: #10b981; font-weight: 700;")
+        apply_style(self.lbl_proc_status, "color: @success@; font-weight: 700;")
 
         self.lbl_video_info.setText(f"Vídeo gravado em: {results.get('video_path')}")
 
@@ -965,7 +958,7 @@ class RecordMeetView(QWidget):
 
     def _on_processing_error(self, err: str):
         self.lbl_proc_status.setText("Erro durante o processamento.")
-        self.lbl_proc_status.setStyleSheet("color: #ef4444; font-weight: 700;")
+        apply_style(self.lbl_proc_status, "color: @danger@; font-weight: 700;")
         QMessageBox.critical(self, "Aviso", f"Erro no processamento da gravação:\n{err}")
 
     def _open_recorded_video(self):

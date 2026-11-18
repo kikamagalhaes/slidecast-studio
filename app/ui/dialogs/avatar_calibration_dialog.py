@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import logging
 import os
 import sys
@@ -122,12 +123,12 @@ class AvatarCalibrationDialog(QDialog):
         top_header = QHBoxLayout()
         header_v = QVBoxLayout()
         lbl_title = QLabel("🎭 Criar e Calibrar Meu Clone Digital (Avatar IA)")
-        lbl_title.setStyleSheet("font-size: 19px; font-weight: 800; color: #a78bfa;")
+        apply_style(lbl_title, "font-size: 19px; font-weight: 800; color: @track2@;")
         lbl_desc = QLabel(
             "Grave uma amostra de ~15 segundos lendo o texto indicado ou importe um vídeo curto. "
             "A IA salvará sua imagem e voz para ministrar aulas automaticamente no seu lugar!"
         )
-        lbl_desc.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        apply_style(lbl_desc, "color: @muted@; font-size: 12px;")
         header_v.addWidget(lbl_title)
         header_v.addWidget(lbl_desc)
         top_header.addLayout(header_v)
@@ -136,16 +137,16 @@ class AvatarCalibrationDialog(QDialog):
 
         # Tabs: Step 1 (Gravação / Importação), Step 2 (Configuração do Clone), Step 3 (Clones Salvos)
         self.tabs = QTabWidget()
-        self.tabs.setStyleSheet("""
+        apply_style(self.tabs, """
             QTabWidget::pane {
-                border: 1px solid #2d3748;
+                border: 1px solid @border_strong@;
                 border-radius: 8px;
-                background-color: #12151f;
+                background-color: @surface_alt@;
                 padding: 12px;
             }
             QTabBar::tab {
-                background: #1a202c;
-                color: #94a3b8;
+                background: @surface_alt@;
+                color: @muted@;
                 font-weight: 600;
                 padding: 8px 18px;
                 border-top-left-radius: 6px;
@@ -153,9 +154,9 @@ class AvatarCalibrationDialog(QDialog):
                 margin-right: 4px;
             }
             QTabBar::tab:selected {
-                background: #312e81;
-                color: #ffffff;
-                border-bottom: 2px solid #818cf8;
+                background: @primary@;
+                color: @text@;
+                border-bottom: 2px solid @focus@;
             }
         """)
 
@@ -192,20 +193,18 @@ class AvatarCalibrationDialog(QDialog):
         dev_row.setSpacing(10)
 
         lbl_cam = QLabel("Câmera:")
-        lbl_cam.setStyleSheet("font-weight: 600; color: #cbd5e1;")
+        apply_style(lbl_cam, "font-weight: 600; color: @text@;")
         self.combo_cams = QComboBox()
         self.combo_cams.currentIndexChanged.connect(self._on_camera_changed)
 
         btn_refresh_devs = QPushButton("🔄 Atualizar")
         btn_refresh_devs.setCursor(Qt.PointingHandCursor)
         btn_refresh_devs.setToolTip("Clique para recarregar dispositivos caso tenha acabado de conectar uma webcam USB")
-        btn_refresh_devs.setStyleSheet(
-            "background: #1e293b; color: #38bdf8; font-weight: 600; font-size: 11px; padding: 4px 10px; border-radius: 6px;"
-        )
+        apply_style(btn_refresh_devs, "background: @surface_alt@; color: @primary@; font-weight: 600; font-size: 11px; padding: 4px 10px; border-radius: 6px;")
         btn_refresh_devs.clicked.connect(self._init_camera_and_audio)
 
         lbl_mic = QLabel("Microfone:")
-        lbl_mic.setStyleSheet("font-weight: 600; color: #cbd5e1;")
+        apply_style(lbl_mic, "font-weight: 600; color: @text@;")
         self.combo_mics = QComboBox()
         self.combo_mics.currentIndexChanged.connect(self._on_mic_changed)
 
@@ -223,7 +222,7 @@ class AvatarCalibrationDialog(QDialog):
 
         # Left: Live camera preview
         cam_frame = QFrame()
-        cam_frame.setStyleSheet("background-color: #0b0f19; border: 1.5px solid #2d3748; border-radius: 8px;")
+        apply_style(cam_frame, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 8px;")
         cf_layout = QVBoxLayout(cam_frame)
         cf_layout.setContentsMargins(4, 4, 4, 4)
 
@@ -233,17 +232,17 @@ class AvatarCalibrationDialog(QDialog):
 
         self.lbl_cam_status = QLabel("Carregando câmera...")
         self.lbl_cam_status.setAlignment(Qt.AlignCenter)
-        self.lbl_cam_status.setStyleSheet("color: #64748b; font-size: 11px;")
+        apply_style(self.lbl_cam_status, "color: @primary@; font-size: 11px;")
         cf_layout.addWidget(self.lbl_cam_status)
 
         content_row.addWidget(cam_frame, stretch=1)
 
         # Right: Teleprompter Card
         prompter_card = QFrame()
-        prompter_card.setStyleSheet("""
+        apply_style(prompter_card, """
             QFrame {
-                background-color: #0f172a;
-                border: 2px solid #6366f1;
+                background-color: @surface_alt@;
+                border: 2px solid @focus@;
                 border-radius: 8px;
             }
         """)
@@ -252,15 +251,13 @@ class AvatarCalibrationDialog(QDialog):
         pc_layout.setSpacing(8)
 
         lbl_tp_title = QLabel("📜 Teleprompter (Sugestão de Apoio ou Improvise Livremente)")
-        lbl_tp_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #38bdf8; border: none;")
+        apply_style(lbl_tp_title, "font-size: 13px; font-weight: 700; color: @primary@; border: none;")
         pc_layout.addWidget(lbl_tp_title)
 
         lbl_tp_prompt = QLabel(f'"{CALIBRATION_PROMPT}"')
         lbl_tp_prompt.setWordWrap(True)
-        lbl_tp_prompt.setStyleSheet(
-            "font-size: 14px; font-weight: 600; color: #f8fafc; line-height: 1.5; "
-            "padding: 10px; background: #1e1b4b; border-radius: 6px; border: 1px solid #4338ca;"
-        )
+        apply_style(lbl_tp_prompt, "font-size: 14px; font-weight: 600; color: @text@; line-height: 1.5; "
+            "padding: 10px; background: @surface_alt@; border-radius: 6px; border: 1px solid @focus@;")
         pc_layout.addWidget(lbl_tp_prompt, stretch=1)
 
         lbl_tp_hint = QLabel(
@@ -268,7 +265,7 @@ class AvatarCalibrationDialog(QDialog):
             "A IA analisa sua expressividade, movimentos naturais e articulação espontânea dos lábios, não as palavras exatas."
         )
         lbl_tp_hint.setWordWrap(True)
-        lbl_tp_hint.setStyleSheet("font-size: 11px; color: #38bdf8; border: none; font-weight: 500; line-height: 1.4;")
+        apply_style(lbl_tp_hint, "font-size: 11px; color: @primary@; border: none; font-weight: 500; line-height: 1.4;")
         pc_layout.addWidget(lbl_tp_hint)
 
         content_row.addWidget(prompter_card, stretch=1)
@@ -282,7 +279,7 @@ class AvatarCalibrationDialog(QDialog):
         dur_row = QHBoxLayout()
         dur_row.setSpacing(10)
         lbl_dur = QLabel("⏱️ Duração da Amostra:")
-        lbl_dur.setStyleSheet("font-weight: 600; color: #cbd5e1; font-size: 12px;")
+        apply_style(lbl_dur, "font-weight: 600; color: @text@; font-size: 12px;")
 
         self.combo_duration = QComboBox()
         self.combo_duration.addItem("⏱️ 30 segundos (Rápida)", 30.0)
@@ -292,10 +289,10 @@ class AvatarCalibrationDialog(QDialog):
         self.combo_duration.addItem("⏱️ Gravação Livre (Grave quanto quiser e clique em Parar)", 999.0)
         self.combo_duration.setCurrentIndex(1)
         self.combo_duration.currentIndexChanged.connect(self._on_duration_changed)
-        self.combo_duration.setStyleSheet("background: #1e293b; color: #f8fafc; padding: 4px 8px; border-radius: 6px;")
+        apply_style(self.combo_duration, "background: @surface_alt@; color: @text@; padding: 4px 8px; border-radius: 6px;")
 
         lbl_dur_hint = QLabel("💡 Amostras de 60s a 120s capturam um repertório riquíssimo de movimentos, eliminando repetições.")
-        lbl_dur_hint.setStyleSheet("color: #38bdf8; font-size: 11px;")
+        apply_style(lbl_dur_hint, "color: @primary@; font-size: 11px;")
 
         dur_row.addWidget(lbl_dur)
         dur_row.addWidget(self.combo_duration)
@@ -305,9 +302,9 @@ class AvatarCalibrationDialog(QDialog):
 
         timer_hdr = QHBoxLayout()
         self.lbl_timer_status = QLabel("Pronto para gravar (Duração recomendada: 60 segundos)")
-        self.lbl_timer_status.setStyleSheet("font-weight: 600; color: #94a3b8;")
+        apply_style(self.lbl_timer_status, "font-weight: 600; color: @muted@;")
         self.lbl_timer_val = QLabel("00:00 / 01:00")
-        self.lbl_timer_val.setStyleSheet("font-size: 15px; font-weight: 800; color: #38bdf8;")
+        apply_style(self.lbl_timer_val, "font-size: 15px; font-weight: 800; color: @primary@;")
         timer_hdr.addWidget(self.lbl_timer_status)
         timer_hdr.addStretch()
         timer_hdr.addWidget(self.lbl_timer_val)
@@ -317,15 +314,15 @@ class AvatarCalibrationDialog(QDialog):
         self.progress_calib.setRange(0, 100)
         self.progress_calib.setValue(0)
         self.progress_calib.setFixedHeight(12)
-        self.progress_calib.setStyleSheet("""
+        apply_style(self.progress_calib, """
             QProgressBar {
-                background: #1e293b;
-                border: 1px solid #334155;
+                background: @surface_alt@;
+                border: 1px solid @border_strong@;
                 border-radius: 6px;
                 text-align: center;
             }
             QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #ec4899);
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @primary@, stop:1 @primary@);
                 border-radius: 5px;
             }
         """)
@@ -337,10 +334,8 @@ class AvatarCalibrationDialog(QDialog):
         action_row.setSpacing(12)
 
         self.btn_record_start = QPushButton("🔴 Iniciar Gravação de 60 Segundos")
-        self.btn_record_start.setStyleSheet(
-            "background: #dc2626; color: #ffffff; font-weight: 700; font-size: 13px; "
-            "padding: 10px 18px; border-radius: 8px;"
-        )
+        apply_style(self.btn_record_start, "background: @danger@; color: @on_primary@; font-weight: 700; font-size: 13px; "
+            "padding: 10px 18px; border-radius: 8px;")
         self.btn_record_start.setCursor(Qt.PointingHandCursor)
         self.btn_record_start.clicked.connect(self._start_calibration_recording)
 
@@ -368,7 +363,7 @@ class AvatarCalibrationDialog(QDialog):
     def _build_config_tab(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        apply_style(scroll, "QScrollArea { border: none; background: transparent; }")
 
         content = QWidget()
         layout = QVBoxLayout(content)
@@ -383,17 +378,17 @@ class AvatarCalibrationDialog(QDialog):
         cp_layout.setSpacing(10)
 
         lbl_cp_title = QLabel("👤 Nome do Perfil do Clone:")
-        lbl_cp_title.setStyleSheet("font-weight: 700; color: #f8fafc; font-size: 13px;")
+        apply_style(lbl_cp_title, "font-weight: 700; color: @text@; font-size: 13px;")
         self.edit_clone_name = QLineEdit()
         self.edit_clone_name.setPlaceholderText("Ex: Prof. Kika Magalhães")
         self.edit_clone_name.setText("Prof. Kika Magalhães")
-        self.edit_clone_name.setStyleSheet("padding: 8px 10px; font-size: 13px;")
+        apply_style(self.edit_clone_name, "padding: 8px 10px; font-size: 13px;")
         cp_layout.addWidget(lbl_cp_title)
         cp_layout.addWidget(self.edit_clone_name)
 
         # Video status preview
         self.lbl_selected_video_status = QLabel("Nenhum vídeo calibrado no momento.")
-        self.lbl_selected_video_status.setStyleSheet("color: #f59e0b; font-size: 12px; font-weight: 600;")
+        apply_style(self.lbl_selected_video_status, "color: @warning@; font-size: 12px; font-weight: 600;")
         cp_layout.addWidget(self.lbl_selected_video_status)
         layout.addWidget(card_profile)
 
@@ -405,24 +400,22 @@ class AvatarCalibrationDialog(QDialog):
         ce_layout.setSpacing(14)
 
         lbl_eng_title = QLabel("⚙️ Selecione o Motor de Inteligência Artificial:")
-        lbl_eng_title.setStyleSheet("font-size: 15px; font-weight: 800; color: #38bdf8;")
+        apply_style(lbl_eng_title, "font-size: 15px; font-weight: 800; color: @primary@;")
         ce_layout.addWidget(lbl_eng_title)
 
         lbl_eng_sub = QLabel(
             "Escolha se deseja utilizar o processamento em nuvem de alta fidelidade ou o motor local gratuito:"
         )
         lbl_eng_sub.setWordWrap(True)
-        lbl_eng_sub.setStyleSheet("color: #94a3b8; font-size: 12px; margin-bottom: 2px;")
+        apply_style(lbl_eng_sub, "color: @muted@; font-size: 12px; margin-bottom: 2px;")
         ce_layout.addWidget(lbl_eng_sub)
 
         # Radio 1: Cloud Engine (Replicate + ElevenLabs)
         top_cloud = QHBoxLayout()
         self.radio_cloud = QRadioButton("🌐 Opção A: Motor em Nuvem / Alta Fidelidade (Replicate + ElevenLabs)")
-        self.radio_cloud.setStyleSheet("font-weight: 700; color: #a78bfa; font-size: 13px;")
+        apply_style(self.radio_cloud, "font-weight: 700; color: @track2@; font-size: 13px;")
         badge_cloud = QLabel("⭐ ALTA FIDELIDADE")
-        badge_cloud.setStyleSheet(
-            "background: #4338ca; color: #a5b4fc; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;"
-        )
+        apply_style(badge_cloud, "background: @primary@; color: @primary@; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;")
         top_cloud.addWidget(self.radio_cloud)
         top_cloud.addStretch()
         top_cloud.addWidget(badge_cloud)
@@ -434,15 +427,15 @@ class AvatarCalibrationDialog(QDialog):
             "• Requer chave de API do Replicate (gratuita para testes)."
         )
         lbl_cloud_desc.setWordWrap(True)
-        lbl_cloud_desc.setStyleSheet("color: #cbd5e1; font-size: 12px; margin-left: 20px; line-height: 1.4;")
+        apply_style(lbl_cloud_desc, "color: @text@; font-size: 12px; margin-left: 20px; line-height: 1.4;")
         ce_layout.addWidget(lbl_cloud_desc)
 
         # Cloud API inputs box (PROMINENT & CLEAR)
         self.box_cloud_keys = QFrame()
-        self.box_cloud_keys.setStyleSheet("""
+        apply_style(self.box_cloud_keys, """
             QFrame {
-                background: #0f172a;
-                border: 2px solid #6366f1;
+                background: @surface_alt@;
+                border: 2px solid @focus@;
                 border-radius: 10px;
             }
         """)
@@ -451,12 +444,12 @@ class AvatarCalibrationDialog(QDialog):
         bck_layout.setSpacing(10)
 
         lbl_keys_title = QLabel("🔑 ONDE COLOCAR A SUA CHAVE / TOKEN DE IA:")
-        lbl_keys_title.setStyleSheet("font-size: 13px; font-weight: 800; color: #a5b4fc; border: none;")
+        apply_style(lbl_keys_title, "font-size: 13px; font-weight: 800; color: @primary@; border: none;")
         bck_layout.addWidget(lbl_keys_title)
 
         # Field 1: Replicate Token
         lbl_rep = QLabel("1. Token de API do Replicate (Essencial para Sincronia Labial da Imagem):")
-        lbl_rep.setStyleSheet("font-size: 12px; font-weight: 700; color: #38bdf8; border: none;")
+        apply_style(lbl_rep, "font-size: 12px; font-weight: 700; color: @primary@; border: none;")
         bck_layout.addWidget(lbl_rep)
 
         rep_row = QHBoxLayout()
@@ -464,32 +457,24 @@ class AvatarCalibrationDialog(QDialog):
         self.edit_replicate_key = QLineEdit()
         self.edit_replicate_key.setPlaceholderText("Cole aqui seu token que começa com r8_...")
         self.edit_replicate_key.setText(get_replicate_api_key() or "")
-        self.edit_replicate_key.setStyleSheet(
-            "background: #1e293b; color: #f8fafc; font-family: monospace; font-size: 12px; "
-            "padding: 8px 10px; border-radius: 6px; border: 1px solid #475569;"
-        )
+        apply_style(self.edit_replicate_key, "background: @surface_alt@; color: @text@; font-family: monospace; font-size: 12px; "
+            "padding: 8px 10px; border-radius: 6px; border: 1px solid @border_strong@;")
         self.edit_replicate_key.textChanged.connect(self._on_replicate_text_changed)
 
         self.btn_paste_rep = QPushButton("📋 Colar Token")
         self.btn_paste_rep.setCursor(Qt.PointingHandCursor)
-        self.btn_paste_rep.setStyleSheet(
-            "background: #4f46e5; color: #ffffff; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;"
-        )
+        apply_style(self.btn_paste_rep, "background: @primary@; color: @on_primary@; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;")
         self.btn_paste_rep.clicked.connect(self._paste_replicate_token)
 
         self.btn_toggle_rep = QPushButton("👁️")
         self.btn_toggle_rep.setCursor(Qt.PointingHandCursor)
         self.btn_toggle_rep.setToolTip("Mostrar ou ocultar token")
-        self.btn_toggle_rep.setStyleSheet(
-            "background: #334155; color: #f8fafc; font-size: 13px; padding: 7px 10px; border-radius: 6px;"
-        )
+        apply_style(self.btn_toggle_rep, "background: @surface_alt@; color: @text@; font-size: 13px; padding: 7px 10px; border-radius: 6px;")
         self.btn_toggle_rep.clicked.connect(self._toggle_replicate_visibility)
 
         self.btn_get_rep = QPushButton("🌐 Pegar Token no Replicate")
         self.btn_get_rep.setCursor(Qt.PointingHandCursor)
-        self.btn_get_rep.setStyleSheet(
-            "background: #0284c7; color: #ffffff; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;"
-        )
+        apply_style(self.btn_get_rep, "background: @primary@; color: @on_primary@; font-weight: 700; font-size: 11px; padding: 7px 12px; border-radius: 6px;")
         self.btn_get_rep.clicked.connect(self._open_replicate_web)
 
         rep_row.addWidget(self.edit_replicate_key, stretch=3)
@@ -503,12 +488,12 @@ class AvatarCalibrationDialog(QDialog):
             "Crie uma conta gratuita (com Google/GitHub), copie o código que começa com <code>r8_</code> e clique em <b>'Colar Token'</b>."
         )
         lbl_rep_hint.setWordWrap(True)
-        lbl_rep_hint.setStyleSheet("color: #94a3b8; font-size: 11px; border: none; margin-bottom: 6px;")
+        apply_style(lbl_rep_hint, "color: @muted@; font-size: 11px; border: none; margin-bottom: 6px;")
         bck_layout.addWidget(lbl_rep_hint)
 
         # Field 2: ElevenLabs Key (Optional)
         lbl_el = QLabel("2. Chave ElevenLabs API (Opcional - apenas se desejar voz clonada sintética):")
-        lbl_el.setStyleSheet("font-size: 12px; font-weight: 600; color: #94a3b8; border: none; margin-top: 4px;")
+        apply_style(lbl_el, "font-size: 12px; font-weight: 600; color: @muted@; border: none; margin-top: 4px;")
         bck_layout.addWidget(lbl_el)
 
         el_row = QHBoxLayout()
@@ -516,31 +501,23 @@ class AvatarCalibrationDialog(QDialog):
         self.edit_eleven_key = QLineEdit()
         self.edit_eleven_key.setPlaceholderText("sk_... (opcional, deixe vazio se for gravar sua própria voz)")
         self.edit_eleven_key.setText(get_elevenlabs_api_key() or "")
-        self.edit_eleven_key.setStyleSheet(
-            "background: #1e293b; color: #f8fafc; font-family: monospace; font-size: 12px; "
-            "padding: 8px 10px; border-radius: 6px; border: 1px solid #475569;"
-        )
+        apply_style(self.edit_eleven_key, "background: @surface_alt@; color: @text@; font-family: monospace; font-size: 12px; "
+            "padding: 8px 10px; border-radius: 6px; border: 1px solid @border_strong@;")
         self.edit_eleven_key.textChanged.connect(self._on_eleven_text_changed)
 
         self.btn_paste_el = QPushButton("📋 Colar")
         self.btn_paste_el.setCursor(Qt.PointingHandCursor)
-        self.btn_paste_el.setStyleSheet(
-            "background: #334155; color: #cbd5e1; font-weight: 600; font-size: 11px; padding: 7px 10px; border-radius: 6px;"
-        )
+        apply_style(self.btn_paste_el, "background: @surface_alt@; color: @text@; font-weight: 600; font-size: 11px; padding: 7px 10px; border-radius: 6px;")
         self.btn_paste_el.clicked.connect(self._paste_eleven_key)
 
         self.btn_toggle_el = QPushButton("👁️")
         self.btn_toggle_el.setCursor(Qt.PointingHandCursor)
-        self.btn_toggle_el.setStyleSheet(
-            "background: #334155; color: #f8fafc; font-size: 13px; padding: 7px 10px; border-radius: 6px;"
-        )
+        apply_style(self.btn_toggle_el, "background: @surface_alt@; color: @text@; font-size: 13px; padding: 7px 10px; border-radius: 6px;")
         self.btn_toggle_el.clicked.connect(self._toggle_eleven_visibility)
 
         self.btn_get_el = QPushButton("🌐 ElevenLabs.io")
         self.btn_get_el.setCursor(Qt.PointingHandCursor)
-        self.btn_get_el.setStyleSheet(
-            "background: #1e293b; color: #94a3b8; font-size: 11px; padding: 7px 10px; border-radius: 6px; border: 1px solid #475569;"
-        )
+        apply_style(self.btn_get_el, "background: @surface_alt@; color: @muted@; font-size: 11px; padding: 7px 10px; border-radius: 6px; border: 1px solid @border_strong@;")
         self.btn_get_el.clicked.connect(self._open_elevenlabs_web)
 
         el_row.addWidget(self.edit_eleven_key, stretch=3)
@@ -553,7 +530,7 @@ class AvatarCalibrationDialog(QDialog):
             "💡 <b>Nota:</b> Se você optar por gravar sua própria voz humana natural no Passo 4 ou importar MP3/WAV, a chave da ElevenLabs NÃO é necessária!"
         )
         lbl_el_hint.setWordWrap(True)
-        lbl_el_hint.setStyleSheet("color: #64748b; font-size: 11px; border: none;")
+        apply_style(lbl_el_hint, "color: @primary@; font-size: 11px; border: none;")
         bck_layout.addWidget(lbl_el_hint)
 
         ce_layout.addWidget(self.box_cloud_keys)
@@ -561,11 +538,9 @@ class AvatarCalibrationDialog(QDialog):
         # Radio 2: Local / Free Engine
         top_local = QHBoxLayout()
         self.radio_local = QRadioButton("💻 Opção B: Motor Local / 100% Gratuito (Sem custos de API)")
-        self.radio_local.setStyleSheet("font-weight: 700; color: #10b981; font-size: 13px;")
+        apply_style(self.radio_local, "font-weight: 700; color: @success@; font-size: 13px;")
         badge_local = QLabel("🌿 100% GRATUITO")
-        badge_local.setStyleSheet(
-            "background: #065f46; color: #6ee7b7; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;"
-        )
+        apply_style(badge_local, "background: @surface_alt@; color: @success@; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px;")
         top_local.addWidget(self.radio_local)
         top_local.addStretch()
         top_local.addWidget(badge_local)
@@ -577,22 +552,22 @@ class AvatarCalibrationDialog(QDialog):
             "• 0 custos por minuto, sem necessidade de cartão de crédito ou chaves de API."
         )
         lbl_local_desc.setWordWrap(True)
-        lbl_local_desc.setStyleSheet("color: #cbd5e1; font-size: 12px; margin-left: 20px; line-height: 1.4;")
+        apply_style(lbl_local_desc, "color: @text@; font-size: 12px; margin-left: 20px; line-height: 1.4;")
         ce_layout.addWidget(lbl_local_desc)
 
         # Local Voice choice
         self.box_local_voice = QFrame()
-        self.box_local_voice.setStyleSheet("background: #0f172a; border-radius: 8px; padding: 6px; border: 1px solid #1e293b;")
+        apply_style(self.box_local_voice, "background: @surface_alt@; border-radius: 8px; padding: 6px; border: 1px solid @border_strong@;")
         blv_layout = QHBoxLayout(self.box_local_voice)
         blv_layout.setContentsMargins(12, 10, 12, 10)
         lbl_lv = QLabel("Voz Neural Padrão em Português:")
-        lbl_lv.setStyleSheet("font-weight: 600; color: #cbd5e1; font-size: 12px;")
+        apply_style(lbl_lv, "font-weight: 600; color: @text@; font-size: 12px;")
         self.combo_local_voice = QComboBox()
         self.combo_local_voice.addItem("Francisca (Feminina - Natural e Clara)", "pt-BR-FranciscaNeural")
         self.combo_local_voice.addItem("Brenda (Feminina - Dinâmica)", "pt-BR-BrendaNeural")
         self.combo_local_voice.addItem("Antonio (Masculino - Didático)", "pt-BR-AntonioNeural")
         self.combo_local_voice.addItem("Donato (Masculino - Formal)", "pt-BR-DonatoNeural")
-        self.combo_local_voice.setStyleSheet("background: #1e293b; color: #ffffff; padding: 6px 10px; border-radius: 6px;")
+        apply_style(self.combo_local_voice, "background: @surface_alt@; color: @text@; padding: 6px 10px; border-radius: 6px;")
 
         blv_layout.addWidget(lbl_lv)
         blv_layout.addWidget(self.combo_local_voice, stretch=1)
@@ -617,10 +592,8 @@ class AvatarCalibrationDialog(QDialog):
 
         # Save Button
         self.btn_save_clone = QPushButton("💾 Processar e Salvar Clone Digital")
-        self.btn_save_clone.setStyleSheet(
-            "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #4f46e5, stop:1 #7c3aed); "
-            "color: #ffffff; font-weight: 800; font-size: 14px; padding: 12px 20px; border-radius: 8px;"
-        )
+        apply_style(self.btn_save_clone, "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @primary@, stop:1 @primary@); "
+            "color: @on_primary@; font-weight: 800; font-size: 14px; padding: 12px 20px; border-radius: 8px;")
         self.btn_save_clone.setCursor(Qt.PointingHandCursor)
         self.btn_save_clone.clicked.connect(self._save_and_activate_clone)
         layout.addWidget(self.btn_save_clone)
@@ -639,27 +612,27 @@ class AvatarCalibrationDialog(QDialog):
         layout.setSpacing(12)
 
         lbl_title = QLabel("👥 Clones Digitais Salvos:")
-        lbl_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #f8fafc;")
+        apply_style(lbl_title, "font-size: 14px; font-weight: 700; color: @text@;")
         layout.addWidget(lbl_title)
 
         self.list_clones_widget = QListWidget()
-        self.list_clones_widget.setStyleSheet("""
+        apply_style(self.list_clones_widget, """
             QListWidget {
-                background-color: #0b0f19;
-                border: 1.5px solid #2d3748;
+                background-color: @surface@;
+                border: 1.5px solid @border_strong@;
                 border-radius: 8px;
                 padding: 6px;
             }
             QListWidget::item {
-                background: #1a202c;
-                color: #e2e8f0;
+                background: @surface_alt@;
+                color: @text@;
                 padding: 10px;
                 border-radius: 6px;
                 margin-bottom: 6px;
             }
             QListWidget::item:selected {
-                background: #312e81;
-                border: 1px solid #818cf8;
+                background: @primary@;
+                border: 1px solid @focus@;
             }
         """)
         layout.addWidget(self.list_clones_widget, stretch=1)
@@ -671,7 +644,7 @@ class AvatarCalibrationDialog(QDialog):
         self.btn_set_active.clicked.connect(self._set_selected_clone_active)
 
         self.btn_del_clone = QPushButton("🗑 Excluir Clone")
-        self.btn_del_clone.setStyleSheet("background: #991b1b; color: #ffffff;")
+        apply_style(self.btn_del_clone, "background: @danger@; color: @text@;")
         self.btn_del_clone.setCursor(Qt.PointingHandCursor)
         self.btn_del_clone.clicked.connect(self._delete_selected_clone)
 
@@ -709,11 +682,11 @@ class AvatarCalibrationDialog(QDialog):
             if v4l_found:
                 self.combo_cams.addItem(f"📹 {v4l_found[0]}", None)
                 self.lbl_cam_status.setText(f"Detectada no sistema: {v4l_found[0]}. Clique em Atualizar.")
-                self.lbl_cam_status.setStyleSheet("color: #38bdf8; font-size: 11px;")
+                apply_style(self.lbl_cam_status, "color: @primary@; font-size: 11px;")
             else:
                 self.combo_cams.addItem("Nenhuma câmera detectada", None)
                 self.lbl_cam_status.setText("Câmera não detectada (conecte uma webcam USB ou use 'Importar Vídeo')")
-                self.lbl_cam_status.setStyleSheet("color: #94a3b8; font-size: 11px;")
+                apply_style(self.lbl_cam_status, "color: @muted@; font-size: 11px;")
             self.combo_cams.blockSignals(False)
 
         # Audio inputs
@@ -748,7 +721,7 @@ class AvatarCalibrationDialog(QDialog):
                 self.camera.deleteLater()
                 self.camera = None
             self.lbl_cam_status.setText("Nenhuma câmera selecionada.")
-            self.lbl_cam_status.setStyleSheet("color: #94a3b8; font-size: 11px;")
+            apply_style(self.lbl_cam_status, "color: @muted@; font-size: 11px;")
             return
 
         # If already running on this same device and active, do not restart
@@ -784,26 +757,26 @@ class AvatarCalibrationDialog(QDialog):
 
             if self.camera.error() == QCamera.Error.NoError:
                 self.lbl_cam_status.setText(f"✓ Câmera ativa: {camera_device.description()}")
-                self.lbl_cam_status.setStyleSheet("color: #10b981; font-size: 11px;")
+                apply_style(self.lbl_cam_status, "color: @success@; font-size: 11px;")
             else:
                 self.lbl_cam_status.setText(f"Iniciando {camera_device.description()}...")
-                self.lbl_cam_status.setStyleSheet("color: #38bdf8; font-size: 11px;")
+                apply_style(self.lbl_cam_status, "color: @primary@; font-size: 11px;")
         except Exception as e:
             self.lbl_cam_status.setText(f"Erro ao iniciar câmera: {e}")
-            self.lbl_cam_status.setStyleSheet("color: #ef4444; font-size: 11px;")
+            apply_style(self.lbl_cam_status, "color: @danger@; font-size: 11px;")
 
     def _on_camera_error(self, error, error_string):
         logger.warning("Camera error: %s - %s", error, error_string)
         if self.camera and not self.camera.isActive():
             msg = error_string if error_string else "Dispositivo ocupado ou inacessível"
             self.lbl_cam_status.setText(f"⚠️ Câmera: {msg} (Clique em 🔄 Atualizar)")
-            self.lbl_cam_status.setStyleSheet("color: #ef4444; font-size: 11px;")
+            apply_style(self.lbl_cam_status, "color: @danger@; font-size: 11px;")
 
     def _on_camera_active_changed(self, active: bool):
         if active and self.camera:
             cam_desc = self.camera.cameraDevice().description()
             self.lbl_cam_status.setText(f"✓ Câmera ativa: {cam_desc}")
-            self.lbl_cam_status.setStyleSheet("color: #10b981; font-size: 11px;")
+            apply_style(self.lbl_cam_status, "color: @success@; font-size: 11px;")
 
     def _on_camera_changed(self, idx: int):
         cam = self.combo_cams.itemData(idx)
@@ -892,7 +865,7 @@ class AvatarCalibrationDialog(QDialog):
             self.btn_record_start.setEnabled(True)
             self.btn_record_stop.setEnabled(False)
             self.lbl_timer_status.setText("⚠️ Falha na gravação da amostra")
-            self.lbl_timer_status.setStyleSheet("font-weight: 700; color: #ef4444;")
+            apply_style(self.lbl_timer_status, "font-weight: 700; color: @danger@;")
             QMessageBox.warning(self, "Falha na Gravação", f"Houve um problema durante a gravação:\n{error_string}")
 
     def _start_calibration_recording(self):
@@ -931,7 +904,7 @@ class AvatarCalibrationDialog(QDialog):
                 self.lbl_timer_status.setText("🔴 Gravando amostra livre (fale sua aula e clique em Parar)...")
             else:
                 self.lbl_timer_status.setText(f"🔴 Gravando amostra de calibração ({int(self.target_record_duration)}s)...")
-            self.lbl_timer_status.setStyleSheet("font-weight: 700; color: #ef4444;")
+            apply_style(self.lbl_timer_status, "font-weight: 700; color: @danger@;")
         except Exception as e:
             QMessageBox.critical(self, "Erro na Gravação", f"Falha ao iniciar gravação da câmera:\n{e}")
 
@@ -971,7 +944,7 @@ class AvatarCalibrationDialog(QDialog):
         self.btn_record_start.setEnabled(True)
         self.btn_record_stop.setEnabled(False)
         self.lbl_timer_status.setText(f"✓ Gravação de {elapsed:.1f}s concluída com sucesso!")
-        self.lbl_timer_status.setStyleSheet("font-weight: 700; color: #10b981;")
+        apply_style(self.lbl_timer_status, "font-weight: 700; color: @success@;")
 
         # Allow 350ms for the recorder to finalize headers and flush to disk
         QTimer.singleShot(350, self._check_recorded_output)
@@ -982,12 +955,12 @@ class AvatarCalibrationDialog(QDialog):
             self.lbl_selected_video_status.setText(
                 f"✓ Vídeo gravado pronto para calibração ({dur:.1f}s de movimentos capturados) - Clique em 'Processar e Salvar Clone'"
             )
-            self.lbl_selected_video_status.setStyleSheet("color: #10b981; font-weight: 700;")
+            apply_style(self.lbl_selected_video_status, "color: @success@; font-weight: 700;")
             # Advance to config tab automatically
             self.tabs.setCurrentIndex(1)
         else:
             self.lbl_selected_video_status.setText("Aviso: Verifique o arquivo de gravação ou use 'Importar Vídeo'.")
-            self.lbl_selected_video_status.setStyleSheet("color: #f59e0b; font-size: 12px; font-weight: 600;")
+            apply_style(self.lbl_selected_video_status, "color: @warning@; font-size: 12px; font-weight: 600;")
 
     def _import_existing_video(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1010,7 +983,7 @@ class AvatarCalibrationDialog(QDialog):
             self.lbl_selected_video_status.setText(
                 f"✓ Vídeo importado: {Path(file_path).name} ({dur:.1f}s) - Pronto para salvar!"
             )
-            self.lbl_selected_video_status.setStyleSheet("color: #10b981; font-weight: 700;")
+            apply_style(self.lbl_selected_video_status, "color: @success@; font-weight: 700;")
             self.tabs.setCurrentIndex(1)
 
     # ----------------------------------------------------

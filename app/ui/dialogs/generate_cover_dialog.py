@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import logging
 import time
 from pathlib import Path
@@ -79,11 +80,11 @@ class GenerateCoverDialog(QDialog):
 
         # Header
         lbl_title = QLabel("🎨 Criador de Capa Inteligente")
-        lbl_title.setStyleSheet("font-size: 18px; font-weight: 700; color: #38bdf8;")
+        apply_style(lbl_title, "font-size: 18px; font-weight: 700; color: @primary@;")
         lbl_desc = QLabel(
             "Descreva como deseja a arte da capa e a IA criará uma imagem de altíssima qualidade."
         )
-        lbl_desc.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        apply_style(lbl_desc, "color: @muted@; font-size: 12px;")
         layout.addWidget(lbl_title)
         layout.addWidget(lbl_desc)
 
@@ -108,7 +109,7 @@ class GenerateCoverDialog(QDialog):
 
         header_p = QHBoxLayout()
         lbl_p = QLabel("Descrição da Capa (Prompt):")
-        lbl_p.setStyleSheet("font-weight: 600; color: #f8fafc;")
+        apply_style(lbl_p, "font-weight: 600; color: @text@;")
         header_p.addWidget(lbl_p)
         header_p.addStretch()
 
@@ -117,7 +118,7 @@ class GenerateCoverDialog(QDialog):
 
         btn_enhance = QPushButton("✨ Aprimorar com Gemini")
         btn_enhance.setCursor(Qt.PointingHandCursor)
-        btn_enhance.setStyleSheet("font-size: 11px; padding: 4px 10px;")
+        apply_style(btn_enhance, "font-size: 11px; padding: 4px 10px;")
         btn_enhance.clicked.connect(self._enhance_prompt)
         header_p.addWidget(btn_enhance)
         pf_layout.addLayout(header_p)
@@ -141,16 +142,14 @@ class GenerateCoverDialog(QDialog):
 
         # Preview Frame
         self.preview_frame = QFrame()
-        self.preview_frame.setStyleSheet(
-            "background-color: #0b0d13; border: 1.5px dashed #283042; border-radius: 8px;"
-        )
+        apply_style(self.preview_frame, "background-color: @surface@; border: 1.5px dashed @border_strong@; border-radius: 8px;")
         self.preview_frame.setFixedHeight(180)
         pv_layout = QVBoxLayout(self.preview_frame)
         pv_layout.setContentsMargins(6, 6, 6, 6)
         pv_layout.setAlignment(Qt.AlignCenter)
 
         self.lbl_preview = QLabel("Pré-visualização da Capa aparecerá aqui")
-        self.lbl_preview.setStyleSheet("color: #64748b; font-size: 12px;")
+        apply_style(self.lbl_preview, "color: @primary@; font-size: 12px;")
         self.lbl_preview.setAlignment(Qt.AlignCenter)
         pv_layout.addWidget(self.lbl_preview)
         layout.addWidget(self.preview_frame)
@@ -175,7 +174,7 @@ class GenerateCoverDialog(QDialog):
         self.btn_use_cover = QPushButton("✓ Usar esta Imagem como Capa")
         self.btn_use_cover.setCursor(Qt.PointingHandCursor)
         self.btn_use_cover.setFixedHeight(38)
-        self.btn_use_cover.setStyleSheet("background-color: #10b981; color: white; font-weight: 700;")
+        apply_style(self.btn_use_cover, "background-color: @success@; color: @on_primary@; font-weight: 700;")
         self.btn_use_cover.setEnabled(False)
         self.btn_use_cover.clicked.connect(self.accept)
 
@@ -237,9 +236,7 @@ class GenerateCoverDialog(QDialog):
                 )
                 self.lbl_preview.setText("")
                 self.lbl_preview.setPixmap(scaled)
-                self.preview_frame.setStyleSheet(
-                    "background-color: #000000; border: 2px solid #10b981; border-radius: 8px;"
-                )
+                apply_style(self.preview_frame, "background-color: @surface@; border: 2px solid @focus@; border-radius: 8px;")
             else:
                 self.lbl_preview.setText(f"✓ Imagem gerada: {Path(img_path).name}")
         except Exception as e:

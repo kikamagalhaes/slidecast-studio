@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import os
 import sys
 import time
@@ -188,7 +189,7 @@ class RecordPodcastView(QWidget):
         btn_back.clicked.connect(self.back_to_home.emit)
 
         title = QLabel("🎙️ 4. Gravar Podcast - Áudio ao Vivo com Ondas Sonoras e Teleprompter")
-        title.setStyleSheet("font-size: 16px; font-weight: 700; color: #f59e0b;")
+        apply_style(title, "font-size: 16px; font-weight: 700; color: @warning@;")
 
         nav.addWidget(btn_back)
         nav.addWidget(title)
@@ -285,11 +286,11 @@ class RecordPodcastView(QWidget):
 
         btn_ai_cover = QPushButton("🎨 Gerar Capa com IA...")
         btn_ai_cover.setCursor(Qt.PointingHandCursor)
-        btn_ai_cover.setStyleSheet("background-color: #7c2d12; color: #fdba74; font-weight: 600;")
+        apply_style(btn_ai_cover, "background-color: @danger@; color: @warning@; font-weight: 600;")
         btn_ai_cover.clicked.connect(self._open_ai_cover_generator)
 
         self.lbl_cover_status = QLabel("Nenhuma imagem selecionada (Necessária para o vídeo)")
-        self.lbl_cover_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        apply_style(self.lbl_cover_status, "color: @muted@; font-size: 12px;")
 
         row_cover.addWidget(btn_pick_cover)
         row_cover.addWidget(btn_ai_cover)
@@ -299,7 +300,7 @@ class RecordPodcastView(QWidget):
 
         # Capas prontas neutras (quadradas) — alternativa a enviar uma imagem
         lbl_presets = QLabel("Ou escolha uma capa pronta (já quadrada, sem precisar enviar nada):")
-        lbl_presets.setStyleSheet("color: #43564f; font-size: 12px; font-weight: 600;")
+        apply_style(lbl_presets, "color: @muted@; font-size: 12px; font-weight: 600;")
         cc_layout.addWidget(lbl_presets)
 
         row_presets = QHBoxLayout()
@@ -316,7 +317,7 @@ class RecordPodcastView(QWidget):
             if not pix_preset.isNull():
                 btn_preset.setIcon(QIcon(pix_preset))
                 btn_preset.setIconSize(pix_preset.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation).size())
-            btn_preset.setStyleSheet("padding: 6px; font-size: 11px;")
+            apply_style(btn_preset, "padding: 6px; font-size: 11px;")
             btn_preset.clicked.connect(
                 lambda _, pid=preset["id"], p=str(preset_path): self._pick_preset(pid, p)
             )
@@ -327,7 +328,7 @@ class RecordPodcastView(QWidget):
         # Formato da capa final: quadrada ou retangular widescreen
         row_formato = QHBoxLayout()
         lbl_formato = QLabel("Formato da capa final:")
-        lbl_formato.setStyleSheet("color: #43564f; font-size: 12px; font-weight: 600;")
+        apply_style(lbl_formato, "color: @muted@; font-size: 12px; font-weight: 600;")
         self.combo_cover_format = QComboBox()
         self.combo_cover_format.addItem("Quadrada 1:1 (1080×1080) — Spotify/Instagram", "quadrada")
         self.combo_cover_format.addItem("Retangular Widescreen 16:9 (1920×1080) — YouTube", "widescreen")
@@ -339,7 +340,7 @@ class RecordPodcastView(QWidget):
 
         # Cores do desenho da capa pronta (fundo, microfone, ondas/detalhes)
         lbl_desenho = QLabel("Cores do desenho da capa pronta (valem ao escolher uma capa pronta acima):")
-        lbl_desenho.setStyleSheet("color: #43564f; font-size: 12px; font-weight: 600;")
+        apply_style(lbl_desenho, "color: @muted@; font-size: 12px; font-weight: 600;")
         cc_layout.addWidget(lbl_desenho)
         row_desenho = QHBoxLayout()
         row_desenho.setSpacing(10)
@@ -350,7 +351,7 @@ class RecordPodcastView(QWidget):
         ]:
             cell = QVBoxLayout()
             lbl_d = QLabel(label_text)
-            lbl_d.setStyleSheet("color: #1b2a28; font-size: 12px;")
+            apply_style(lbl_d, "color: @muted@; font-size: 12px;")
             btn_d = QPushButton(getattr(self, attr))
             btn_d.setCursor(Qt.PointingHandCursor)
             self._update_color_button(btn_d, getattr(self, attr))
@@ -369,9 +370,7 @@ class RecordPodcastView(QWidget):
         self.lbl_cover_preview = QLabel("A prévia da capa final\naparece aqui")
         self.lbl_cover_preview.setAlignment(Qt.AlignCenter)
         self.lbl_cover_preview.setFixedSize(168, 168)
-        self.lbl_cover_preview.setStyleSheet(
-            "background-color: #0b0d13; border: 1.5px solid #232938; border-radius: 8px; color: #64748b; font-size: 12px;"
-        )
+        apply_style(self.lbl_cover_preview, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 8px; color: @primary@; font-size: 12px;")
         row_final.addWidget(self.lbl_cover_preview)
 
         col_textos = QVBoxLayout()
@@ -382,7 +381,7 @@ class RecordPodcastView(QWidget):
             "Escolha as cores para combinar com a arte:"
         )
         lbl_textos.setWordWrap(True)
-        lbl_textos.setStyleSheet("color: #43564f; font-size: 12px;")
+        apply_style(lbl_textos, "color: @muted@; font-size: 12px;")
         col_textos.addWidget(lbl_textos)
 
         grid_cores = QGridLayout()
@@ -395,7 +394,7 @@ class RecordPodcastView(QWidget):
         ]):
             cell = QVBoxLayout()
             lbl_c = QLabel(label_text)
-            lbl_c.setStyleSheet("color: #1b2a28; font-size: 12px;")
+            apply_style(lbl_c, "color: @muted@; font-size: 12px;")
             btn_c = QPushButton(getattr(self, attr))
             btn_c.setCursor(Qt.PointingHandCursor)
             self._update_color_button(btn_c, getattr(self, attr))
@@ -419,7 +418,7 @@ class RecordPodcastView(QWidget):
         col_textos.addLayout(row_cover_actions)
 
         self.lbl_cover_final_status = QLabel("Escolha uma capa para gerar a prévia final.")
-        self.lbl_cover_final_status.setStyleSheet("color: #5c6f68; font-size: 12px;")
+        apply_style(self.lbl_cover_final_status, "color: @muted@; font-size: 12px;")
         self.lbl_cover_final_status.setWordWrap(True)
         col_textos.addWidget(self.lbl_cover_final_status)
         col_textos.addStretch()
@@ -535,7 +534,7 @@ class RecordPodcastView(QWidget):
         btn_pick_bgm.setCursor(Qt.PointingHandCursor)
         btn_pick_bgm.clicked.connect(self._pick_bgm)
         self.lbl_bgm_status = QLabel("Sem música de fundo (opcional)")
-        self.lbl_bgm_status.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        apply_style(self.lbl_bgm_status, "color: @muted@; font-size: 12px;")
         row_bgm.addWidget(btn_pick_bgm)
         row_bgm.addWidget(self.lbl_bgm_status)
         row_bgm.addStretch()
@@ -544,7 +543,7 @@ class RecordPodcastView(QWidget):
         # Subtitles
         row_sub = QHBoxLayout()
         self.chk_subtitles = QCheckBox("Gerar Legendas Automáticas com IA (Gemini)")
-        self.chk_subtitles.setStyleSheet("font-weight: 600; color: #f8fafc;")
+        apply_style(self.chk_subtitles, "font-weight: 600; color: @text@;")
 
         lbl_lang = QLabel("Idioma da Legenda:")
         self.combo_sub_lang = QComboBox()
@@ -565,7 +564,7 @@ class RecordPodcastView(QWidget):
         btn_enter_studio.setProperty("class", "primary")
         btn_enter_studio.setFixedHeight(48)
         btn_enter_studio.setCursor(Qt.PointingHandCursor)
-        btn_enter_studio.setStyleSheet("font-size: 15px; font-weight: 700;")
+        apply_style(btn_enter_studio, "font-size: 15px; font-weight: 700;")
         btn_enter_studio.clicked.connect(self._enter_live_studio)
         p3_lay.addWidget(btn_enter_studio)
 
@@ -575,7 +574,7 @@ class RecordPodcastView(QWidget):
         btn_pick_pre.setCursor(Qt.PointingHandCursor)
         btn_pick_pre.clicked.connect(self._pick_prerecorded_audio)
         self.lbl_pre_status = QLabel("Nenhum áudio enviado (opcional)")
-        self.lbl_pre_status.setStyleSheet("color: #5c6f68; font-size: 12px;")
+        apply_style(self.lbl_pre_status, "color: @muted@; font-size: 12px;")
         row_pre.addWidget(btn_pick_pre)
         row_pre.addWidget(self.lbl_pre_status)
         row_pre.addStretch()
@@ -584,7 +583,7 @@ class RecordPodcastView(QWidget):
         self.btn_render_pre = QPushButton("🎬 Gerar Vídeo com o Áudio Enviado (sem gravar ao vivo)")
         self.btn_render_pre.setCursor(Qt.PointingHandCursor)
         self.btn_render_pre.setFixedHeight(42)
-        self.btn_render_pre.setStyleSheet("font-size: 14px; font-weight: 700;")
+        apply_style(self.btn_render_pre, "font-size: 14px; font-weight: 700;")
         self.btn_render_pre.setEnabled(False)
         self.btn_render_pre.clicked.connect(self._render_prerecorded)
         p3_lay.addWidget(self.btn_render_pre)
@@ -614,15 +613,11 @@ class RecordPodcastView(QWidget):
         self.step_stack.setCurrentIndex(idx)
         for i, btn in enumerate(self.step_buttons):
             if i == idx:
-                btn.setStyleSheet(
-                    "background: #f59e0b; color: #000000; font-weight: 700; "
-                    "border: 1.5px solid #fbbf24; padding: 8px 14px; border-radius: 8px;"
-                )
+                apply_style(btn, "background: @warning@; color: @muted@; font-weight: 700; "
+                    "border: 1.5px solid @focus@; padding: 8px 14px; border-radius: 8px;")
             else:
-                btn.setStyleSheet(
-                    "background: #efe7d3; color: #43564f; font-weight: 600; "
-                    "border: 1px solid #d8cdb2; padding: 8px 14px; border-radius: 8px;"
-                )
+                apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
+                    "border: 1px solid @border_strong@; padding: 8px 14px; border-radius: 8px;")
 
     # ----------------------------------------------------
     # SCREEN 1: LIVE STUDIO
@@ -640,13 +635,11 @@ class RecordPodcastView(QWidget):
         btn_leave.clicked.connect(self._leave_studio)
 
         self.lbl_rec_indicator = QLabel("● PRONTO PARA GRAVAR")
-        self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #94a3b8; font-size: 13px;")
+        apply_style(self.lbl_rec_indicator, "font-weight: 700; color: @muted@; font-size: 13px;")
 
         self.lbl_rec_timer = QLabel("00:00")
-        self.lbl_rec_timer.setStyleSheet(
-            "font-size: 18px; font-weight: 800; color: #f59e0b; "
-            "background-color: #12151f; padding: 4px 12px; border-radius: 6px;"
-        )
+        apply_style(self.lbl_rec_timer, "font-size: 18px; font-weight: 800; color: @warning@; "
+            "background-color: @surface_alt@; padding: 4px 12px; border-radius: 6px;")
 
         top_bar.addWidget(btn_leave)
         top_bar.addSpacing(16)
@@ -667,9 +660,7 @@ class RecordPodcastView(QWidget):
 
         # Center Display: Cover Image + Audio Visualizer
         self.cover_display_frame = QFrame()
-        self.cover_display_frame.setStyleSheet(
-            "background-color: #0b0d13; border: 1.5px solid #232938; border-radius: 10px;"
-        )
+        apply_style(self.cover_display_frame, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 10px;")
         cdf_layout = QVBoxLayout(self.cover_display_frame)
         cdf_layout.setContentsMargins(12, 12, 12, 12)
         cdf_layout.setAlignment(Qt.AlignCenter)
@@ -681,9 +672,7 @@ class RecordPodcastView(QWidget):
 
         self.lbl_live_waveform_hint = QLabel("〜 〜 〜 Ondas Sonoras Dinâmicas Ativas 〜 〜 〜")
         self.lbl_live_waveform_hint.setAlignment(Qt.AlignCenter)
-        self.lbl_live_waveform_hint.setStyleSheet(
-            "color: #f59e0b; font-size: 14px; font-weight: 700; letter-spacing: 2px;"
-        )
+        apply_style(self.lbl_live_waveform_hint, "color: @warning@; font-size: 14px; font-weight: 700; letter-spacing: 2px;")
         cdf_layout.addWidget(self.lbl_live_waveform_hint)
 
         layout.addWidget(self.cover_display_frame, stretch=1)
@@ -696,9 +685,7 @@ class RecordPodcastView(QWidget):
         c_layout.setSpacing(14)
 
         self.btn_rec_start = QPushButton("🔴 Iniciar Gravação do Podcast")
-        self.btn_rec_start.setStyleSheet(
-            "background: #dc2626; color: #ffffff; font-weight: 700; font-size: 14px; padding: 10px 22px; border-radius: 8px;"
-        )
+        apply_style(self.btn_rec_start, "background: @danger@; color: @on_primary@; font-weight: 700; font-size: 14px; padding: 10px 22px; border-radius: 8px;")
         self.btn_rec_start.setCursor(Qt.PointingHandCursor)
         self.btn_rec_start.clicked.connect(self._start_recording)
 
@@ -709,7 +696,7 @@ class RecordPodcastView(QWidget):
 
         self.btn_rec_finish = QPushButton("⏹ Finalizar Podcast & Gerar Vídeo")
         self.btn_rec_finish.setProperty("class", "primary")
-        self.btn_rec_finish.setStyleSheet("font-size: 14px; font-weight: 700; padding: 10px 22px;")
+        apply_style(self.btn_rec_finish, "font-size: 14px; font-weight: 700; padding: 10px 22px;")
         self.btn_rec_finish.setCursor(Qt.PointingHandCursor)
         self.btn_rec_finish.setEnabled(False)
         self.btn_rec_finish.clicked.connect(self._finish_recording)
@@ -740,15 +727,15 @@ class RecordPodcastView(QWidget):
         c_layout.setAlignment(Qt.AlignCenter)
 
         self.lbl_result_icon = QLabel("⏳")
-        self.lbl_result_icon.setStyleSheet("font-size: 54px;")
+        apply_style(self.lbl_result_icon, "font-size: 54px;")
         self.lbl_result_icon.setAlignment(Qt.AlignCenter)
 
         self.lbl_result_title = QLabel("Processando seu Podcast em Vídeo...")
-        self.lbl_result_title.setStyleSheet("font-size: 20px; font-weight: 700; color: #ffffff;")
+        apply_style(self.lbl_result_title, "font-size: 20px; font-weight: 700; color: @text@;")
         self.lbl_result_title.setAlignment(Qt.AlignCenter)
 
         self.lbl_result_status = QLabel("Aguarde a renderização das ondas sonoras e sincronização...")
-        self.lbl_result_status.setStyleSheet("color: #94a3b8; font-size: 13px;")
+        apply_style(self.lbl_result_status, "color: @muted@; font-size: 13px;")
         self.lbl_result_status.setAlignment(Qt.AlignCenter)
 
         self.render_progress_bar = QProgressBar()
@@ -825,7 +812,7 @@ class RecordPodcastView(QWidget):
     def _set_cover(self, file_path: str):
         self.cover_image_path = file_path
         self.lbl_cover_status.setText(f"✓ {Path(file_path).name}")
-        self.lbl_cover_status.setStyleSheet("color: #10b981; font-weight: 600;")
+        apply_style(self.lbl_cover_status, "color: @success@; font-weight: 600;")
         self._refresh_cover_preview()
 
     # ----------------------------------------------------
@@ -889,7 +876,7 @@ class RecordPodcastView(QWidget):
             self.lbl_cover_final_status.setText(f"Não foi possível recolorir a capa pronta: {e}")
             return
         self.lbl_cover_status.setText("✓ Capa pronta com as suas cores")
-        self.lbl_cover_status.setStyleSheet("color: #10b981; font-weight: 600;")
+        apply_style(self.lbl_cover_status, "color: @success@; font-weight: 600;")
 
     def _schedule_cover_preview(self):
         if getattr(self, "_cover_preview_timer", None) is not None:
@@ -917,7 +904,7 @@ class RecordPodcastView(QWidget):
             )
         except Exception as e:
             self.lbl_cover_final_status.setText(f"Não foi possível montar a capa final: {e}")
-            self.lbl_cover_final_status.setStyleSheet("color: #f87171; font-size: 12px;")
+            apply_style(self.lbl_cover_final_status, "color: @danger@; font-size: 12px;")
             return None
         self.composed_cover_path = composed
         pix = QPixmap(composed)
@@ -930,7 +917,7 @@ class RecordPodcastView(QWidget):
             "✓ Capa final pronta: título e assinatura já estão gravados na imagem "
             "(é esta imagem que entra no vídeo)."
         )
-        self.lbl_cover_final_status.setStyleSheet("color: #10b981; font-size: 12px;")
+        apply_style(self.lbl_cover_final_status, "color: @success@; font-size: 12px;")
         return composed
 
     def _download_final_cover(self):
@@ -974,7 +961,7 @@ class RecordPodcastView(QWidget):
         if file_path:
             self.bgm_path = file_path
             self.lbl_bgm_status.setText(f"✓ {Path(file_path).name}")
-            self.lbl_bgm_status.setStyleSheet("color: #10b981; font-weight: 600;")
+            apply_style(self.lbl_bgm_status, "color: @success@; font-weight: 600;")
 
     def _pick_prerecorded_audio(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -986,7 +973,7 @@ class RecordPodcastView(QWidget):
         if file_path:
             self.prerecorded_audio_path = file_path
             self.lbl_pre_status.setText(f"✓ {Path(file_path).name}")
-            self.lbl_pre_status.setStyleSheet("color: #10b981; font-weight: 600;")
+            apply_style(self.lbl_pre_status, "color: @success@; font-weight: 600;")
             self.btn_render_pre.setEnabled(True)
 
     def _render_prerecorded(self):
@@ -1107,7 +1094,7 @@ class RecordPodcastView(QWidget):
             self.record_timer.start()
 
             self.lbl_rec_indicator.setText("🔴 GRAVANDO PODCAST AO VIVO")
-            self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #ef4444; font-size: 13px;")
+            apply_style(self.lbl_rec_indicator, "font-weight: 700; color: @danger@; font-size: 13px;")
 
             self.btn_rec_start.setEnabled(False)
             self.btn_rec_pause.setEnabled(True)
@@ -1127,7 +1114,7 @@ class RecordPodcastView(QWidget):
             self._record_elapsed_base = time.time() - self.record_start_time
             self.record_timer.stop()
             self.lbl_rec_indicator.setText("⏸ GRAVAÇÃO PAUSADA")
-            self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #eab308; font-size: 13px;")
+            apply_style(self.lbl_rec_indicator, "font-weight: 700; color: @warning@; font-size: 13px;")
             self.btn_rec_pause.setText("▶ Continuar")
             self.prompter.pause()
         else:
@@ -1135,7 +1122,7 @@ class RecordPodcastView(QWidget):
             self.record_start_time = time.time() - self._record_elapsed_base
             self.record_timer.start()
             self.lbl_rec_indicator.setText("🔴 GRAVANDO PODCAST AO VIVO")
-            self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #ef4444; font-size: 13px;")
+            apply_style(self.lbl_rec_indicator, "font-weight: 700; color: @danger@; font-size: 13px;")
             self.btn_rec_pause.setText("⏸ Pausar")
             self.prompter.play()
 
@@ -1164,7 +1151,7 @@ class RecordPodcastView(QWidget):
         self.btn_rec_pause.setEnabled(False)
         self.btn_rec_finish.setEnabled(False)
         self.lbl_rec_indicator.setText("● ERRO NA GRAVAÇÃO")
-        self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #ef4444; font-size: 13px;")
+        apply_style(self.lbl_rec_indicator, "font-weight: 700; color: @danger@; font-size: 13px;")
         QMessageBox.critical(
             self, "Erro na Gravação",
             f"O gravador não conseguiu gravar do microfone:\n{error_string or error}\n\n"

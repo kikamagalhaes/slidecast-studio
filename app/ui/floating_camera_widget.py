@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import logging
 from typing import Optional
 
@@ -49,10 +50,10 @@ class FloatingCameraWidget(QWidget):
 
         # Outer rounded frame
         self.frame = QFrame()
-        self.frame.setStyleSheet("""
+        apply_style(self.frame, """
             QFrame {
-                background-color: #0b0f19;
-                border: 2px solid #818cf8;
+                background-color: @surface@;
+                border: 2px solid @focus@;
                 border-radius: 12px;
             }
         """)
@@ -66,24 +67,24 @@ class FloatingCameraWidget(QWidget):
         top_bar.setSpacing(6)
 
         lbl_drag = QLabel("📷 Minha Câmera")
-        lbl_drag.setStyleSheet("font-size: 11px; font-weight: 700; color: #c7d2fe; border: none; background: transparent;")
+        apply_style(lbl_drag, "font-size: 11px; font-weight: 700; color: @text@; border: none; background: transparent;")
         lbl_drag.setToolTip("Clique e arraste para posicionar a câmera onde quiser na tela")
 
         self.btn_resize = QPushButton("Tamanho")
         self.btn_resize.setCursor(Qt.PointingHandCursor)
         self.btn_resize.setToolTip("Alternar tamanho: Pequeno / Médio / Grande")
-        self.btn_resize.setStyleSheet("""
+        apply_style(self.btn_resize, """
             QPushButton {
-                background: #1e1b4b;
-                color: #a5b4fc;
-                border: 1px solid #4338ca;
+                background: @surface_alt@;
+                color: @primary@;
+                border: 1px solid @focus@;
                 border-radius: 4px;
                 padding: 1px 6px;
                 font-size: 10px;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background: #312e81;
+                background: @primary@;
             }
         """)
         self.btn_resize.clicked.connect(self._cycle_size)
@@ -91,17 +92,17 @@ class FloatingCameraWidget(QWidget):
         btn_close = QPushButton("✕")
         btn_close.setCursor(Qt.PointingHandCursor)
         btn_close.setToolTip("Ocultar câmera flutuante")
-        btn_close.setStyleSheet("""
+        apply_style(btn_close, """
             QPushButton {
                 background: transparent;
-                color: #94a3b8;
+                color: @muted@;
                 border: none;
                 font-size: 12px;
                 font-weight: 700;
                 padding: 1px 4px;
             }
             QPushButton:hover {
-                color: #ef4444;
+                color: @danger@;
             }
         """)
         btn_close.clicked.connect(self.hide)
@@ -115,7 +116,7 @@ class FloatingCameraWidget(QWidget):
         # Video Output Widget
         self.video_widget = QVideoWidget()
         self.video_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.video_widget.setStyleSheet("border-radius: 8px; background-color: #000000; border: none;")
+        apply_style(self.video_widget, "border-radius: 8px; background-color: @surface@; border: none;")
         self.capture_session.setVideoOutput(self.video_widget)
         f_layout.addWidget(self.video_widget)
 

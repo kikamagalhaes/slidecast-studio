@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import logging
 import os
 import sys
@@ -186,19 +187,11 @@ class RecordClassView(QWidget):
         if not hasattr(self, "card_pres_live") or not hasattr(self, "card_pres_clone"):
             return
         if self.radio_pres_live.isChecked():
-            self.card_pres_live.setStyleSheet(
-                "QFrame#cardPresLive { background-color: #1e1b4b; border: 2px solid #818cf8; border-radius: 10px; }"
-            )
-            self.card_pres_clone.setStyleSheet(
-                "QFrame#cardPresClone { background-color: #0f172a; border: 1.5px solid #2d3748; border-radius: 10px; }"
-            )
+            apply_style(self.card_pres_live, "QFrame#cardPresLive { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
+            apply_style(self.card_pres_clone, "QFrame#cardPresClone { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
         else:
-            self.card_pres_live.setStyleSheet(
-                "QFrame#cardPresLive { background-color: #0f172a; border: 1.5px solid #2d3748; border-radius: 10px; }"
-            )
-            self.card_pres_clone.setStyleSheet(
-                "QFrame#cardPresClone { background-color: #2e1065; border: 2px solid #c084fc; border-radius: 10px; }"
-            )
+            apply_style(self.card_pres_live, "QFrame#cardPresLive { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
+            apply_style(self.card_pres_clone, "QFrame#cardPresClone { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
 
     def _update_format_cards_style(self):
         items = [
@@ -209,13 +202,9 @@ class RecordClassView(QWidget):
         for card, radio in items:
             if card and radio:
                 if radio.isChecked():
-                    card.setStyleSheet(
-                        "QFrame { background-color: #1e1b4b; border: 2px solid #818cf8; border-radius: 10px; }"
-                    )
+                    apply_style(card, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
                 else:
-                    card.setStyleSheet(
-                        "QFrame { background-color: #161922; border: 1.5px solid #2d3748; border-radius: 10px; }"
-                    )
+                    apply_style(card, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
 
     def _on_video_format_changed(self):
         if self.radio_fmt_yt.isChecked():
@@ -248,7 +237,7 @@ class RecordClassView(QWidget):
         if file_path:
             self.intro_video_path = file_path
             self.lbl_intro_file.setText(f"✓ {Path(file_path).name}")
-            self.lbl_intro_file.setStyleSheet("color: #38bdf8; font-weight: 600; font-size: 11px;")
+            apply_style(self.lbl_intro_file, "color: @primary@; font-weight: 600; font-size: 11px;")
             self.radio_intro_custom.setChecked(True)
             self.intro_mode = "custom"
         elif not self.intro_video_path:
@@ -265,7 +254,7 @@ class RecordClassView(QWidget):
         if file_path:
             self.outro_video_path = file_path
             self.lbl_outro_file.setText(f"✓ {Path(file_path).name}")
-            self.lbl_outro_file.setStyleSheet("color: #c084fc; font-weight: 600; font-size: 11px;")
+            apply_style(self.lbl_outro_file, "color: @track2@; font-weight: 600; font-size: 11px;")
             self.radio_outro_custom.setChecked(True)
             self.outro_mode = "custom"
         elif not self.outro_video_path:
@@ -298,15 +287,11 @@ class RecordClassView(QWidget):
         self.step_stack.setCurrentIndex(idx)
         for i, btn in enumerate(self.step_buttons):
             if i == idx:
-                btn.setStyleSheet(
-                    "background: #4f46e5; color: #ffffff; font-weight: 700; "
-                    "border: 1.5px solid #818cf8; padding: 8px 12px; border-radius: 8px; font-size: 12px;"
-                )
+                apply_style(btn, "background: @primary@; color: @on_primary@; font-weight: 700; "
+                    "border: 1.5px solid @focus@; padding: 8px 12px; border-radius: 8px; font-size: 12px;")
             else:
-                btn.setStyleSheet(
-                    "background: #1a1e28; color: #94a3b8; font-weight: 600; "
-                    "border: 1px solid #2d3343; padding: 8px 12px; border-radius: 8px; font-size: 12px;"
-                )
+                apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
+                    "border: 1px solid @border_strong@; padding: 8px 12px; border-radius: 8px; font-size: 12px;")
 
     # ----------------------------------------------------
     # EVENTS & HANDLERS
@@ -583,11 +568,9 @@ class RecordClassView(QWidget):
             self.voice_timer.start()
 
             self.btn_record_voice.setText("⏹ Concluir Gravação")
-            self.btn_record_voice.setStyleSheet(
-                "background: #dc2626; color: #ffffff; font-weight: 700; font-size: 12px; padding: 7px 16px; border-radius: 6px;"
-            )
+            apply_style(self.btn_record_voice, "background: @danger@; color: @on_primary@; font-weight: 700; font-size: 12px; padding: 7px 16px; border-radius: 6px;")
             self.lbl_voice_status.setText("🔴 Gravando sua voz... Leia o roteiro com calma no seu ritmo.")
-            self.lbl_voice_status.setStyleSheet("color: #ef4444; font-weight: 700; font-size: 11px;")
+            apply_style(self.lbl_voice_status, "color: @danger@; font-weight: 700; font-size: 11px;")
             self.btn_play_voice.setEnabled(False)
         else:
             self.voice_timer.stop()
@@ -595,16 +578,14 @@ class RecordClassView(QWidget):
             self.is_voice_recording = False
 
             self.btn_record_voice.setText("🔄 Gravar Novamente")
-            self.btn_record_voice.setStyleSheet(
-                "background: #1e293b; color: #38bdf8; font-weight: 600; font-size: 12px; padding: 7px 16px; border-radius: 6px;"
-            )
+            apply_style(self.btn_record_voice, "background: @surface_alt@; color: @primary@; font-weight: 600; font-size: 12px; padding: 7px 16px; border-radius: 6px;")
             QTimer.singleShot(300, self._on_voice_recording_finished)
 
     def _on_voice_recording_finished(self):
         if self.custom_human_audio_path and os.path.exists(self.custom_human_audio_path):
             dur = get_video_duration(self.custom_human_audio_path)
             self.lbl_voice_status.setText(f"✓ Voz humana gravada: {format_duration(dur)} - Pronta para a aula!")
-            self.lbl_voice_status.setStyleSheet("color: #10b981; font-weight: 700; font-size: 11px;")
+            apply_style(self.lbl_voice_status, "color: @success@; font-weight: 700; font-size: 11px;")
             self.btn_play_voice.setEnabled(True)
             self.btn_play_voice.setText("▶ Ouvir Gravação")
 
@@ -624,7 +605,7 @@ class RecordClassView(QWidget):
             self.custom_human_audio_path = file_path
             dur = get_video_duration(file_path)
             self.lbl_import_audio_status.setText(f"✓ {Path(file_path).name} ({format_duration(dur)})")
-            self.lbl_import_audio_status.setStyleSheet("color: #10b981; font-weight: 700; font-size: 11px;")
+            apply_style(self.lbl_import_audio_status, "color: @success@; font-weight: 700; font-size: 11px;")
             self.btn_play_imported.setEnabled(True)
             self.btn_play_imported.setText("▶ Ouvir Áudio")
 
@@ -661,7 +642,7 @@ class RecordClassView(QWidget):
             if generated:
                 self.cover_image_path = generated
                 self.lbl_cover_status.setText(f"✓ Capa IA: {Path(generated).name}")
-                self.lbl_cover_status.setStyleSheet("color: #10b981; font-weight: 600;")
+                apply_style(self.lbl_cover_status, "color: @success@; font-weight: 600;")
 
     def _pick_cover_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -673,7 +654,7 @@ class RecordClassView(QWidget):
         if file_path:
             self.cover_image_path = file_path
             self.lbl_cover_status.setText(f"✓ {Path(file_path).name}")
-            self.lbl_cover_status.setStyleSheet("color: #10b981; font-weight: 600;")
+            apply_style(self.lbl_cover_status, "color: @success@; font-weight: 600;")
 
     def _pick_pdf(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -686,7 +667,7 @@ class RecordClassView(QWidget):
             try:
                 self.pdf_info = inspect_pdf(file_path)
                 self.lbl_pdf_status.setText(f"✓ {self.pdf_info.file_name} ({self.pdf_info.page_count} slides)")
-                self.lbl_pdf_status.setStyleSheet("color: #10b981; font-weight: 600;")
+                apply_style(self.lbl_pdf_status, "color: @success@; font-weight: 600;")
             except Exception as e:
                 QMessageBox.critical(self, "Erro no PDF", f"Falha ao abrir PDF:\n{e}")
 
@@ -715,7 +696,7 @@ class RecordClassView(QWidget):
         if file_path:
             self.bgm_path = file_path
             self.lbl_bgm_status.setText(f"✓ {Path(file_path).name}")
-            self.lbl_bgm_status.setStyleSheet("color: #10b981; font-weight: 600;")
+            apply_style(self.lbl_bgm_status, "color: @success@; font-weight: 600;")
 
     def _enter_live_studio(self):
         if self.visual_mode == "slides":
@@ -727,7 +708,7 @@ class RecordClassView(QWidget):
                 )
                 return
             self.nav_slide_bar_widget.show()
-            self.lbl_live_slide.setStyleSheet("")
+            apply_style(self.lbl_live_slide, "")
             self.current_slide_idx = 0
             self._update_slide_display()
         else:
@@ -741,9 +722,7 @@ class RecordClassView(QWidget):
                 "3. O microfone e o Teleprompter (se preenchido) estarão disponíveis.\n"
                 "4. Ao terminar, clique em '⏹ Finalizar Aula & Gerar Vídeo'."
             )
-            self.lbl_live_slide.setStyleSheet(
-                "color: #a78bfa; font-size: 15px; font-weight: 600; line-height: 1.6; padding: 24px;"
-            )
+            apply_style(self.lbl_live_slide, "color: @track2@; font-size: 15px; font-weight: 600; line-height: 1.6; padding: 24px;")
 
         # Prepare teleprompter text
         script = self.edit_script.toPlainText().strip()
@@ -760,7 +739,7 @@ class RecordClassView(QWidget):
 
         # Reset indicators
         self.lbl_rec_indicator.setText("⚪ Não Gravando")
-        self.lbl_rec_indicator.setStyleSheet("font-weight: 700; color: #94a3b8; font-size: 13px;")
+        apply_style(self.lbl_rec_indicator, "font-weight: 700; color: @muted@; font-size: 13px;")
         self.lbl_rec_timer.setText("00:00:00")
         self.btn_rec_start.setEnabled(True)
         self.btn_rec_pause.setEnabled(False)
@@ -878,7 +857,7 @@ class RecordClassView(QWidget):
             self.record_start_time = time.time()
 
             self.lbl_rec_indicator.setText("🔴 GRAVANDO TELA DO TUTORIAL")
-            self.lbl_rec_indicator.setStyleSheet("font-weight: 800; color: #ef4444; font-size: 13px;")
+            apply_style(self.lbl_rec_indicator, "font-weight: 800; color: @danger@; font-size: 13px;")
             self.record_timer.start()
 
             self.btn_rec_start.setEnabled(False)
@@ -901,7 +880,7 @@ class RecordClassView(QWidget):
                 self.segments = []
 
             self.lbl_rec_indicator.setText("🔴 GRAVANDO AULA")
-            self.lbl_rec_indicator.setStyleSheet("font-weight: 800; color: #ef4444; font-size: 13px;")
+            apply_style(self.lbl_rec_indicator, "font-weight: 800; color: @danger@; font-size: 13px;")
             self.record_timer.start()
 
             self.btn_rec_start.setEnabled(False)
@@ -915,13 +894,13 @@ class RecordClassView(QWidget):
             self.recorder.pause()
             self.is_recording = False
             self.lbl_rec_indicator.setText("⏸ PAUSADO")
-            self.lbl_rec_indicator.setStyleSheet("font-weight: 800; color: #f59e0b; font-size: 13px;")
+            apply_style(self.lbl_rec_indicator, "font-weight: 800; color: @warning@; font-size: 13px;")
             self.btn_rec_pause.setText("▶ Retomar")
         else:
             self.recorder.record()
             self.is_recording = True
             self.lbl_rec_indicator.setText("🔴 GRAVANDO AULA")
-            self.lbl_rec_indicator.setStyleSheet("font-weight: 800; color: #ef4444; font-size: 13px;")
+            apply_style(self.lbl_rec_indicator, "font-weight: 800; color: @danger@; font-size: 13px;")
             self.btn_rec_pause.setText("⏸ Pausar")
 
     def _update_record_time_display(self):
@@ -945,7 +924,7 @@ class RecordClassView(QWidget):
 
         self.is_recording = False
         self.lbl_rec_indicator.setText("⚪ Não Gravando")
-        self.lbl_rec_indicator.setStyleSheet("color: #94a3b8;")
+        apply_style(self.lbl_rec_indicator, "color: @muted@;")
         self.btn_rec_start.setEnabled(True)
         self.btn_rec_pause.setEnabled(False)
         self.btn_rec_finish.setEnabled(False)

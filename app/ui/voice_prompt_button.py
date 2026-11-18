@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import time
 import tempfile
 from pathlib import Path
@@ -64,46 +65,46 @@ class VoicePromptButton(QPushButton):
 
     def _apply_idle_style(self):
         self.setText("🎙️ Falar Prompt")
-        self.setStyleSheet("""
+        apply_style(self, """
             QPushButton {
-                background-color: #1e1b4b;
-                border: 1px solid #4338ca;
-                color: #c7d2fe;
+                background-color: @surface_alt@;
+                border: 1px solid @focus@;
+                color: @text@;
                 font-weight: 600;
                 font-size: 11px;
                 padding: 4px 10px;
                 border-radius: 6px;
             }
             QPushButton:hover {
-                background-color: #312e81;
-                color: #ffffff;
+                background-color: @primary@;
+                color: @text@;
             }
         """)
 
     def _apply_recording_style(self):
         self.setText("🔴 Gravando... (Clique p/ Parar)")
-        self.setStyleSheet("""
+        apply_style(self, """
             QPushButton {
-                background-color: #dc2626;
-                border: 1px solid #ef4444;
-                color: #ffffff;
+                background-color: @danger@;
+                border: 1px solid @focus@;
+                color: @on_primary@;
                 font-weight: 700;
                 font-size: 11px;
                 padding: 4px 10px;
                 border-radius: 6px;
             }
             QPushButton:hover {
-                background-color: #b91c1c;
+                background-color: @danger@;
             }
         """)
 
     def _apply_processing_style(self):
         self.setText("⏳ Transcrevendo IA...")
-        self.setStyleSheet("""
+        apply_style(self, """
             QPushButton {
-                background-color: #2e1065;
-                border: 1px solid #7c3aed;
-                color: #e9d5ff;
+                background-color: @surface_alt@;
+                border: 1px solid @focus@;
+                color: @text@;
                 font-weight: 600;
                 font-size: 11px;
                 padding: 4px 10px;

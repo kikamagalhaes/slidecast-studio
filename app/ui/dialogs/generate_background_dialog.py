@@ -1,3 +1,4 @@
+from app.ui.styles import apply_style
 import logging
 import time
 from pathlib import Path
@@ -139,29 +140,29 @@ class GenerateBackgroundDialog(QDialog):
 
         # Header
         lbl_title = QLabel("✨ Criador de Cenário / Fundo com IA")
-        lbl_title.setStyleSheet("font-size: 18px; font-weight: 800; color: #38bdf8;")
+        apply_style(lbl_title, "font-size: 18px; font-weight: 800; color: @primary@;")
         lbl_desc = QLabel(
             "Gere cenários profissionais (estúdios, escritórios, bibliotecas) para servir de fundo "
             "ao seu vídeo, tanto para gravação com Câmera Real quanto para o Clone Digital."
         )
-        lbl_desc.setStyleSheet("color: #94a3b8; font-size: 12px; line-height: 1.4;")
+        apply_style(lbl_desc, "color: @muted@; font-size: 12px; line-height: 1.4;")
         lbl_desc.setWordWrap(True)
         layout.addWidget(lbl_title)
         layout.addWidget(lbl_desc)
 
         # Presets Bar
         lbl_presets = QLabel("Estilos Recomendados (Clique para aplicar):")
-        lbl_presets.setStyleSheet("font-weight: 700; color: #cbd5e1; font-size: 12px; margin-top: 4px;")
+        apply_style(lbl_presets, "font-weight: 700; color: @text@; font-size: 12px; margin-top: 4px;")
         layout.addWidget(lbl_presets)
 
         preset_scroll = QScrollArea()
         preset_scroll.setWidgetResizable(True)
         preset_scroll.setFixedHeight(48)
         preset_scroll.setFrameShape(QFrame.NoFrame)
-        preset_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        apply_style(preset_scroll, "QScrollArea { background: transparent; border: none; }")
 
         preset_container = QWidget()
-        preset_container.setStyleSheet("background: transparent;")
+        apply_style(preset_container, "background: transparent;")
         preset_lay = QHBoxLayout(preset_container)
         preset_lay.setContentsMargins(0, 0, 0, 0)
         preset_lay.setSpacing(8)
@@ -169,10 +170,8 @@ class GenerateBackgroundDialog(QDialog):
         for key, p_data in BACKGROUND_PRESETS.items():
             btn_p = QPushButton(p_data["title"])
             btn_p.setCursor(Qt.PointingHandCursor)
-            btn_p.setStyleSheet(
-                "background: #1e293b; color: #f1f5f9; font-size: 11px; font-weight: 600; "
-                "padding: 6px 12px; border-radius: 6px; border: 1px solid #334155;"
-            )
+            apply_style(btn_p, "background: @surface_alt@; color: @text@; font-size: 11px; font-weight: 600; "
+                "padding: 6px 12px; border-radius: 6px; border: 1px solid @border_strong@;")
             prompt_val = p_data["prompt"]
             btn_p.clicked.connect(lambda _, p=prompt_val: self._apply_preset(p))
             preset_lay.addWidget(btn_p)
@@ -190,7 +189,7 @@ class GenerateBackgroundDialog(QDialog):
 
         header_p = QHBoxLayout()
         lbl_p = QLabel("Descrição do Cenário de Fundo (Prompt):")
-        lbl_p.setStyleSheet("font-weight: 700; color: #f8fafc; font-size: 12px;")
+        apply_style(lbl_p, "font-weight: 700; color: @text@; font-size: 12px;")
         header_p.addWidget(lbl_p)
         header_p.addStretch()
 
@@ -200,9 +199,7 @@ class GenerateBackgroundDialog(QDialog):
 
         btn_enhance = QPushButton("✨ Aprimorar Cenário com Gemini")
         btn_enhance.setCursor(Qt.PointingHandCursor)
-        btn_enhance.setStyleSheet(
-            "background: #312e81; color: #c7d2fe; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px;"
-        )
+        apply_style(btn_enhance, "background: @primary@; color: @text@; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px;")
         btn_enhance.clicked.connect(self._enhance_prompt)
         header_p.addWidget(btn_enhance)
         pf_layout.addLayout(header_p)
@@ -220,7 +217,7 @@ class GenerateBackgroundDialog(QDialog):
         # Ratio selector
         row_ratio = QHBoxLayout()
         lbl_ratio = QLabel("Proporção do Cenário:")
-        lbl_ratio.setStyleSheet("font-weight: 600; color: #cbd5e1; font-size: 12px;")
+        apply_style(lbl_ratio, "font-weight: 600; color: @text@; font-size: 12px;")
         self.combo_ratio = QComboBox()
         self.combo_ratio.addItem("16:9 Widescreen (1280x720 / 1920x1080) - YouTube e Aulas Horizontais", "16:9")
         self.combo_ratio.addItem("9:16 Vertical (720x1280 / 1080x1920) - YouTube Shorts e Instagram Reels", "9:16")
@@ -241,16 +238,14 @@ class GenerateBackgroundDialog(QDialog):
 
         # Preview Frame
         self.preview_frame = QFrame()
-        self.preview_frame.setStyleSheet(
-            "background-color: #0b0d13; border: 1.5px dashed #283042; border-radius: 8px;"
-        )
+        apply_style(self.preview_frame, "background-color: @surface@; border: 1.5px dashed @border_strong@; border-radius: 8px;")
         self.preview_frame.setFixedHeight(180)
         pv_layout = QVBoxLayout(self.preview_frame)
         pv_layout.setContentsMargins(6, 6, 6, 6)
         pv_layout.setAlignment(Qt.AlignCenter)
 
         self.lbl_preview = QLabel("A pré-visualização do cenário aparecerá aqui após a geração")
-        self.lbl_preview.setStyleSheet("color: #64748b; font-size: 12px;")
+        apply_style(self.lbl_preview, "color: @primary@; font-size: 12px;")
         self.lbl_preview.setAlignment(Qt.AlignCenter)
         pv_layout.addWidget(self.lbl_preview)
         layout.addWidget(self.preview_frame)
@@ -275,9 +270,7 @@ class GenerateBackgroundDialog(QDialog):
         self.btn_use_bg = QPushButton("✓ Usar como Cenário de Fundo")
         self.btn_use_bg.setCursor(Qt.PointingHandCursor)
         self.btn_use_bg.setFixedHeight(38)
-        self.btn_use_bg.setStyleSheet(
-            "background-color: #10b981; color: white; font-weight: 700; padding: 0 16px; border-radius: 6px;"
-        )
+        apply_style(self.btn_use_bg, "background-color: @success@; color: @on_primary@; font-weight: 700; padding: 0 16px; border-radius: 6px;")
         self.btn_use_bg.setEnabled(False)
         self.btn_use_bg.clicked.connect(self.accept)
 
@@ -343,9 +336,7 @@ class GenerateBackgroundDialog(QDialog):
                 )
                 self.lbl_preview.setText("")
                 self.lbl_preview.setPixmap(scaled)
-                self.preview_frame.setStyleSheet(
-                    "background-color: #000000; border: 2px solid #10b981; border-radius: 8px;"
-                )
+                apply_style(self.preview_frame, "background-color: @surface@; border: 2px solid @focus@; border-radius: 8px;")
             else:
                 self.lbl_preview.setText(f"✓ Cenário gerado: {Path(img_path).name}")
         except Exception as e:
