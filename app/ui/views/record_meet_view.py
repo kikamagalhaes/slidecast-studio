@@ -34,6 +34,14 @@ from app.core.pdf_processor import inspect_pdf, render_thumbnail
 from app.core.subtitles_generator import generate_subtitles_with_gemini, SUPPORTED_LANGUAGES
 from app.core.meeting_recorder import ScreenRecordingProcess, extract_audio_from_video, generate_meeting_notes
 from app.core.ebook_generator import generate_class_ebook
+from app.core.dual_region_recorder import (
+    ScreenRegion,
+    CompositionConfig,
+    DualRegionSession,
+    DualRegionRecordingProcess,
+)
+from app.worker import DualRegionRenderWorker
+from app.ui.screen_region_selector import ScreenRegionSelector
 from app.ui.floating_camera_widget import FloatingCameraWidget
 from PySide6.QtMultimedia import QMediaDevices, QCameraDevice
 
@@ -148,6 +156,14 @@ class RecordMeetView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.active_mode = 1  # 1: Meeting, 2: Class
+        self.capture_mode = "full_screen"  # "full_screen" or "dual_region"
+        self.presentation_region: Optional[ScreenRegion] = None
+        self.presenter_region: Optional[ScreenRegion] = None
+        self.dual_recorder_process: Optional[DualRegionRecordingProcess] = None
+        self.dual_session: Optional[DualRegionSession] = None
+        self.pres_raw_path: Optional[str] = None
+        self.prof_raw_path: Optional[str] = None
+        self.comp_config = CompositionConfig()
         self.recorder_process: Optional[ScreenRecordingProcess] = None
         self.recorded_video_path: Optional[str] = None
         self.selected_pdf_path: Optional[str] = None
@@ -455,16 +471,155 @@ class RecordMeetView(QWidget):
         s1_nav.addWidget(btn_next_s1)
         p1_lay.addLayout(s1_nav)
 
-        # Capture Options
-        row_cap = QHBoxLayout()
-        lbl_cap = QLabel("Área de Captura:")
+        # Capture Mode Card (Fullscreen vs Dual-Region)
+        cap_card = QFrame()
+        cap_card.setProperty("class", "card")
+        cc_layout = QVBoxLayout(cap_card)
+        cc_layout.setContentsMargins(18, 16, 18, 16)
+        cc_layout.setSpacing(12)
+
+        cap_title = QLabel("Formato de Captura de Vídeo:")
+        apply_style(cap_title, "font-size: 15px; font-weight: 700; color: @text@;")
+        cc_layout.addWidget(cap_title)
+
+        cap_mode_row = QHBoxLayout()
+        cap_mode_row.setSpacing(16)
+
+        self.radio_cap_fullscreen = QRadioButton("🖥️ Gravar Tela Inteira (Padrão)")
+        apply_style(self.radio_cap_fullscreen, "font-weight: 700; color: @primary@; font-size: 13px;")
+        self.radio_cap_fullscreen.setChecked(True)
+        self.radio_cap_fullscreen.toggled.connect(self._on_capture_mode_changed)
+
+        self.radio_cap_dual = QRadioButton("📐 Apresentação + Professor (Selecionar 2 Áreas na Tela)")
+        apply_style(self.radio_cap_dual, "font-weight: 700; color: @track2@; font-size: 13px;")
+
+        self.cap_mode_group = QButtonGroup(self)
+        self.cap_mode_group.addButton(self.radio_cap_fullscreen)
+        self.cap_mode_group.addButton(self.radio_cap_dual)
+
+        cap_mode_row.addWidget(self.radio_cap_fullscreen)
+        cap_mode_row.addWidget(self.radio_cap_dual)
+        cap_mode_row.addStretch()
+        cc_layout.addLayout(cap_mode_row)
+
+        # Fullscreen config options
+        self.box_fullscreen_config = QWidget()
+        bfc_lay = QHBoxLayout(self.box_fullscreen_config)
+        bfc_lay.setContentsMargins(0, 4, 0, 0)
+        lbl_fres = QLabel("Resolução de Captura da Tela:")
         self.combo_capture_area = QComboBox()
         self.combo_capture_area.addItem("Tela Inteira (1920x1080 Full HD)", "1920x1080")
         self.combo_capture_area.addItem("Resolução HD (1280x720)", "1280x720")
-        row_cap.addWidget(lbl_cap)
-        row_cap.addWidget(self.combo_capture_area)
-        row_cap.addStretch()
-        self.fc_layout.addLayout(row_cap)
+        bfc_lay.addWidget(lbl_fres)
+        bfc_lay.addWidget(self.combo_capture_area)
+        bfc_lay.addStretch()
+        cc_layout.addWidget(self.box_fullscreen_config)
+
+        # Dual-Region config card
+        self.box_dual_config = QFrame()
+        apply_style(self.box_dual_config, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px;")
+        bdc_lay = QVBoxLayout(self.box_dual_config)
+        bdc_lay.setContentsMargins(14, 14, 14, 14)
+        bdc_lay.setSpacing(12)
+
+        lbl_dual_desc = QLabel(
+            "Selecione com o mouse o retângulo do slide e o retângulo do professor na sua tela. "
+            "O SlideCast grava os dois simultaneamente e compõe automaticamente a aula em alta definição, "
+            "com a apresentação grande e o professor na lateral."
+        )
+        lbl_dual_desc.setWordWrap(True)
+        apply_style(lbl_dual_desc, "color: @muted@; font-size: 12px; line-height: 1.4;")
+        bdc_lay.addWidget(lbl_dual_desc)
+
+        # Areas selection row
+        areas_row = QHBoxLayout()
+        areas_row.setSpacing(14)
+
+        # Area A: Presentation
+        box_area_a = QFrame()
+        apply_style(box_area_a, "background-color: @surface@; border: 1.5px solid #38bdf8; border-radius: 6px; padding: 10px;")
+        baa_lay = QVBoxLayout(box_area_a)
+        baa_lay.setSpacing(8)
+        lbl_aa_title = QLabel("Área A — Apresentação (Slides)")
+        apply_style(lbl_aa_title, "font-weight: 700; color: #38bdf8; font-size: 13px;")
+        self.lbl_pres_region_status = QLabel("Nenhuma área selecionada")
+        apply_style(self.lbl_pres_region_status, "color: @muted@; font-size: 12px;")
+        self.btn_select_pres = QPushButton("📐 Selecionar Área da Apresentação")
+        self.btn_select_pres.setCursor(Qt.PointingHandCursor)
+        apply_style(self.btn_select_pres, "background-color: #38bdf8; color: #10201e; font-weight: 700; padding: 6px 12px; border-radius: 6px;")
+        self.btn_select_pres.clicked.connect(lambda: self._select_area("presentation"))
+        baa_lay.addWidget(lbl_aa_title)
+        baa_lay.addWidget(self.lbl_pres_region_status)
+        baa_lay.addWidget(self.btn_select_pres)
+
+        # Area B: Presenter
+        box_area_b = QFrame()
+        apply_style(box_area_b, "background-color: @surface@; border: 1.5px solid #f59e0b; border-radius: 6px; padding: 10px;")
+        bab_lay = QVBoxLayout(box_area_b)
+        bab_lay.setSpacing(8)
+        lbl_ab_title = QLabel("Área B — Professor (Vídeo / Câmera)")
+        apply_style(lbl_ab_title, "font-weight: 700; color: #f59e0b; font-size: 13px;")
+        self.lbl_prof_region_status = QLabel("Nenhuma área selecionada")
+        apply_style(self.lbl_prof_region_status, "color: @muted@; font-size: 12px;")
+        self.btn_select_prof = QPushButton("📐 Selecionar Área do Professor")
+        self.btn_select_prof.setCursor(Qt.PointingHandCursor)
+        apply_style(self.btn_select_prof, "background-color: #f59e0b; color: #10201e; font-weight: 700; padding: 6px 12px; border-radius: 6px;")
+        self.btn_select_prof.clicked.connect(lambda: self._select_area("presenter"))
+        bab_lay.addWidget(lbl_ab_title)
+        bab_lay.addWidget(self.lbl_prof_region_status)
+        bab_lay.addWidget(self.btn_select_prof)
+
+        areas_row.addWidget(box_area_a, stretch=1)
+        areas_row.addWidget(box_area_b, stretch=1)
+        bdc_lay.addLayout(areas_row)
+
+        # Layout & Position controls row
+        dual_cfg_row = QHBoxLayout()
+        dual_cfg_row.setSpacing(12)
+
+        lbl_dl = QLabel("Layout Pedagógico:")
+        self.combo_dual_layout = QComboBox()
+        self.combo_dual_layout.addItem("Professor na Lateral (Recomendado - 80% / 20%)", "sidebar")
+        self.combo_dual_layout.addItem("Professor Sobreposto no Slide (PiP)", "overlay_pip")
+        self.combo_dual_layout.currentIndexChanged.connect(self._on_dual_layout_changed)
+
+        lbl_dp = QLabel("Posição:")
+        self.combo_dual_pos = QComboBox()
+        self.combo_dual_pos.addItem("Centro (Equilíbrio Padrão)", "center")
+        self.combo_dual_pos.addItem("Topo", "top")
+        self.combo_dual_pos.addItem("Embaixo", "bottom")
+
+        lbl_dr = QLabel("Resolução:")
+        self.combo_dual_res = QComboBox()
+        self.combo_dual_res.addItem("1920x1080 (Full HD 16:9)", "1920x1080")
+        self.combo_dual_res.addItem("1280x720 (HD 16:9)", "1280x720")
+
+        self.btn_reset_dual_regions = QPushButton("🔄 Refazer Seleções")
+        self.btn_reset_dual_regions.setCursor(Qt.PointingHandCursor)
+        self.btn_reset_dual_regions.clicked.connect(self._reset_dual_regions)
+
+        dual_cfg_row.addWidget(lbl_dl)
+        dual_cfg_row.addWidget(self.combo_dual_layout)
+        dual_cfg_row.addWidget(lbl_dp)
+        dual_cfg_row.addWidget(self.combo_dual_pos)
+        dual_cfg_row.addWidget(lbl_dr)
+        dual_cfg_row.addWidget(self.combo_dual_res)
+        dual_cfg_row.addWidget(self.btn_reset_dual_regions)
+        dual_cfg_row.addStretch()
+
+        bdc_lay.addLayout(dual_cfg_row)
+
+        lbl_invariant_note = QLabel(
+            "💡 Regra de Composição: Mesmo que você selecione dois retângulos do mesmo tamanho na tela, "
+            "o SlideCast compõe os slides grandes (~80%) e o professor menor na lateral (~20%), sem distorção."
+        )
+        apply_style(lbl_invariant_note, "color: @primary@; font-size: 11px; font-weight: 600;")
+        bdc_lay.addWidget(lbl_invariant_note)
+
+        cc_layout.addWidget(self.box_dual_config)
+        self.box_dual_config.hide()
+
+        self.fc_layout.addWidget(cap_card)
 
         # Mode 2 specific Checkbox: E-book with interleaved slides
         self.chk_gen_ebook = QCheckBox("📚 Gerar E-book Didático / Apostila da Aula em PDF com Slides Intercalados")
@@ -645,6 +800,63 @@ class RecordMeetView(QWidget):
 
         tv_layout.addWidget(self.lbl_video_info)
         tv_layout.addLayout(btn_v_row)
+
+        # Dual-Region Re-composition Section (Change layout without re-recording)
+        self.box_dual_recompose = QFrame()
+        self.box_dual_recompose.setProperty("class", "card")
+        apply_style(self.box_dual_recompose, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px;")
+        bdr_layout = QVBoxLayout(self.box_dual_recompose)
+        bdr_layout.setContentsMargins(14, 12, 14, 12)
+        bdr_layout.setSpacing(10)
+
+        lbl_recomp_title = QLabel("🎨 Reorganizar Layout da Aula Gravada (Sem Regravar)")
+        apply_style(lbl_recomp_title, "font-size: 14px; font-weight: 700; color: @primary@;")
+        lbl_recomp_desc = QLabel(
+            "Alterne entre o layout com Professor na Lateral ou Sobreposto (PiP), "
+            "ou mude a posição do professor e re-renderize o vídeo instantaneamente a partir das gravações originais."
+        )
+        lbl_recomp_desc.setWordWrap(True)
+        apply_style(lbl_recomp_desc, "color: @muted@; font-size: 12px;")
+
+        recomp_ctrl_row = QHBoxLayout()
+        recomp_ctrl_row.setSpacing(10)
+
+        lbl_rl = QLabel("Layout:")
+        self.combo_recomp_layout = QComboBox()
+        self.combo_recomp_layout.addItem("Professor na Lateral (~80% / ~20%)", "sidebar")
+        self.combo_recomp_layout.addItem("Professor Sobreposto (PiP)", "overlay_pip")
+        self.combo_recomp_layout.currentIndexChanged.connect(self._on_recomp_layout_changed)
+
+        lbl_rp = QLabel("Posição:")
+        self.combo_recomp_pos = QComboBox()
+        self._populate_recomp_positions("sidebar")
+
+        lbl_rr = QLabel("Resolução:")
+        self.combo_recomp_res = QComboBox()
+        self.combo_recomp_res.addItem("1920x1080 (Full HD 16:9)", "1920x1080")
+        self.combo_recomp_res.addItem("1280x720 (HD 16:9)", "1280x720")
+
+        self.btn_recompose = QPushButton("🔄 Re-renderizar Novo Layout")
+        self.btn_recompose.setProperty("class", "primary")
+        self.btn_recompose.setCursor(Qt.PointingHandCursor)
+        self.btn_recompose.clicked.connect(self._on_recompose_clicked)
+
+        recomp_ctrl_row.addWidget(lbl_rl)
+        recomp_ctrl_row.addWidget(self.combo_recomp_layout)
+        recomp_ctrl_row.addWidget(lbl_rp)
+        recomp_ctrl_row.addWidget(self.combo_recomp_pos)
+        recomp_ctrl_row.addWidget(lbl_rr)
+        recomp_ctrl_row.addWidget(self.combo_recomp_res)
+        recomp_ctrl_row.addWidget(self.btn_recompose)
+        recomp_ctrl_row.addStretch()
+
+        bdr_layout.addWidget(lbl_recomp_title)
+        bdr_layout.addWidget(lbl_recomp_desc)
+        bdr_layout.addLayout(recomp_ctrl_row)
+
+        tv_layout.addWidget(self.box_dual_recompose)
+        self.box_dual_recompose.hide()
+
         tv_layout.addStretch()
         self.tab_widget.addTab(tab_video, "🎬 Vídeo da Gravação")
 
@@ -812,7 +1024,167 @@ class RecordMeetView(QWidget):
             self.lbl_pdf_status.setText(f"✓ {Path(file_path).name}")
             apply_style(self.lbl_pdf_status, "color: @success@; font-weight: 600;")
 
+    def _on_capture_mode_changed(self):
+        if self.radio_cap_dual.isChecked():
+            self.capture_mode = "dual_region"
+            self.box_dual_config.show()
+            self.box_fullscreen_config.hide()
+        else:
+            self.capture_mode = "full_screen"
+            self.box_dual_config.hide()
+            self.box_fullscreen_config.show()
+
+    def _select_area(self, role: str):
+        initial_rect = None
+        if role == "presentation" and self.presentation_region:
+            r = self.presentation_region
+            initial_rect = QRect(r.x, r.y, r.width, r.height)
+        elif role == "presenter" and self.presenter_region:
+            r = self.presenter_region
+            initial_rect = QRect(r.x, r.y, r.width, r.height)
+
+        self.selector = ScreenRegionSelector(target_name=role, initial_rect=initial_rect)
+        if role == "presentation":
+            self.selector.region_selected.connect(self._on_presentation_selected)
+        else:
+            self.selector.region_selected.connect(self._on_presenter_selected)
+        self.selector.show()
+
+    def _on_presentation_selected(self, x: int, y: int, w: int, h: int):
+        self.presentation_region = ScreenRegion(
+            name="presentation",
+            label="ÁREA DA APRESENTAÇÃO",
+            x=x,
+            y=y,
+            width=w,
+            height=h,
+        )
+        self.lbl_pres_region_status.setText(f"✓ {w}×{h} px em ({x}, {y})")
+        apply_style(self.lbl_pres_region_status, "color: @primary@; font-weight: 700; font-size: 12px;")
+
+    def _on_presenter_selected(self, x: int, y: int, w: int, h: int):
+        self.presenter_region = ScreenRegion(
+            name="presenter",
+            label="ÁREA DO PROFESSOR",
+            x=x,
+            y=y,
+            width=w,
+            height=h,
+        )
+        self.lbl_prof_region_status.setText(f"✓ {w}×{h} px em ({x}, {y})")
+        apply_style(self.lbl_prof_region_status, "color: @warning@; font-weight: 700; font-size: 12px;")
+
+    def _reset_dual_regions(self):
+        self.presentation_region = None
+        self.presenter_region = None
+        self.lbl_pres_region_status.setText("Nenhuma área selecionada")
+        apply_style(self.lbl_pres_region_status, "color: @muted@; font-size: 12px;")
+        self.lbl_prof_region_status.setText("Nenhuma área selecionada")
+        apply_style(self.lbl_prof_region_status, "color: @muted@; font-size: 12px;")
+
+    def _on_dual_layout_changed(self, idx: int):
+        layout_type = self.combo_dual_layout.currentData() or "sidebar"
+        self.combo_dual_pos.blockSignals(True)
+        self.combo_dual_pos.clear()
+        if layout_type == "sidebar":
+            self.combo_dual_pos.addItem("Centro (Equilíbrio Padrão)", "center")
+            self.combo_dual_pos.addItem("Topo", "top")
+            self.combo_dual_pos.addItem("Embaixo", "bottom")
+        else:
+            self.combo_dual_pos.addItem("Canto Inferior Direito (Padrão)", "bottom_right")
+            self.combo_dual_pos.addItem("Canto Superior Direito", "top_right")
+            self.combo_dual_pos.addItem("Canto Inferior Esquerdo", "bottom_left")
+            self.combo_dual_pos.addItem("Canto Superior Esquerdo", "top_left")
+        self.combo_dual_pos.blockSignals(False)
+
+    def _populate_recomp_positions(self, layout_type: str):
+        self.combo_recomp_pos.blockSignals(True)
+        self.combo_recomp_pos.clear()
+        if layout_type == "sidebar":
+            self.combo_recomp_pos.addItem("Centro (Equilíbrio Padrão)", "center")
+            self.combo_recomp_pos.addItem("Topo", "top")
+            self.combo_recomp_pos.addItem("Embaixo", "bottom")
+        else:
+            self.combo_recomp_pos.addItem("Canto Inferior Direito (Padrão)", "bottom_right")
+            self.combo_recomp_pos.addItem("Canto Superior Direito", "top_right")
+            self.combo_recomp_pos.addItem("Canto Inferior Esquerdo", "bottom_left")
+            self.combo_recomp_pos.addItem("Canto Superior Esquerdo", "top_left")
+        self.combo_recomp_pos.blockSignals(False)
+
+    def _on_recomp_layout_changed(self, idx: int):
+        layout_type = self.combo_recomp_layout.currentData() or "sidebar"
+        self._populate_recomp_positions(layout_type)
+
+    def _on_recompose_clicked(self):
+        if not self.pres_raw_path or not self.prof_raw_path or not Path(self.pres_raw_path).exists() or not Path(self.prof_raw_path).exists():
+            QMessageBox.warning(
+                self,
+                "Gravações Originais Indisponíveis",
+                "As trilhas brutas da apresentação e do professor não foram encontradas para re-renderização."
+            )
+            return
+
+        layout_type = self.combo_recomp_layout.currentData() or "sidebar"
+        pos = self.combo_recomp_pos.currentData() or "center"
+        res = self.combo_recomp_res.currentData() or "1920x1080"
+        self.comp_config = CompositionConfig(
+            layout=layout_type,
+            presenter_position=pos,
+            output_resolution=res
+        )
+
+        dest_dir = Path(self.pres_raw_path).parent
+        ts = int(time.time())
+        new_output = str(dest_dir / f"recomp_{layout_type}_{pos}_{ts}.mp4")
+
+        self.btn_recompose.setEnabled(False)
+        self.proc_progress.setValue(10)
+        self.lbl_proc_status.setText(f"Re-renderizando layout ({layout_type} - {pos})...")
+        apply_style(self.lbl_proc_status, "color: @primary@; font-weight: 700;")
+
+        self.recomp_worker = DualRegionRenderWorker(
+            presentation_video_path=self.pres_raw_path,
+            presenter_video_path=self.prof_raw_path,
+            output_path=new_output,
+            config=self.comp_config,
+        )
+        self.recomp_worker.progress_changed.connect(lambda pct, msg: self._on_worker_progress(pct, f"Re-renderizando: {msg}"))
+        self.recomp_worker.render_finished.connect(self._on_recomp_finished)
+        self.recomp_worker.render_error.connect(self._on_recomp_error)
+        self.recomp_worker.start()
+
+    def _on_recomp_finished(self, new_output_path: str):
+        self.btn_recompose.setEnabled(True)
+        self.recorded_video_path = new_output_path
+        self.results_data["video_path"] = new_output_path
+        self.lbl_video_info.setText(f"Vídeo re-renderizado em: {new_output_path}")
+        self.lbl_proc_status.setText("✓ Novo layout renderizado com sucesso!")
+        apply_style(self.lbl_proc_status, "color: @success@; font-weight: 700;")
+        self.proc_progress.setValue(100)
+        QMessageBox.information(
+            self,
+            "Layout Re-renderizado",
+            f"O vídeo foi renderizado no novo layout com sucesso!\nSalvo em:\n{new_output_path}"
+        )
+
+    def _on_recomp_error(self, err: str):
+        self.btn_recompose.setEnabled(True)
+        self.lbl_proc_status.setText("Erro ao re-renderizar layout.")
+        apply_style(self.lbl_proc_status, "color: @danger@; font-weight: 700;")
+        QMessageBox.critical(self, "Erro na Renderização", f"Falha ao re-renderizar o vídeo:\n{err}")
+
     def _prepare_and_start_recording(self):
+        if self.radio_cap_dual.isChecked():
+            if not self.presentation_region or not self.presenter_region:
+                QMessageBox.warning(
+                    self,
+                    "Áreas Não Selecionadas",
+                    "Por favor, selecione as duas áreas na tela antes de iniciar:\n\n"
+                    "1. Área da Apresentação (Slides)\n"
+                    "2. Área do Professor (Vídeo/Câmera)",
+                )
+                return
+
         dest_dir = Path.home() / "SlideCast_Materials" / "meet_recordings"
         dest_dir.mkdir(parents=True, exist_ok=True)
         timestamp = int(time.time())
@@ -820,13 +1192,63 @@ class RecordMeetView(QWidget):
         clean_slug = "".join(c for c in title_slug if c.isalnum() or c in "_-")[:25]
         self.recorded_video_path = str(dest_dir / f"{clean_slug}_{timestamp}.mp4")
 
-        # Determine camera capture parameters
+        # Dual Region Capture Mode
+        if self.radio_cap_dual.isChecked():
+            self.pres_raw_path = str(dest_dir / f"{clean_slug}_{timestamp}_raw_pres.mp4")
+            self.prof_raw_path = str(dest_dir / f"{clean_slug}_{timestamp}_raw_prof.mp4")
+
+            layout_type = self.combo_dual_layout.currentData() or "sidebar"
+            pos = self.combo_dual_pos.currentData() or "center"
+            res = self.combo_dual_res.currentData() or "1920x1080"
+            self.comp_config = CompositionConfig(
+                layout=layout_type,
+                presenter_position=pos,
+                output_resolution=res
+            )
+
+            self.dual_session = DualRegionSession(
+                capture_mode="dual_region",
+                presentation_region=self.presentation_region,
+                presenter_region=self.presenter_region,
+                raw_presentation_video=self.pres_raw_path,
+                raw_presenter_video=self.prof_raw_path,
+                output_video=self.recorded_video_path,
+                config=self.comp_config,
+            )
+
+            # 3-second countdown dialog to switch to Google Meet tab
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Iniciando Gravação")
+            msg.setText(
+                "Iniciando gravação das duas áreas em 3 segundos...\n\n"
+                "Alterne para a janela do Google Meet ou apresentação agora!\n"
+                "As duas áreas serão capturadas simultaneamente em alta fidelidade."
+            )
+            msg.setIcon(QMessageBox.Information)
+            msg.setStandardButtons(QMessageBox.Ok)
+            QTimer.singleShot(2000, msg.accept)
+            msg.exec()
+
+            self.dual_recorder_process = DualRegionRecordingProcess(
+                presentation_region=self.presentation_region,
+                presenter_region=self.presenter_region,
+                output_presentation_path=self.pres_raw_path,
+                output_presenter_path=self.prof_raw_path,
+                fps=25,
+            )
+            self.dual_recorder_process.start()
+
+            self.lbl_rec_pulse.setText("🔴 GRAVANDO APRESENTAÇÃO + PROFESSOR (2 ÁREAS)")
+            self.timer.start()
+            self.stack.setCurrentIndex(1)
+            return
+
+        # Full-screen mode (existing preserved flow)
         cam_dev_str = None
         cam_pos_str = "bottom_right"
 
         if self.active_mode == 2 and self.radio_teacher_self.isChecked() and self.chk_my_cam.isChecked():
             cam_pos_str = self.combo_cam_pos.currentData() or "bottom_right"
-            # If floating camera is not already visible on screen, pass device to FFmpeg
             if not (self.floating_camera and self.floating_camera.isVisible()):
                 selected_dev = self.combo_my_cam.currentData()
                 if selected_dev and hasattr(selected_dev, "id"):
@@ -874,9 +1296,12 @@ class RecordMeetView(QWidget):
         self.stack.setCurrentIndex(1)
 
     def _update_record_timer(self):
-        if self.recorder_process:
+        elapsed = 0.0
+        if self.radio_cap_dual.isChecked() and self.dual_recorder_process:
+            elapsed = self.dual_recorder_process.get_elapsed_seconds()
+        elif self.recorder_process:
             elapsed = self.recorder_process.get_elapsed_seconds()
-            self.lbl_rec_time.setText(format_duration(elapsed))
+        self.lbl_rec_time.setText(format_duration(elapsed))
 
     def _cancel_recording(self):
         if self.floating_camera and self.floating_camera.isVisible():
@@ -884,8 +1309,16 @@ class RecordMeetView(QWidget):
             self.floating_camera.hide()
             self.btn_floating_cam.setText("📷 Ativar Janela Flutuante da Câmera na Tela")
 
-        if self.recorder_process:
-            self.timer.stop()
+        self.timer.stop()
+        if self.radio_cap_dual.isChecked() and self.dual_recorder_process:
+            self.dual_recorder_process.stop()
+            for p in [self.pres_raw_path, self.prof_raw_path, self.recorded_video_path]:
+                if p and Path(p).exists():
+                    try:
+                        Path(p).unlink()
+                    except Exception:
+                        pass
+        elif self.recorder_process:
             self.recorder_process.stop()
             if self.recorded_video_path and Path(self.recorded_video_path).exists():
                 try:
@@ -901,6 +1334,35 @@ class RecordMeetView(QWidget):
             self.btn_floating_cam.setText("📷 Ativar Janela Flutuante da Câmera na Tela")
 
         self.timer.stop()
+
+        if self.radio_cap_dual.isChecked() and self.dual_recorder_process:
+            self.dual_recorder_process.stop()
+            self.stack.setCurrentIndex(2)
+            self.proc_progress.setValue(10)
+            self.lbl_proc_status.setText("Compondo vídeo da aula (Apresentação ~80% + Professor ~20%)...")
+            self.tab_widget.hide()
+
+            layout_type = self.combo_dual_layout.currentData() or "sidebar"
+            pos = self.combo_dual_pos.currentData() or "center"
+            res = self.combo_dual_res.currentData() or "1920x1080"
+            self.comp_config = CompositionConfig(
+                layout=layout_type,
+                presenter_position=pos,
+                output_resolution=res
+            )
+
+            self.render_worker = DualRegionRenderWorker(
+                presentation_video_path=self.pres_raw_path,
+                presenter_video_path=self.prof_raw_path,
+                output_path=self.recorded_video_path,
+                config=self.comp_config,
+            )
+            self.render_worker.progress_changed.connect(lambda pct, msg: self._on_worker_progress(pct * 0.4, f"Compondo vídeo: {msg}"))
+            self.render_worker.render_finished.connect(self._on_dual_render_finished)
+            self.render_worker.render_error.connect(self._on_processing_error)
+            self.render_worker.start()
+            return
+
         if self.recorder_process:
             self.recorder_process.stop()
 
@@ -917,11 +1379,40 @@ class RecordMeetView(QWidget):
             title=self.edit_title.text().strip() or "Aula / Reunião Google Meet",
             teacher=self.edit_teacher.text().strip() or "Professor Responsável",
             pdf_path=self.selected_pdf_path,
-            enable_ebook=self.chk_gen_ebook.isChecked(),
-            enable_subtitles=self.chk_subs.isChecked(),
+            enable_ebook=self.chk_gen_ebook.isChecked() if self.active_mode == 2 else False,
+            enable_subtitles=self.chk_subs.isChecked() if self.active_mode == 2 else False,
             subtitles_lang=self.combo_slang.currentData() or "pt",
         )
         self.worker.progress_changed.connect(self._on_worker_progress)
+        self.worker.processing_finished.connect(self._on_processing_finished)
+        self.worker.processing_error.connect(self._on_processing_error)
+        self.worker.start()
+
+    def _on_dual_render_finished(self, output_path: str):
+        # Save session file alongside output
+        if self.dual_session:
+            self.dual_session.output_video = output_path
+            self.dual_session.config = self.comp_config
+            session_file = Path(output_path).with_suffix(".session.json")
+            try:
+                self.dual_session.save(str(session_file))
+            except Exception:
+                pass
+
+        self.proc_progress.setValue(45)
+        self.lbl_proc_status.setText("Vídeo composto! Analisando conteúdo com inteligência artificial...")
+
+        self.worker = MeetPostProcessWorker(
+            mode=self.active_mode,
+            video_path=output_path,
+            title=self.edit_title.text().strip() or "Aula / Reunião Google Meet",
+            teacher=self.edit_teacher.text().strip() or "Professor Responsável",
+            pdf_path=self.selected_pdf_path,
+            enable_ebook=self.chk_gen_ebook.isChecked() if self.active_mode == 2 else False,
+            enable_subtitles=self.chk_subs.isChecked() if self.active_mode == 2 else False,
+            subtitles_lang=self.combo_slang.currentData() or "pt",
+        )
+        self.worker.progress_changed.connect(lambda pct, msg: self._on_worker_progress(45 + pct * 0.55, msg))
         self.worker.processing_finished.connect(self._on_processing_finished)
         self.worker.processing_error.connect(self._on_processing_error)
         self.worker.start()
@@ -936,7 +1427,14 @@ class RecordMeetView(QWidget):
         self.lbl_proc_status.setText("✓ Concluído com sucesso!")
         apply_style(self.lbl_proc_status, "color: @success@; font-weight: 700;")
 
-        self.lbl_video_info.setText(f"Vídeo gravado em: {results.get('video_path')}")
+        vpath = results.get("video_path") or self.recorded_video_path
+        self.lbl_video_info.setText(f"Vídeo gravado em: {vpath}")
+
+        # Show recomposition box if dual raw sources exist
+        if self.pres_raw_path and self.prof_raw_path and Path(self.pres_raw_path).exists() and Path(self.prof_raw_path).exists():
+            self.box_dual_recompose.show()
+        else:
+            self.box_dual_recompose.hide()
 
         if self.active_mode == 1:
             self.text_summary.setPlainText(results.get("summary", ""))
@@ -962,7 +1460,7 @@ class RecordMeetView(QWidget):
         QMessageBox.critical(self, "Aviso", f"Erro no processamento da gravação:\n{err}")
 
     def _open_recorded_video(self):
-        p = self.results_data.get("video_path")
+        p = self.results_data.get("video_path") or self.recorded_video_path
         if p and Path(p).exists():
             try:
                 if sys.platform == "win32":
@@ -975,7 +1473,7 @@ class RecordMeetView(QWidget):
                 QMessageBox.warning(self, "Aviso", f"Não foi possível abrir o vídeo:\n{e}")
 
     def _open_recorded_folder(self):
-        p = self.results_data.get("video_path")
+        p = self.results_data.get("video_path") or self.recorded_video_path
         if p and Path(p).exists():
             folder = str(Path(p).parent.resolve())
             try:
