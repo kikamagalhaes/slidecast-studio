@@ -9,7 +9,6 @@ Honest scaling policy for low-resolution professor video sources.
 Non-destructive post-recording recomposition.
 """
 import os
-import sys
 import json
 import time
 import subprocess
@@ -18,13 +17,10 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import Qt, QPoint
 from PySide6.QtWidgets import QApplication
 
 from app.core.dual_region_recorder import (
-    ScreenRegion,
     CompositionConfig,
-    DualRegionSession,
     PresentationInterval,
     format_ms_to_time,
     parse_time_to_ms,
@@ -524,14 +520,6 @@ def test_post_recording_recomposition_workflow(qapp, test_synthetic_media):
     """
     dest_dir = test_synthetic_media["dir"]
     recomp_out = str(dest_dir / "recomp_lesson_final.mp4")
-
-    # Initial composition with [1s, 4s]
-    config1 = CompositionConfig(
-        lesson_title="Primeira Versão",
-        presentation_intervals=[
-            PresentationInterval(start_ms=1000, end_ms=4000)
-        ],
-    )
 
     # User post-edits interval to [2s, 5s] and changes title
     config2 = CompositionConfig(

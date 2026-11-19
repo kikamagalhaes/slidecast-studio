@@ -17,7 +17,6 @@ Tests:
 11. Fullscreen mode regression: zero regressions on existing capture pipeline.
 """
 import os
-import sys
 import json
 import subprocess
 from pathlib import Path
@@ -25,7 +24,6 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import QRect, QPoint, Qt
 from PySide6.QtWidgets import QApplication
 
 from app.core.dual_region_recorder import (
