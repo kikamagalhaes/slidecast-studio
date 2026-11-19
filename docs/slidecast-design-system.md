@@ -61,3 +61,5 @@ Implementação em `frontend/src/landing.tsx` e `landing.css`, sem fontes remota
 Estilos sem seletor são restritos ao widget alvo por `slidecastStyle`, evitando que bordas dos painéis desenhem molduras nos labels, radios e campos filhos. As bordas decorativas passaram a 1 px; foco de teclado e seleção permanecem distintos. Botões comuns têm alvo de aproximadamente 44 px e ações da home 48 px, com largura apropriada ao rótulo. Cartões da home não esticam seus botões em barras finas. Teleprompter recebeu mais espaço, leitura sem contorno interno e controles maiores. Blocos da timeline usam preenchimento suave e borda discreta.
 
 Capturas revisadas: `docs/evidencias/refino-claro` e `refino-escuro`. O teste `test_panel_border_does_not_frame_child_labels` verifica o resultado renderizado do escopo das bordas.
+
+A captura de duas áreas e a direção da aula também usam controles em grade, com rótulos acima dos campos. Seleção de regiões, predefinições e renderização ficam em linhas próprias. Validado sem rolagem horizontal a 1280 px; a linha do tempo usa os tokens de contraste de cada tema.

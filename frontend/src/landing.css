@@ -11,3 +11,5 @@
 .checksum-link{display:inline-flex;align-items:center;gap:10px;min-height:44px;margin-top:8px;font-size:12px;text-decoration:underline;text-underline-offset:4px}
 .download-details{display:flex;flex-wrap:wrap;gap:12px 30px;align-items:center;margin-top:26px;font-size:12px;color:#42543b}
 .download-details p{max-width:570px}.download-details a{text-decoration:underline;text-underline-offset:4px;min-height:44px;display:inline-flex;align-items:center;gap:8px}
+
+.platforms article .download-pending{padding:16px 0;font-weight:600;color:var(--teal)}

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QLabel,
     QPushButton,
     QLineEdit,
@@ -385,7 +386,7 @@ class RecordMeetView(QWidget):
 
         # Mode 2 specific: Camera settings when teacher is self
         self.box_my_camera = QFrame()
-        apply_style(self.box_my_camera, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px;")
+        apply_style(self.box_my_camera, "background-color: @surface_alt@; border: 1px solid @border@; border-radius: 8px;")
         bmc_layout = QVBoxLayout(self.box_my_camera)
         bmc_layout.setContentsMargins(14, 12, 14, 12)
         bmc_layout.setSpacing(10)
@@ -533,7 +534,7 @@ class RecordMeetView(QWidget):
 
         # Dual-Region config card
         self.box_dual_config = QFrame()
-        apply_style(self.box_dual_config, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px;")
+        apply_style(self.box_dual_config, "background-color: @surface_alt@; border: 1px solid @border@; border-radius: 8px;")
         bdc_lay = QVBoxLayout(self.box_dual_config)
         bdc_lay.setContentsMargins(14, 14, 14, 14)
         bdc_lay.setSpacing(12)
@@ -553,16 +554,17 @@ class RecordMeetView(QWidget):
 
         # Area A: Presentation
         box_area_a = QFrame()
-        apply_style(box_area_a, "background-color: @surface@; border: 1.5px solid #38bdf8; border-radius: 6px; padding: 10px;")
+        apply_style(box_area_a, "background-color: @surface@; border: 1px solid @border@; border-radius: 10px; padding: 0;")
         baa_lay = QVBoxLayout(box_area_a)
-        baa_lay.setSpacing(8)
+        baa_lay.setSpacing(12)
+        baa_lay.setContentsMargins(18, 18, 18, 18)
         lbl_aa_title = QLabel("Área A — Apresentação (Slides)")
-        apply_style(lbl_aa_title, "font-weight: 700; color: #38bdf8; font-size: 13px;")
+        apply_style(lbl_aa_title, "font-weight: 700; color: @primary@; font-size: 13px;")
         self.lbl_pres_region_status = QLabel("Nenhuma área selecionada")
         apply_style(self.lbl_pres_region_status, "color: @muted@; font-size: 12px;")
         self.btn_select_pres = QPushButton("📐 Selecionar Área da Apresentação")
         self.btn_select_pres.setCursor(Qt.PointingHandCursor)
-        apply_style(self.btn_select_pres, "background-color: #38bdf8; color: #10201e; font-weight: 700; padding: 6px 12px; border-radius: 6px;")
+        apply_style(self.btn_select_pres, "background-color: @primary_soft@; color: @text@; font-weight: 700; padding: 10px 16px; border: 1px solid transparent; border-radius: 10px;")
         self.btn_select_pres.clicked.connect(lambda: self._select_area("presentation"))
         baa_lay.addWidget(lbl_aa_title)
         baa_lay.addWidget(self.lbl_pres_region_status)
@@ -570,16 +572,17 @@ class RecordMeetView(QWidget):
 
         # Area B: Presenter
         box_area_b = QFrame()
-        apply_style(box_area_b, "background-color: @surface@; border: 1.5px solid #f59e0b; border-radius: 6px; padding: 10px;")
+        apply_style(box_area_b, "background-color: @surface@; border: 1px solid @border@; border-radius: 10px; padding: 0;")
         bab_lay = QVBoxLayout(box_area_b)
-        bab_lay.setSpacing(8)
+        bab_lay.setSpacing(12)
+        bab_lay.setContentsMargins(18, 18, 18, 18)
         lbl_ab_title = QLabel("Área B — Professor (Vídeo / Câmera)")
-        apply_style(lbl_ab_title, "font-weight: 700; color: #f59e0b; font-size: 13px;")
+        apply_style(lbl_ab_title, "font-weight: 700; color: @track3@; font-size: 13px;")
         self.lbl_prof_region_status = QLabel("Nenhuma área selecionada")
         apply_style(self.lbl_prof_region_status, "color: @muted@; font-size: 12px;")
         self.btn_select_prof = QPushButton("📐 Selecionar Área do Professor")
         self.btn_select_prof.setCursor(Qt.PointingHandCursor)
-        apply_style(self.btn_select_prof, "background-color: #f59e0b; color: #10201e; font-weight: 700; padding: 6px 12px; border-radius: 6px;")
+        apply_style(self.btn_select_prof, "background-color: @primary_soft@; color: @text@; font-weight: 700; padding: 10px 16px; border: 1px solid transparent; border-radius: 10px;")
         self.btn_select_prof.clicked.connect(lambda: self._select_area("presenter"))
         bab_lay.addWidget(lbl_ab_title)
         bab_lay.addWidget(self.lbl_prof_region_status)
@@ -590,7 +593,7 @@ class RecordMeetView(QWidget):
         bdc_lay.addLayout(areas_row)
 
         # Layout & Position controls row
-        dual_cfg_row = QHBoxLayout()
+        dual_cfg_row = QGridLayout()
         dual_cfg_row.setSpacing(12)
 
         lbl_dl = QLabel("Layout Pedagógico:")
@@ -614,14 +617,11 @@ class RecordMeetView(QWidget):
         self.btn_reset_dual_regions.setCursor(Qt.PointingHandCursor)
         self.btn_reset_dual_regions.clicked.connect(self._reset_dual_regions)
 
-        dual_cfg_row.addWidget(lbl_dl)
-        dual_cfg_row.addWidget(self.combo_dual_layout)
-        dual_cfg_row.addWidget(lbl_dp)
-        dual_cfg_row.addWidget(self.combo_dual_pos)
-        dual_cfg_row.addWidget(lbl_dr)
-        dual_cfg_row.addWidget(self.combo_dual_res)
-        dual_cfg_row.addWidget(self.btn_reset_dual_regions)
-        dual_cfg_row.addStretch()
+        for column, (label, control) in enumerate(((lbl_dl, self.combo_dual_layout), (lbl_dp, self.combo_dual_pos), (lbl_dr, self.combo_dual_res))):
+            dual_cfg_row.addWidget(label, 0, column)
+            dual_cfg_row.addWidget(control, 1, column)
+            dual_cfg_row.setColumnStretch(column, 1)
+        dual_cfg_row.addWidget(self.btn_reset_dual_regions, 2, 0, 1, 3, Qt.AlignLeft)
 
         bdc_lay.addLayout(dual_cfg_row)
 
@@ -629,6 +629,7 @@ class RecordMeetView(QWidget):
             "💡 Regra de Composição: Mesmo que você selecione dois retângulos do mesmo tamanho na tela, "
             "o SlideCast compõe os slides grandes (~80%) e o professor menor na lateral (~20%), sem distorção."
         )
+        lbl_invariant_note.setWordWrap(True)
         apply_style(lbl_invariant_note, "color: @primary@; font-size: 11px; font-weight: 600;")
         bdc_lay.addWidget(lbl_invariant_note)
 
@@ -697,7 +698,7 @@ class RecordMeetView(QWidget):
                     "border: 1px solid @border@; padding: 8px 14px; border-radius: 8px;")
             else:
                 apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
-                    "border: 1px solid @border_strong@; padding: 8px 14px; border-radius: 8px;")
+                    "border: 1px solid @border@; padding: 8px 14px; border-radius: 8px;")
 
     # ----------------------------------------------------
     # SCREEN 1: RECORDING CONTROLS
@@ -731,7 +732,7 @@ class RecordMeetView(QWidget):
 
         # Live Marker Controls (Method B)
         self.box_live_markers = QFrame()
-        apply_style(self.box_live_markers, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px; padding: 12px;")
+        apply_style(self.box_live_markers, "background-color: @surface_alt@; border: 1px solid @border@; border-radius: 8px; padding: 12px;")
         blm_lay = QVBoxLayout(self.box_live_markers)
         blm_lay.setSpacing(8)
 
@@ -744,13 +745,13 @@ class RecordMeetView(QWidget):
 
         self.btn_mark_pres_start = QPushButton("▶ Apresentação Começou")
         self.btn_mark_pres_start.setCursor(Qt.PointingHandCursor)
-        apply_style(self.btn_mark_pres_start, "background-color: #10b981; color: #ffffff; font-weight: 700; padding: 8px 18px; border-radius: 6px;")
+        apply_style(self.btn_mark_pres_start, "background-color: @primary@; color: @on_primary@; font-weight: 700; padding: 8px 18px; border-radius: 6px;")
         self.btn_mark_pres_start.clicked.connect(self._on_mark_presentation_start)
 
         self.btn_mark_pres_end = QPushButton("⏹ Apresentação Terminou")
         self.btn_mark_pres_end.setCursor(Qt.PointingHandCursor)
         self.btn_mark_pres_end.setEnabled(False)
-        apply_style(self.btn_mark_pres_end, "background-color: #6366f1; color: #ffffff; font-weight: 700; padding: 8px 18px; border-radius: 6px;")
+        apply_style(self.btn_mark_pres_end, "background-color: @primary_soft@; color: @text@; font-weight: 700; padding: 8px 18px; border-radius: 6px;")
         self.btn_mark_pres_end.clicked.connect(self._on_mark_presentation_end)
 
         m_btns_row.addWidget(self.btn_mark_pres_start)
@@ -854,7 +855,7 @@ class RecordMeetView(QWidget):
         # Dual-Region Timeline Direction & Re-composition Section
         self.box_dual_recompose = QFrame()
         self.box_dual_recompose.setProperty("class", "card")
-        apply_style(self.box_dual_recompose, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px;")
+        apply_style(self.box_dual_recompose, "background-color: @surface_alt@; border: 1px solid @border@; border-radius: 8px;")
         bdr_layout = QVBoxLayout(self.box_dual_recompose)
         bdr_layout.setContentsMargins(16, 14, 16, 14)
         bdr_layout.setSpacing(10)
@@ -889,6 +890,8 @@ class RecordMeetView(QWidget):
         self.lbl_prof_quality_badge = QLabel("Inspecionando resolução da câmera do professor...")
         apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1px solid @border@; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: @track2@;")
 
+        self.lbl_prof_quality_badge.setWordWrap(True)
+
         # Visual Timeline Widget
         self.timeline_widget = ClassTimelineWidget()
         self.timeline_widget.time_selected.connect(self._on_timeline_time_selected)
@@ -905,14 +908,14 @@ class RecordMeetView(QWidget):
         apply_style(lbl_add_int, "font-weight: 600; font-size: 12px;")
         self.edit_int_start = QLineEdit()
         self.edit_int_start.setPlaceholderText("Início (02:00)")
-        self.edit_int_start.setFixedWidth(100)
+        self.edit_int_start.setFixedWidth(130)
         self.edit_int_end = QLineEdit()
         self.edit_int_end.setPlaceholderText("Fim (36:00)")
-        self.edit_int_end.setFixedWidth(100)
+        self.edit_int_end.setFixedWidth(130)
 
         self.btn_add_interval = QPushButton("➕ Adicionar Intervalo")
         self.btn_add_interval.setCursor(Qt.PointingHandCursor)
-        apply_style(self.btn_add_interval, "background-color: @primary@; color: @on_primary@; font-weight: 700; padding: 6px 12px; border-radius: 6px;")
+        apply_style(self.btn_add_interval, "background-color: @primary@; color: @on_primary@; font-weight: 700; padding: 10px 16px; border-radius: 10px;")
         self.btn_add_interval.clicked.connect(self._on_add_manual_interval)
 
         self.btn_preset_all_prof = QPushButton("👤 100% Professor")
@@ -931,10 +934,11 @@ class RecordMeetView(QWidget):
         int_ctrl_row.addWidget(self.edit_int_start)
         int_ctrl_row.addWidget(self.edit_int_end)
         int_ctrl_row.addWidget(self.btn_add_interval)
-        int_ctrl_row.addSpacing(10)
-        int_ctrl_row.addWidget(self.btn_preset_all_prof)
-        int_ctrl_row.addWidget(self.btn_preset_all_slides)
-        int_ctrl_row.addWidget(self.btn_preset_heuristic)
+        preset_row = QHBoxLayout()
+        preset_row.addWidget(self.btn_preset_all_prof)
+        preset_row.addWidget(self.btn_preset_all_slides)
+        preset_row.addWidget(self.btn_preset_heuristic)
+        preset_row.addStretch()
         int_ctrl_row.addStretch()
 
         # Intervals table
@@ -947,7 +951,7 @@ class RecordMeetView(QWidget):
         self.table_intervals.setSelectionBehavior(QTableWidget.SelectRows)
 
         # Recompose options row
-        recomp_ctrl_row = QHBoxLayout()
+        recomp_ctrl_row = QGridLayout()
         recomp_ctrl_row.setSpacing(10)
 
         lbl_rl = QLabel("Layout dos Slides:")
@@ -970,14 +974,11 @@ class RecordMeetView(QWidget):
         self.btn_recompose.setCursor(Qt.PointingHandCursor)
         self.btn_recompose.clicked.connect(self._on_recompose_clicked)
 
-        recomp_ctrl_row.addWidget(lbl_rl)
-        recomp_ctrl_row.addWidget(self.combo_recomp_layout)
-        recomp_ctrl_row.addWidget(lbl_rp)
-        recomp_ctrl_row.addWidget(self.combo_recomp_pos)
-        recomp_ctrl_row.addWidget(lbl_rr)
-        recomp_ctrl_row.addWidget(self.combo_recomp_res)
-        recomp_ctrl_row.addWidget(self.btn_recompose)
-        recomp_ctrl_row.addStretch()
+        for column, (label, control) in enumerate(((lbl_rl, self.combo_recomp_layout), (lbl_rp, self.combo_recomp_pos), (lbl_rr, self.combo_recomp_res))):
+            recomp_ctrl_row.addWidget(label, 0, column)
+            recomp_ctrl_row.addWidget(control, 1, column)
+            recomp_ctrl_row.setColumnStretch(column, 1)
+        recomp_ctrl_row.addWidget(self.btn_recompose, 2, 0, 1, 3, Qt.AlignLeft)
 
         bdr_layout.addWidget(lbl_recomp_title)
         bdr_layout.addWidget(lbl_recomp_desc)
@@ -986,6 +987,7 @@ class RecordMeetView(QWidget):
         bdr_layout.addWidget(self.timeline_widget)
         bdr_layout.addWidget(self.lbl_needle_layout)
         bdr_layout.addLayout(int_ctrl_row)
+        bdr_layout.addLayout(preset_row)
         bdr_layout.addWidget(self.table_intervals)
         bdr_layout.addLayout(recomp_ctrl_row)
 
@@ -1444,12 +1446,12 @@ class RecordMeetView(QWidget):
                 f"📐 Câmera do Professor: {prof_w}×{prof_h} px · Política de Nitidez: "
                 "Ampliação contida em até 1.5× no palco #10201E (sem esticar ou pixelar)"
             )
-            apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1.5px solid @warning@; color: @warning@; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 12px;")
+            apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1px solid @warning@; color: @warning@; padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 12px;")
         else:
             self.lbl_prof_quality_badge.setText(
                 f"📐 Câmera do Professor: {prof_w}×{prof_h} px (Alta Definição) · Palco Broadcast #10201E Ativo"
             )
-            apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1.5px solid @success@; color: @success@; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 12px;")
+            apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1px solid @success@; color: @success@; padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 12px;")
 
         self._refresh_intervals_ui()
 

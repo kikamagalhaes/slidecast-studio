@@ -132,7 +132,7 @@ class ClassTimelineWidget(QWidget):
 
         # 2. Base track: Professor Focus (Default: #10201E stage)
         track_rect = QRectF(track_left, track_top, track_w, track_h)
-        base_color = QColor(c.get("stage", "#10201E"))
+        base_color = QColor(c["surface_alt"])
         p.fillRect(track_rect, base_color)
         p.setPen(QPen(QColor(c.get("border", "#27272a")), 1))
         p.drawRoundedRect(track_rect, 4, 4)
@@ -146,9 +146,10 @@ class ClassTimelineWidget(QWidget):
 
         # 3. Slide Intervals (Layout 2: dominant slides)
         # Use distinctive purple / indigo palette
-        slide_fill = QColor("#6366f1")
-        slide_border = QColor("#818cf8")
-        slide_selected_border = QColor("#fbbf24")
+        slide_fill = QColor(c["track2"])
+        slide_fill.setAlpha(28)
+        slide_border = QColor(c["border"])
+        slide_selected_border = QColor(c["focus"])
 
         for idx, interval in enumerate(self.intervals):
             start_x = self._ms_to_x(interval.start_ms)
@@ -171,7 +172,7 @@ class ClassTimelineWidget(QWidget):
             if int_w > 60:
                 p.save()
                 p.setClipRect(int_rect.adjusted(2, 2, -2, -2))
-                p.setPen(QColor("#ffffff"))
+                p.setPen(QColor(c["text"]))
                 p.drawText(
                     QRectF(start_x + 4, track_top + 4, int_w - 8, track_h - 8),
                     Qt.AlignVCenter | Qt.AlignLeft,
@@ -181,7 +182,7 @@ class ClassTimelineWidget(QWidget):
 
         # If no intervals exist, indicate 100% Professor Focus
         if not self.intervals:
-            p.setPen(QColor(c.get("muted", "#94a3b8")))
+            p.setPen(QColor(c["text"]))
             p.drawText(
                 track_rect,
                 Qt.AlignCenter,
