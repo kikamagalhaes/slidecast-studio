@@ -22,7 +22,7 @@ def self_test(report_path=None) -> int:
         sys.stdout = open(os.devnull, "w")
     if sys.stderr is None:
         sys.stderr = open(os.devnull, "w")
-    report = {"failures": [], "media_tools": {}, "renders": {}, "themes": []}
+    report = {"failures": [], "media_tools": {}, "renders": {}, "themes": [], "capture_inputs": []}
     failures = report["failures"]
     for mod in ("PySide6.QtWidgets", "pymupdf", "mutagen", "google.genai", "edge_tts", "replicate", "requests"):
         try:
@@ -40,6 +40,15 @@ def self_test(report_path=None) -> int:
                     raise RuntimeError("tool outside bundle")
             result = subprocess.run([executable, "-version"], capture_output=True, text=True, check=True, timeout=30)
             report["media_tools"][name] = result.stdout.splitlines()[0]
+            if name == "ffmpeg":
+                import re
+                devices = subprocess.run([executable, "-hide_banner", "-devices"], capture_output=True, text=True, check=True, timeout=30)
+                required = {"linux": ("pulse", "x11grab"), "win32": ("dshow", "gdigrab"), "darwin": ("avfoundation",)}.get(sys.platform, ())
+                for device in required:
+                    if not re.search(r"(?m)^ D[ E]\s+" + re.escape(device) + r"(?:[ ,]|$)", devices.stdout):
+                        raise RuntimeError(f"required capture input missing: {device}")
+                report["capture_inputs"] = list(required)
+
         except Exception as exc:
             failures.append(f"{name}: {exc}")
 

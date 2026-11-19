@@ -24,6 +24,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication
 
 from app.core.dual_region_recorder import (

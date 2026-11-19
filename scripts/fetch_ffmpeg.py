@@ -1,8 +1,8 @@
 """Stage verified FFmpeg/ffprobe executables for desktop packaging.
 
-FFmpeg comes from the pinned imageio-ffmpeg wheel. ffprobe must be supplied by
-FFPROBE_PATH or the build machine PATH (apt/brew or checksum-verified Windows
-archive in release.yml). PyInstaller collects ffprobe's shared dependencies.
+Use the complete platform build (apt/brew or checksum-verified Windows archive).
+Set FFMPEG_PATH/FFPROBE_PATH or install both tools on the build machine PATH.
+PyInstaller collects their shared dependencies, including capture/audio support.
 Nothing is downloaded when the installed application starts.
 """
 import hashlib
@@ -18,13 +18,13 @@ STAGE_DIR = ROOT / "build" / "stage"
 
 
 def main() -> int:
-    import imageio_ffmpeg
-
-    probe = os.environ.get("FFPROBE_PATH") or shutil.which("ffprobe")
-    if not probe:
-        print("ffprobe is required: install FFmpeg on the build machine or set FFPROBE_PATH.")
-        return 1
-    sources = {"ffmpeg": Path(imageio_ffmpeg.get_ffmpeg_exe()), "ffprobe": Path(probe)}
+    sources = {}
+    for name in ("ffmpeg", "ffprobe"):
+        executable = os.environ.get(name.upper() + "_PATH") or shutil.which(name)
+        if not executable:
+            print(f"{name} is required on the build machine PATH or via {name.upper()}_PATH.")
+            return 1
+        sources[name] = Path(executable)
     manifest = {}
     # Validate both before replacing any staged executable.
     for name, src in sources.items():

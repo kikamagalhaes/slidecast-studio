@@ -1,4 +1,3 @@
-# Desktop packaging (PyInstaller + static ffmpeg staging). NOT a runtime dep.
+# Desktop packaging (PyInstaller + complete media-tool staging). NOT a runtime dep.
 # Install: pip install -r requirements-packaging.txt
 pyinstaller==6.22.3
-imageio-ffmpeg==0.6.0

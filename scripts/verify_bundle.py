@@ -24,4 +24,5 @@ assert not proof["failures"], proof
 assert set(proof["media_tools"]) == {"ffmpeg", "ffprobe"}, proof
 assert set(proof["renders"]) == {"pdf", "mp4"}, proof
 assert proof["themes"] == ["light", "dark"], proof
+assert proof["capture_inputs"], proof
 print(json.dumps(proof, ensure_ascii=False, indent=2))
