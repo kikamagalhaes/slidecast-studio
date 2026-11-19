@@ -58,3 +58,5 @@ O source.tar.gz permite recuperar os arquivos anteriores. Uma eventual restaura�
 ## Desktop e comercial
 
 O redesign desktop e a documentação são entregues no código-fonte. Não foi criado um instalador novo nem uma licença comercial. A landing informa isso expressamente. A validação Windows/hardware e o empacotamento de ffprobe permanecem como requisitos para a próxima distribuição; ver [validação](slidecast-ux-validacao.md).
+
+O ajuste posterior de CI fixa Ubuntu 24.04, mantendo o ambiente de teste alinhado ao build desktop. Ele não altera a imagem publicada. A falha observada no runner Ubuntu 26.04/FFmpeg 8 está registrada na validação; não houve alteração do renderizador legado.
