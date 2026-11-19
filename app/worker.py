@@ -2,13 +2,14 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from PySide6.QtCore import QThread, Signal
 
 from app.core.pdf_processor import render_all_slides_to_dir
 from app.core.video_generator import generate_video
 from app.core.multitrack import MultimediaProject
 from app.core.multitrack_video_builder import generate_multimedia_video
+from app.core.dual_region_recorder import CompositionConfig, compose_dual_region_video
 
 logger = logging.getLogger(__name__)
 
@@ -184,4 +185,56 @@ class AISyncWorker(QThread):
         except Exception as e:
             logger.exception("Falha na sincronização com IA")
             self.sync_error.emit(str(e))
+
+
+class DualRegionRenderWorker(QThread):
+    """QThread worker to compose dual-region recordings (presentation + presenter) into final MP4."""
+    progress_changed = Signal(float, str)  # (fraction 0.0 - 1.0, status_text)
+    render_finished = Signal(str)  # output_video_path
+    render_error = Signal(str)
+    render_cancelled = Signal()
+
+    def __init__(
+        self,
+        presentation_video_path: str,
+        presenter_video_path: str,
+        output_path: str,
+        config: Optional[CompositionConfig] = None,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.presentation_video_path = presentation_video_path
+        self.presenter_video_path = presenter_video_path
+        self.output_path = output_path
+        self.config = config or CompositionConfig()
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
+
+    def run(self):
+        try:
+            out_file = compose_dual_region_video(
+                presentation_video_path=self.presentation_video_path,
+                presenter_video_path=self.presenter_video_path,
+                output_path=self.output_path,
+                config=self.config,
+                progress_callback=lambda frac, msg: self.progress_changed.emit(frac, msg),
+                cancel_check=lambda: self._is_cancelled,
+            )
+            if self._is_cancelled:
+                self.render_cancelled.emit()
+                return
+
+            self.render_finished.emit(out_file)
+
+        except RuntimeError as e:
+            if self._is_cancelled:
+                self.render_cancelled.emit()
+            else:
+                self.render_error.emit(str(e))
+        except Exception as e:
+            logger.exception("Falha na composição dual-region")
+            self.render_error.emit(str(e))
+
 

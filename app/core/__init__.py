@@ -16,6 +16,19 @@ from app.core.multitrack_video_builder import (
     generate_multimedia_video,
     build_audio_filter_complex,
 )
+from app.core.dual_region_recorder import (
+    ScreenRegion,
+    CompositionConfig,
+    DualRegionSession,
+    DualRegionRecordingProcess,
+    compose_dual_region_video,
+    PresentationInterval,
+    format_ms_to_time,
+    parse_time_to_ms,
+    normalize_and_validate_intervals,
+    detect_slide_intervals_heuristic,
+    probe_video_dimensions,
+)
 
 __all__ = [
     "get_ffmpeg_paths",
@@ -36,4 +49,15 @@ __all__ = [
     "SUPPORTED_VIDEO_EXTENSIONS",
     "generate_multimedia_video",
     "build_audio_filter_complex",
+    "ScreenRegion",
+    "CompositionConfig",
+    "DualRegionSession",
+    "DualRegionRecordingProcess",
+    "compose_dual_region_video",
+    "PresentationInterval",
+    "format_ms_to_time",
+    "parse_time_to_ms",
+    "normalize_and_validate_intervals",
+    "detect_slide_intervals_heuristic",
+    "probe_video_dimensions",
 ]
