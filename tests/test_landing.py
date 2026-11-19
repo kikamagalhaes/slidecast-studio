@@ -32,3 +32,21 @@ def test_production_canonical_and_legacy_redirect(monkeypatch):
     redirect = legacy.get("/", follow_redirects=False)
     assert redirect.status_code == 307
     assert redirect.headers["location"] == "https://kikamagalhaes.com.br/slidecast/"
+
+
+def test_release_metadata_and_missing_manifest(monkeypatch, tmp_path):
+    from app.web import server
+    import json
+
+    monkeypatch.setattr(server, "static_dir", tmp_path)
+    client = TestClient(app)
+    assert client.get("/api/releases/latest").status_code == 404
+    directory = tmp_path / "landing"
+    directory.mkdir()
+    metadata = {"version": "test", "platforms": {"linux": {"url": "https://example.com/app.tar.gz"}}}
+    (directory / "releases.json").write_text(json.dumps(metadata))
+    response = client.get("/api/releases/latest")
+    assert response.status_code == 200
+    assert response.json() == metadata
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["cache-control"] == "public, max-age=300"

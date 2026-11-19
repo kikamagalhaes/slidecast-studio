@@ -7,7 +7,7 @@ O produto principal é o **desktop PySide6**, com temas claro/escuro, editor PDF
 - [Sistema de design](docs/slidecast-design-system.md)
 - [Testes, evidências e limites](docs/slidecast-ux-validacao.md)
 
-A edição e a exportação locais não exigem IA. Recursos opcionais de IA dependem da configuração do serviço correspondente. A distribuição dos instaladores desta versão e o modelo de licença ainda estão em preparação.
+A edição e a exportação locais não exigem IA. Recursos opcionais de IA dependem da configuração do serviço correspondente. A versão desktop 1.2.0 tem pacotes portáteis com FFmpeg e ffprobe incluídos. Compra, licença e ativação desktop ainda estão em preparação; veja o [handoff do backend](docs/SLIDECAST_PROMPT_BACKEND_COMPRA_LICENCA_ATIVACAO.md).
 
 ---
 
@@ -40,19 +40,29 @@ python3 main.py                    # ou ./run.sh (Linux) / run.bat (Windows)
 
 Chaves de API podem ir em variáveis de ambiente (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `REPLICATE_API_TOKEN`) ou no botão 🔑 dentro do app (salvas em `~/.config/slidecast/config.json` no Linux / `%APPDATA%\slidecast` no Windows).
 
-### Pacotes históricos (Releases)
+### Downloads — desktop 1.2.0
 
-As releases existentes antecedem o editor e os temas de novembro de 2026. **Não são instaladores desta nova interface.** Antes de publicar outro bundle, o staging deve incluir ffprobe e passar pelos testes de empacotamento nas plataformas alvo.
+Baixe a [release 1.2.0](https://github.com/kikamagalhaes/slidecast-studio/releases/tag/v1.2.0) ou use a [página do SlideCast](https://kikamagalhaes.com.br/slidecast/#disponibilidade).
 
-Na página [Releases](https://github.com/kikamagalhaes/slidecast-studio/releases) há pacotes prontos, gerados automaticamente a cada tag `v*`:
+- **Windows 10/11 x64**: extraia todo o ZIP e abra `SlideCastStudio/SlideCastStudio.exe`.
+- **Linux x64 / Ubuntu 24.04**: extraia o TAR.GZ e execute `./SlideCastStudio/SlideCastStudio`. O pacote usa glibc 2.39; em instalações mínimas podem faltar bibliotecas de sessão gráfica/áudio (`libgl1`, `libegl1`, `libxkbcommon0`, `libdbus-1-3`, `libpulse0`).
+- **macOS 15 Apple Silicon**: abra o DMG e copie o aplicativo para Aplicativos.
 
-- **Linux**: `SlideCastStudio-linux-x64.tar.gz` — extraia e rode `./SlideCastStudio/SlideCastStudio` (em sistemas mínimos pode faltar Qt/OpenGL/áudio: `sudo apt install libgl1 libegl1 libxkbcommon0 libdbus-1-3 libpulse0`).
-- **Windows**: `SlideCastStudio-windows-x64.zip` — extraia e rode `SlideCastStudio.exe` (o SmartScreen pode avisar por ser app não assinado; clique em "Mais informações → Executar assim mesmo").
-- **macOS (Apple Silicon)**: `SlideCastStudio-macos-arm64.dmg` — arraste para Aplicativos (não assinado: no primeiro uso, clique com botão direito → Abrir).
+São pacotes portáteis/aplicativo empacotado, sem assinatura comercial de código. Não há instaladores MSI/DEB/RPM. FFmpeg e ffprobe estão incluídos. Confira os arquivos SHA256 e os relatórios `*-self-test.json` na release. Câmera, microfone e captura da tela dependem dos dispositivos e permissões locais.
 
-Os pacotes históricos incluem FFmpeg. O novo editor MP4 também precisa de ffprobe; o script histórico ainda não o inclui. Para diagnosticar qualquer instalação: `./SlideCastStudio --self-test` (código de saída 0 = tudo certo).
+[Registro de distribuição e validação](docs/slidecast-distribuicao-validacao.md). O endpoint público `/api/releases/latest` entrega os mesmos metadados usados pela landing, provenientes de `frontend/landing/public/releases.json`.
 
-> Build local: `pip install -r requirements.txt -r requirements-packaging.txt`, `python scripts/fetch_ffmpeg.py`, `pyinstaller slidecast.spec`.
+Build local:
+
+```bash
+pip install -r requirements.txt -r requirements-desktop-ai.txt -r requirements-packaging.txt
+# FFmpeg completo e ffprobe devem estar no PATH ou em FFMPEG_PATH/FFPROBE_PATH durante o build.
+python scripts/fetch_ffmpeg.py
+pyinstaller slidecast.spec --noconfirm --clean
+python scripts/verify_bundle.py dist/SlideCastStudio/SlideCastStudio
+```
+
+O verificador executa o aplicativo empacotado com PATH restrito, abre os dois temas e gera MP4s reais a partir de PDF e MP4 com quatro faixas de áudio. No Windows, acrescente `.exe` ao caminho.
 
 ## 🌐 Como executar (Web)
 
@@ -101,16 +111,6 @@ docker compose --env-file .env -p slidecast -f compose.production.yml up -d --bu
 | `SLIDECAST_PULSE_SOURCE` | auto | Fonte PulseAudio da gravação (Linux) |
 | `SLIDECAST_DSHOW_AUDIO` | auto | Dispositivo de áudio dshow (Windows) |
 | `LOG_LEVEL` | `INFO` | Verbosidade dos logs |
-
----
-
-## 📦 Executável standalone
-
-```bash
-pip install pyinstaller
-pyinstaller --noconsole --name "SlideCast" main.py
-# saída em dist/SlideCast/
-```
 
 ---
 

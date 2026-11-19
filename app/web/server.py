@@ -206,6 +206,15 @@ async def legacy_studio(request: Request):
     return FileResponse(str(studio_index), media_type="text/html")
 
 
+@app.get("/api/releases/latest")
+async def latest_desktop_release():
+    """Public metadata for the same verified packages linked by the landing."""
+    manifest = static_dir / "landing" / "releases.json"
+    if not manifest.is_file():
+        raise HTTPException(status_code=404, detail="Distribuição desktop indisponível.")
+    return FileResponse(str(manifest), media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
+
+
 def _disk_free_mb(path: Path) -> int:
     """Free disk space in MB, or -1 when it cannot be determined."""
     try:
