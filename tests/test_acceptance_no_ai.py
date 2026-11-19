@@ -70,7 +70,7 @@ def test_render_60s_isolamento_cancelamento(client):
     vid = client.get(f"/api/jobs/{jid}/video", headers=h1)
     assert vid.status_code == 200 and len(vid.content) > 10000
     dur = float(subprocess.run(["ffprobe","-v","error","-show_entries","format=duration","-of","csv=p=0","/dev/stdin"], input=vid.content, capture_output=True).stdout or b"0")
-    assert 55.0 <= dur <= 65.0, dur
+    assert 59.8 <= dur <= 60.2, dur
 
 def test_cancelamento_sem_duplicar(client):
     h = auth(client, "d@example.com")

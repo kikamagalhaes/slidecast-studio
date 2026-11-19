@@ -68,6 +68,7 @@ def generate_video(
 
     w, h = resolution
     video_filter = (
+        f"fps={fps},"
         f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
         f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,"
         f"format=yuv420p"
@@ -95,6 +96,9 @@ def generate_video(
         "-pix_fmt", "yuv420p",
         "-movflags", "+faststart",
         "-shortest",
+        # Sparse concat frames can outlive audio due to FFmpeg mux buffering.
+        # Never encode beyond the visual timeline requested by the project.
+        "-t", f"{total_expected_duration:.4f}",
         "-progress", "pipe:1",
         str(out_file),
     ]

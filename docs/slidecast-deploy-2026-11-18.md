@@ -23,9 +23,9 @@ docker compose --env-file .env -p slidecast -f compose.production.yml build web
 docker compose --env-file .env -p slidecast -f compose.production.yml up -d --no-deps web
 ```
 
-Apenas o container web foi recriado (`1193c5eb8d3a`). Worker (`79e4180dbadd`), Redis (`8cc0fa31c79e`) e todos os demais containers mantiveram seus IDs. A mudança é de UI e roteamento web; o worker já executava o motor existente. Fila e registro de jobs ativos estavam vazios antes da operação; fila continuou vazia após.
+Na primeira ativação, apenas o container web foi recriado (`1193c5eb8d3a`). Worker (`79e4180dbadd`), Redis (`8cc0fa31c79e`) e todos os demais containers mantiveram seus IDs. A mudança é de UI e roteamento web; o worker já executava o motor existente. Fila e registro de jobs ativos estavam vazios antes da operação; fila continuou vazia após.
 
-Imagem web gerada: `sha256:6f1d360206e6fa4620549b96508aaadfd0f99e6212cb11487c2a460aeb8d098d` (manifest list). SHA256 de `app/web/server.py`, idêntico local/container: `31052a4602ef657ae862aaaffc3136fc237a857b74aeb71a2e187e14120673ec`.
+Imagem da primeira ativação: `sha256:6f1d360206e6fa4620549b96508aaadfd0f99e6212cb11487c2a460aeb8d098d` (manifest list). SHA256 de `app/web/server.py`, idêntico local/container: `31052a4602ef657ae862aaaffc3136fc237a857b74aeb71a2e187e14120673ec`.
 
 ## Verificação pública
 
@@ -49,8 +49,9 @@ Não executada: a verificação passou. Para restaurar a imagem anterior sem rec
 ```bash
 cd /opt/slidecast
 docker image tag slidecast-web:rollback-20261119T020221Z slidecast-web:latest
+docker image tag slidecast-worker:rollback-20261119T020221Z slidecast-worker:latest
 # Restaurar compose.production.yml do source.tar.gz do backup, se também for preciso reverter as variáveis/rotas da aplicação.
-docker compose --env-file .env -p slidecast -f compose.production.yml up -d --no-deps --no-build --force-recreate web
+docker compose --env-file .env -p slidecast -f compose.production.yml up -d --no-deps --no-build --force-recreate web worker
 ```
 
 O source.tar.gz permite recuperar os arquivos anteriores. Uma eventual restauração de banco/arquivos exige avaliar as gravações posteriores ao backup; não substituir dados automaticamente. Não há migração destrutiva nesta entrega.
@@ -59,4 +60,15 @@ O source.tar.gz permite recuperar os arquivos anteriores. Uma eventual restaura�
 
 O redesign desktop e a documentação são entregues no código-fonte. Não foi criado um instalador novo nem uma licença comercial. A landing informa isso expressamente. A validação Windows/hardware e o empacotamento de ffprobe permanecem como requisitos para a próxima distribuição; ver [validação](slidecast-ux-validacao.md).
 
-O ajuste posterior de CI fixa Ubuntu 24.04, mantendo o ambiente de teste alinhado ao build desktop. Ele não altera a imagem publicada. A falha observada no runner Ubuntu 26.04/FFmpeg 8 está registrada na validação; não houve alteração do renderizador legado.
+## Correção pontual do renderizador legado
+
+A checagem posterior à publicação reproduziu, em diretório temporário isolado, saída de 70 s para 60 s no FFmpeg 7.1.5 do servidor. Nenhum projeto, conta ou arquivo do usuário foi usado. O gerador legado passou a amostrar frames com `fps` e limitar a saída à soma das durações (`-t`), sem novo motor nem mudança de contrato. O teste de aceite passou a exigir 59,8–60,2 s. A imagem corrigida foi validada com um render isolado, sem rede ou volume de dados: **60,0 s** de saída para 60 s solicitados. Em seguida web e worker foram atualizados com a fila e o registro de jobs ativos vazios. Ambos ficaram saudáveis. A landing foi conferida novamente por HTTPS no Chromium; retornou 200, sem erro JavaScript, e a API permaneceu saudável.
+
+Estado final após a correção:
+
+| Serviço | Container | Imagem | Saúde |
+|---|---|---|---|
+| web | `51324cace1c8` | `sha256:d157bc605125763461061915f70177dfa62d07fc78dd14b00a90f824f489f8df` | healthy |
+| worker | `12fd392afd91` | `sha256:90535aeae72bed347387b483574792da05a1a04d110cfdcddf4225f9fdfa8a6d` | healthy |
+
+Os outros **22 containers** mantiveram os IDs anteriores. Redis, dados, configuração de domínio e Traefik foram preservados. A cópia inicial continua disponível para reversão.

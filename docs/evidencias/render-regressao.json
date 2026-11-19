@@ -1,0 +1,31 @@
+{
+  "fixture": {
+    "slides": 3,
+    "durations_seconds": [
+      20,
+      20,
+      20
+    ],
+    "resolution": [
+      320,
+      180
+    ],
+    "fps": 5,
+    "audio_seconds": 60
+  },
+  "before": {
+    "server_ffmpeg": "7.1.5",
+    "duration_seconds": 70.0,
+    "ci_ffmpeg": "8.0.1",
+    "ci_duration_seconds": 69.8
+  },
+  "after": {
+    "server_ffmpeg": "7.1.5",
+    "duration_seconds": 60.0,
+    "isolation": "temporary Docker container, no network, no storage mount"
+  },
+  "fix": [
+    "fps filter before scale",
+    "output -t bounded by sum of slide durations"
+  ]
+}

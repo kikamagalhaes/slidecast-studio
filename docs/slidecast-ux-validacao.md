@@ -4,7 +4,7 @@
 
 Redesign, temas, editor e landing **implementados**. PDF/MP4, quatro faixas, prévia e exportação **integrados ao motor real** (`MultimediaProject` / `MultimediaRenderWorker`). Nenhum renderizador paralelo foi criado. IA opcional mantém os serviços anteriores; não foi chamada durante a validação.
 
-**196 testes passaram** na suíte completa em 116,47 s. Depois dos ajustes finais de evidências, os 11 testes de UI e landing passaram novamente em 6,00 s. `ruff check app tests` passou após remover imports sem uso do teste multitrack anterior. Build TypeScript/Vite dos dois frontends passou. Há um aviso de depreciação do transporte httpx do TestClient, sem falha.
+**196 testes passaram** na suíte completa em 116,47 s; após a correção pontual de duração, a suíte completa passou novamente (196 testes, 97,05 s). Depois dos ajustes finais de evidências, os 11 testes de UI e landing passaram novamente em 6,00 s. `ruff check app tests` passou após remover imports sem uso do teste multitrack anterior. Build TypeScript/Vite dos dois frontends passou. Há um aviso de depreciação do transporte httpx do TestClient, sem falha.
 
 ## Matriz de aceite
 
@@ -72,6 +72,6 @@ Os vídeos de evidência são gerados por FFmpeg (PDF com quatro faixas e prévi
 - **Distribuição:** releases históricas v1.0.0/v1.1.1 existem, mas não contêm este redesign. Não são anunciadas como a nova versão. A publicação de novos instaladores exige empacotar e verificar `ffprobe`: o script histórico de staging só copia FFmpeg e o novo motor de MP4 usa ffprobe. Não foi publicado um pacote incompleto.
 - **Decisão comercial:** preço, licença desktop, ativação, suporte e política de atualização ainda não definidos. Stripe da web não foi convertido em licença desktop.
 - **P2:** waveform detalhada, automação de volume e controles de fade. Não há waveform inventada nem botões que anunciem essas funções.
-- **Muse/motor:** o novo editor multitrack passou também no CI com Ubuntu 26.04. Entretanto, o teste legado `test_render_60s_isolamento_cancelamento` produziu 69,8 s para uma entrada de 60 s nesse runner (FFmpeg 8.0.1), enquanto a suíte local com FFmpeg 6.1.1 passou. O workflow usava `ubuntu-latest`, que mudou para Ubuntu 26.04. O CI foi fixado no Ubuntu 24.04, mesma base declarada em `release.yml`. A compatibilidade do renderizador legado com FFmpeg 8 precisa de revisão do responsável pelo motor; nenhum teste foi relaxado e o motor não foi modificado nesta entrega. Execução que revelou o problema: https://github.com/kikamagalhaes/slidecast-studio/actions/runs/44442207825 .
+- **Motor legado:** a checagem pós-publicação encontrou um excesso de duração no renderizador PDF antigo: 60 s produziram 69,8 s no CI Ubuntu 26.04/FFmpeg 8.0.1 e 70 s em uma execução isolada no servidor com FFmpeg 7.1.5. A opção `-shortest` sozinha não limitava a saída à timeline. Foi aplicado o filtro `fps` para amostrar os frames esparsos do concat e acrescentado `-t` com a soma dos tempos já calculada pelo motor, mantendo API, schema, política de áudio e engine multitrack existentes. O teste de aceite foi endurecido para 59,8–60,2 s. A tentativa de fixar Ubuntu 24.04 foi descartada após a reprodução em produção; o CI continua no runner atual.
 
 A publicação e a reversão estão registradas em [slidecast-deploy-2026-11-18.md](slidecast-deploy-2026-11-18.md).

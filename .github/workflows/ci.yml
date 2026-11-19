@@ -7,8 +7,7 @@ on:
 
 jobs:
   test:
-    # Same supported Linux baseline as release.yml; avoid implicit FFmpeg major upgrades.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -34,8 +33,7 @@ jobs:
         run: pytest -q
 
   desktop-smoke:
-    # Same supported Linux baseline as release.yml; avoid implicit FFmpeg major upgrades.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
