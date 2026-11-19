@@ -287,7 +287,7 @@ def build_setup_view(view) -> QWidget:
 
     # Vertical Layout Style Panel (Shorts & Reels)
     view.box_vert_layout = QFrame()
-    apply_style(view.box_vert_layout, "background: @surface@; border: 1.5px solid @focus@; border-radius: 8px; margin-top: 10px;")
+    apply_style(view.box_vert_layout, "background: @surface@; border: 1px solid @border@; border-radius: 8px; margin-top: 10px;")
     bvl_lay = QVBoxLayout(view.box_vert_layout)
     bvl_lay.setContentsMargins(14, 12, 14, 12)
     bvl_lay.setSpacing(8)
@@ -360,7 +360,7 @@ def build_setup_view(view) -> QWidget:
 
     # Left Column: Abertura (Intro)
     box_intro = QFrame()
-    apply_style(box_intro, "background: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px;")
+    apply_style(box_intro, "background: @surface_alt@; border: 1px solid @border@; border-radius: 10px;")
     bi_lay = QVBoxLayout(box_intro)
     bi_lay.setContentsMargins(14, 12, 14, 12)
     bi_lay.setSpacing(8)
@@ -412,7 +412,7 @@ def build_setup_view(view) -> QWidget:
 
     # Right Column: Encerramento (Outro)
     box_outro = QFrame()
-    apply_style(box_outro, "background: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px;")
+    apply_style(box_outro, "background: @surface_alt@; border: 1px solid @border@; border-radius: 10px;")
     bo_lay = QVBoxLayout(box_outro)
     bo_lay.setContentsMargins(14, 12, 14, 12)
     bo_lay.setSpacing(8)
@@ -573,7 +573,7 @@ def build_setup_view(view) -> QWidget:
     apply_style(view.box_presenter_mode, """
         QFrame#boxPresenterMode {
             background-color: @surface_alt@;
-            border: 1.5px solid @border_strong@;
+            border: 1px solid @border@;
             border-radius: 12px;
         }
     """)
@@ -635,7 +635,7 @@ def build_setup_view(view) -> QWidget:
 
     # Clone Digital Status & Controls Card inside presenter box
     view.card_clone_status = QFrame()
-    apply_style(view.card_clone_status, "background: @surface_alt@; border: 1.5px solid @focus@; border-radius: 8px; padding: 8px;")
+    apply_style(view.card_clone_status, "background: @surface_alt@; border: 1px solid @border@; border-radius: 8px; padding: 8px;")
     ccs_layout = QHBoxLayout(view.card_clone_status)
     ccs_layout.setContentsMargins(12, 8, 12, 8)
     ccs_layout.setSpacing(12)
@@ -758,7 +758,7 @@ def build_setup_view(view) -> QWidget:
 
     # Informative hint when Clone is active
     view.card_clone_dev_hint = QFrame()
-    apply_style(view.card_clone_dev_hint, "background: @surface_alt@; border: 1.5px solid @focus@; border-radius: 10px; padding: 14px;")
+    apply_style(view.card_clone_dev_hint, "background: @surface_alt@; border: 1px solid @border@; border-radius: 10px; padding: 14px;")
     ccdh_layout = QVBoxLayout(view.card_clone_dev_hint)
     ccdh_layout.setSpacing(6)
     lbl_hint_title = QLabel("✨ Modo Clone Digital IA Ativo")
@@ -842,7 +842,7 @@ def build_setup_view(view) -> QWidget:
     # Audio Source for Clone Video (AI TTS vs Live Mic vs File)
     # ----------------------------------------------------
     card_audio_src = QFrame()
-    apply_style(card_audio_src, "background: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 8px; margin-top: 8px;")
+    apply_style(card_audio_src, "background: @surface_alt@; border: 1px solid @border@; border-radius: 8px; margin-top: 8px;")
     cas_layout = QVBoxLayout(card_audio_src)
     cas_layout.setContentsMargins(14, 12, 14, 12)
     cas_layout.setSpacing(10)
@@ -1093,7 +1093,7 @@ def build_studio_view(view) -> QWidget:
 
     # Slide Area (Center Display)
     view.slide_display_frame = QFrame()
-    apply_style(view.slide_display_frame, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 10px;")
+    apply_style(view.slide_display_frame, "background-color: @surface@; border: 1px solid @border@; border-radius: 10px;")
     sdf_layout = QVBoxLayout(view.slide_display_frame)
     sdf_layout.setContentsMargins(8, 8, 8, 8)
     sdf_layout.setAlignment(Qt.AlignCenter)

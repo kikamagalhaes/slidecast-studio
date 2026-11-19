@@ -87,6 +87,8 @@ class MainWindow(QMainWindow):
         self.generate_materials_view.send_to_create_video.connect(self._on_material_sent_to_create_video)
         self.generate_materials_view.send_to_record_class.connect(self._on_material_sent_to_record_class)
         self.stack.setCurrentIndex(MainView.HOME)
+        self.home_view.setFocusPolicy(Qt.StrongFocus)
+        self.home_view.setFocus(Qt.OtherFocusReason)
 
     def _theme_changed(self, name):
         self.theme_combo.blockSignals(True)
@@ -108,7 +110,8 @@ class MainWindow(QMainWindow):
         subtitle.setWordWrap(True)
         subtitle.setProperty("class", "subtitle")
         layout.addWidget(subtitle)
-        layout.addLayout(build_home_menu(self.navigate), 1)
+        layout.addLayout(build_home_menu(self.navigate))
+        layout.addStretch(1)
         footer = QHBoxLayout()
         self.lbl_ffmpeg_status = QLabel()
         footer.addWidget(self.lbl_ffmpeg_status)

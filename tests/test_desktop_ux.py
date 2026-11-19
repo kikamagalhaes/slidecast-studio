@@ -235,3 +235,21 @@ def test_unsaved_cancel_keeps_project(editor,media,monkeypatch):
     monkeypatch.setattr(QMessageBox,"question",lambda *a,**k: QMessageBox.Cancel)
     assert not editor.confirm_discard()
     assert len(editor.project.tracks)==4
+
+
+def test_panel_border_does_not_frame_child_labels(qapp):
+    from PySide6.QtWidgets import QFrame, QLabel, QPushButton
+    from app.ui.styles import apply_style, tokens
+    panel = QFrame()
+    panel.resize(260, 120)
+    label = QLabel("Descrição sem moldura", panel)
+    label.setGeometry(20, 25, 200, 50)
+    apply_style(panel, "background: @surface@; border: 2px solid @danger@;")
+    panel.show(); qapp.processEvents()
+    color = tokens()["danger"].lower()
+    assert panel.grab().toImage().pixelColor(0, 60).name() == color
+    assert label.grab().toImage().pixelColor(0, 25).name() != color
+    button = QPushButton("Continuar", panel)
+    apply_style(button, "background: @primary@; color: @on_primary@; padding: 2px;")
+    assert button.minimumHeight() >= 44
+    panel.close()

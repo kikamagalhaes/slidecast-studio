@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QVBoxLayout,
+    QSizePolicy,
 )
 
 
@@ -64,8 +65,10 @@ def build_menu_card(spec: MenuCardSpec, on_open: Callable[[], None]) -> QFrame:
     """Builds one clickable home menu card from a spec."""
     card = QFrame()
     card.setProperty("class", "menu-card")
+    card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+    card.setMinimumHeight(268)
     card_layout = QVBoxLayout(card)
-    card_layout.setContentsMargins(20, 20, 20, 20)
+    card_layout.setContentsMargins(24, 24, 24, 24)
     card_layout.setSpacing(12)
 
     icon = QLabel(spec.icon)
@@ -83,6 +86,8 @@ def build_menu_card(spec: MenuCardSpec, on_open: Callable[[], None]) -> QFrame:
     button = QPushButton(spec.button_text)
     if spec.primary:
         button.setProperty("class", "primary")
+    button.setMinimumHeight(48)
+    button.setMinimumWidth(180)
     button.setCursor(Qt.PointingHandCursor)
     button.clicked.connect(on_open)
 
@@ -91,7 +96,7 @@ def build_menu_card(spec: MenuCardSpec, on_open: Callable[[], None]) -> QFrame:
     card_layout.addWidget(subtitle)
     card_layout.addWidget(description)
     card_layout.addStretch()
-    card_layout.addWidget(button)
+    card_layout.addWidget(button, 0, Qt.AlignLeft)
     return card
 
 

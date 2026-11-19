@@ -22,7 +22,7 @@ class AudioTimeline(QWidget):
         self.refresh()
 
     def refresh(self):
-        self.setFixedHeight(38 + max(1, len(self.project.tracks)) * 112)
+        self.setFixedHeight(38 + max(1, len(self.project.tracks)) * 134)
         self.update()
 
     def paintEvent(self, event):
@@ -44,19 +44,21 @@ class AudioTimeline(QWidget):
         p.setPen(QPen(QColor(c['border_strong']), 2, Qt.DashLine))
         p.drawLine(int(end_x), 30, int(end_x), self.height())
         for i, track in enumerate(self.project.tracks):
-            y = 38+i*112
+            y = 38+i*134
             p.fillRect(QRectF(16, y+8, width, 92), QColor(c['surface_alt']))
             x = 16+min(track.offset/total, 1)*width
             end = 16+min(track.effective_end()/total, 1)*width
             color = c['muted'] if track.mute or track.volume == 0 else c[f'track{i+1}']
-            p.setBrush(QColor(c['field']))
-            p.setPen(QPen(QColor(color), 3 if track.id==self.selected_id else 2))
+            fill = QColor(color)
+            fill.setAlpha(22)
+            p.setBrush(fill)
+            p.setPen(QPen(QColor(color if track.id == self.selected_id else c['border']), 2 if track.id == self.selected_id else 1))
             if end > x:
                 rect = QRectF(x, y+14, max(2, end-x), 78)
                 p.drawRoundedRect(rect, 7, 7)
                 p.save()
                 p.setClipRect(rect.adjusted(6, 2, -4, -2))
-                p.setPen(QColor(color))
+                p.setPen(QColor(c['text']))
                 p.drawText(QRectF(x+10, y+24, max(200,end-x-20), 22), Qt.AlignLeft, f"{i+1}  {track.name}")
                 p.setPen(QColor(c['secondary']))
                 text = "Silenciada" if track.mute else f"Início {format_duration(track.offset)} · {track.volume*100:.0f}%"
@@ -77,7 +79,7 @@ class AudioTimeline(QWidget):
             p.drawRect(self.rect().adjusted(1,1,-1,-1))
 
     def mousePressEvent(self, event):
-        index = int((event.position().y()-38)//112)
+        index = int((event.position().y()-38)//134)
         if 0 <= index < len(self.project.tracks):
             self.selected_id = self.project.tracks[index].id
             self.track_selected.emit(self.selected_id)

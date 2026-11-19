@@ -16,7 +16,7 @@ class AudioTrackItemWidget(QFrame):
         super().__init__(parent)
         self.track, self.index = track, index
         self.setProperty("class", "track")
-        self.setFixedHeight(104)
+        self.setFixedHeight(126)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 6, 10, 6)
         layout.setSpacing(4)

@@ -222,7 +222,7 @@ class AvatarCalibrationDialog(QDialog):
 
         # Left: Live camera preview
         cam_frame = QFrame()
-        apply_style(cam_frame, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 8px;")
+        apply_style(cam_frame, "background-color: @surface@; border: 1px solid @border@; border-radius: 8px;")
         cf_layout = QVBoxLayout(cam_frame)
         cf_layout.setContentsMargins(4, 4, 4, 4)
 
@@ -619,7 +619,7 @@ class AvatarCalibrationDialog(QDialog):
         apply_style(self.list_clones_widget, """
             QListWidget {
                 background-color: @surface@;
-                border: 1.5px solid @border_strong@;
+                border: 1px solid @border@;
                 border-radius: 8px;
                 padding: 6px;
             }

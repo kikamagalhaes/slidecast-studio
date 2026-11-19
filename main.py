@@ -8,112 +8,100 @@ from app.ui.main_window import MainWindow
 from app.ui.styles import theme_manager
 
 
-def self_test() -> int:
-    """Headless end-to-end check of the (frozen) bundle: deps, ffmpeg, core.
-
-    Used by packaging CI on every OS and by support to diagnose installs.
-    Returns process exit code (0 = OK). Prints SELF-TEST OK on success.
-    """
+def self_test(report_path=None) -> int:
+    """Verify bundled dependencies, real PDF/MP4 rendering and both Qt themes."""
+    import json
     import math
     import struct
     import subprocess
     import tempfile
     import wave
-
-    # Windowed frozen apps (Windows) have no stdout: keep prints from crashing.
-    if sys.stdout is None:  # pragma: no cover - frozen Windows only
-        sys.stdout = open(os.devnull, "w")
-    if sys.stderr is None:  # pragma: no cover - frozen Windows only
-        sys.stderr = open(os.devnull, "w")
-
-    failures = []
-
-    for mod in (
-        "PySide6.QtWidgets",
-        "pymupdf",
-        "mutagen",
-        "google.genai",
-        "edge_tts",
-        "replicate",
-        "requests",
-    ):
-        try:
-            __import__(mod)
-            print(f"import ok: {mod}")
-        except Exception as exc:
-            failures.append(mod)
-            print(f"import FAIL: {mod}: {exc}")
-
     from app.core.ffmpeg_utils import get_ffmpeg_paths
 
-    ffmpeg_path, _ = get_ffmpeg_paths()
-    print(f"ffmpeg: {ffmpeg_path or 'NOT FOUND'}")
-    if not ffmpeg_path:
-        failures.append("ffmpeg")
-    else:
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+    report = {"failures": [], "media_tools": {}, "renders": {}, "themes": []}
+    failures = report["failures"]
+    for mod in ("PySide6.QtWidgets", "pymupdf", "mutagen", "google.genai", "edge_tts", "replicate", "requests"):
         try:
-            out = subprocess.run(
-                [ffmpeg_path, "-version"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                timeout=30,
-            )
-            print("ffmpeg runs:", out.stdout.splitlines()[0][:80] if out.stdout else "?")
-            if out.returncode != 0:
-                failures.append("ffmpeg-run")
+            __import__(mod)
         except Exception as exc:
-            failures.append("ffmpeg-run")
-            print(f"ffmpeg run FAIL: {exc}")
+            failures.append(f"{mod}: {exc}")
 
-    try:
-        import pymupdf
+    for name, executable in zip(("ffmpeg", "ffprobe"), get_ffmpeg_paths()):
+        try:
+            if not executable:
+                raise RuntimeError("not found")
+            if os.environ.get("SLIDECAST_REQUIRE_BUNDLED_MEDIA") == "1":
+                bundle = Path(sys._MEIPASS).resolve()
+                if not Path(executable).resolve().is_relative_to(bundle):
+                    raise RuntimeError("tool outside bundle")
+            result = subprocess.run([executable, "-version"], capture_output=True, text=True, check=True, timeout=30)
+            report["media_tools"][name] = result.stdout.splitlines()[0]
+        except Exception as exc:
+            failures.append(f"{name}: {exc}")
 
-        from app.core.audio_processor import get_audio_info
-        from app.core.pdf_processor import inspect_pdf
-
-        with tempfile.TemporaryDirectory(prefix="slidecast-selftest-") as tmp:
-            pdf_path = os.path.join(tmp, "t.pdf")
-            doc = pymupdf.open()
-            doc.new_page(width=595, height=842)
-            doc.save(pdf_path)
-            doc.close()
-            wav_path = os.path.join(tmp, "t.wav")
-            rate = 22050
-            with wave.open(wav_path, "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(rate)
-                for i in range(rate):
-                    wav.writeframes(
-                        struct.pack("<h", int(8000 * math.sin(2 * math.pi * 220 * i / rate)))
-                    )
-            pdf_info = inspect_pdf(pdf_path)
-            audio_info = get_audio_info(wav_path)
-            print(f"core ok: pages={pdf_info.page_count} duration={audio_info.duration:.1f}s")
-    except Exception as exc:
-        failures.append("core-pipeline")
-        print(f"core pipeline FAIL: {exc!r}")
+    if not failures:
+        try:
+            import pymupdf
+            from app.core.multitrack import MultimediaProject, inspect_video, probe_audio_track
+            from app.core.multitrack_video_builder import generate_multimedia_video
+            with tempfile.TemporaryDirectory(prefix="slidecast-selftest-") as tmp:
+                root = Path(tmp)
+                pdf = root / "aula com acentos.pdf"
+                doc = pymupdf.open()
+                for number in range(2):
+                    page = doc.new_page(width=640, height=360)
+                    page.insert_text((40, 80), f"SlideCast {number+1}", fontsize=28)
+                doc.save(pdf); doc.close()
+                audio = root / "narracao.wav"
+                with wave.open(str(audio), "wb") as wav:
+                    wav.setnchannels(1); wav.setsampwidth(2); wav.setframerate(8000)
+                    wav.writeframes(b"".join(struct.pack("<h", int(1600*math.sin(2*math.pi*220*n/8000))) for n in range(16000)))
+                project = MultimediaProject()
+                project.set_visual_source("pdf", str(pdf), slide_durations=[1, 1])
+                for index in range(4):
+                    project.add_track(probe_audio_track(str(audio), name=f"Faixa {index+1}", volume=.2, offset=index*.1))
+                project.export_settings.update(resolution=[320, 180], fps=15)
+                for kind in ("pdf", "mp4"):
+                    output = str(root / f"saida-{kind}.mp4")
+                    generate_multimedia_video(project, output, dpi=72)
+                    info = inspect_video(output)
+                    if not (1.8 <= info.duration <= 2.2 and info.has_audio and info.width == 320):
+                        raise RuntimeError(f"Invalid {kind} output: {info}")
+                    report["renders"][kind] = {"duration": info.duration, "width": info.width, "height": info.height, "audio": info.has_audio}
+                    if kind == "pdf":
+                        project.set_visual_source("video", output)
+                project.save_to_file(str(root / "teste.slidecast"))
+                restored = MultimediaProject.load_from_file(str(root / "teste.slidecast"))
+                if len(restored.tracks) != 4:
+                    raise RuntimeError("project did not preserve four tracks")
+        except Exception as exc:
+            failures.append(f"multimedia-pipeline: {exc!r}")
 
     try:
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-        from PySide6.QtWidgets import QApplication
-
-        from app.ui.main_window import MainWindow
-
-        qt_app = QApplication([])
+        qt_app = QApplication.instance() or QApplication([])
         window = MainWindow()
-        print(f"qt ok: {window.windowTitle() or 'MainWindow'} built")
+        window.show()
+        for theme in ("light", "dark"):
+            window.theme_manager.set_theme(theme, persist=False)
+            qt_app.processEvents()
+            if window.grab().isNull():
+                raise RuntimeError("Qt did not render the window")
+            report["themes"].append(theme)
+        window.close()
         qt_app.quit()
     except Exception as exc:
-        failures.append("qt-window")
-        print(f"qt window FAIL: {exc!r}")
+        failures.append(f"qt-window: {exc!r}")
 
-    if failures:
-        print(f"SELF-TEST FAILED: {', '.join(failures)}")
-        return 1
-    print("SELF-TEST OK")
-    return 0
+    if report_path:
+        Path(report_path).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False))
+    print("SELF-TEST FAILED" if failures else "SELF-TEST OK")
+    return 1 if failures else 0
 
 
 def main():
@@ -140,7 +128,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("SlideCast Studio")
     app.setOrganizationName("SlideCast")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("1.2.0")
 
     # Restore the operator theme before building any screens.
     theme_manager()
@@ -163,6 +151,10 @@ def main():
 
 if __name__ == "__main__":
     if "--self-test" in sys.argv:
-        sys.argv = [a for a in sys.argv if a != "--self-test"]
-        sys.exit(self_test())
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--self-test", action="store_true")
+        parser.add_argument("--self-test-report")
+        args = parser.parse_args()
+        sys.exit(self_test(args.self_test_report))
     main()

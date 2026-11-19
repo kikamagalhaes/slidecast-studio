@@ -32,8 +32,8 @@ class TeleprompterWidget(QFrame):
         self.font_size = 18
 
         self.setObjectName("teleprompterFrame")
-        self.setFixedWidth(450)
-        self.setFixedHeight(240)
+        self.setFixedWidth(560)
+        self.setFixedHeight(288)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         self._apply_frame_style(active=False)
@@ -45,19 +45,19 @@ class TeleprompterWidget(QFrame):
         self._build_ui()
 
     def _apply_frame_style(self, active: bool = False):
-        border_color = "@focus@" if active else "@border_strong@"
+        border_color = "@primary@" if active else "@border@"
         apply_style(self, f"""
             QFrame#teleprompterFrame {{
                 background-color: @surface_alt@;
-                border: 1.5px solid {border_color};
+                border: 1px solid {border_color};
                 border-radius: 12px;
             }}
         """)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 6)
-        layout.setSpacing(4)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
 
         # 1. Text View Area (No top gray bar at all - reading text starts directly at top)
         self.text_edit = TeleprompterTextEdit()
@@ -68,7 +68,7 @@ class TeleprompterWidget(QFrame):
         self.text_edit.setToolTip("Clique no texto ou pressione Espaço para Iniciar / Pausar a rolagem")
         self.text_edit.clicked.connect(self.toggle_play)
 
-        self.text_edit.setFixedHeight(185)
+        self.text_edit.setFixedHeight(194)
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.text_edit.setPlaceholderText(
@@ -84,16 +84,17 @@ class TeleprompterWidget(QFrame):
         apply_style(bottom_bar, """
             QFrame {
                 background-color: @surface_alt@;
-                border-top: 1px solid @border_strong@;
+                border-top: 1px solid @border@;
                 border-radius: 8px;
                 padding: 2px 4px;
             }
             QPushButton {
                 background-color: @surface_alt@;
                 color: @text@;
-                border: 1px solid @border_strong@;
+                border: 1px solid @border@;
                 border-radius: 5px;
-                padding: 3px 7px;
+                padding: 7px 9px;
+                min-height: 26px;
                 font-size: 11px;
                 font-weight: 600;
             }
@@ -122,7 +123,7 @@ class TeleprompterWidget(QFrame):
         btn_slower = QPushButton("🐢")
         btn_slower.setToolTip("Diminuir velocidade da rolagem")
         btn_slower.setCursor(Qt.PointingHandCursor)
-        btn_slower.setFixedWidth(28)
+        btn_slower.setFixedWidth(42)
         btn_slower.clicked.connect(self.slow_down)
         b_layout.addWidget(btn_slower)
 
@@ -136,7 +137,7 @@ class TeleprompterWidget(QFrame):
         btn_faster = QPushButton("🐇")
         btn_faster.setToolTip("Aumentar velocidade da rolagem")
         btn_faster.setCursor(Qt.PointingHandCursor)
-        btn_faster.setFixedWidth(28)
+        btn_faster.setFixedWidth(42)
         btn_faster.clicked.connect(self.speed_up)
         b_layout.addWidget(btn_faster)
 
@@ -146,7 +147,7 @@ class TeleprompterWidget(QFrame):
         btn_font_dec = QPushButton("A-")
         btn_font_dec.setToolTip("Diminuir tamanho da fonte")
         btn_font_dec.setCursor(Qt.PointingHandCursor)
-        btn_font_dec.setFixedWidth(28)
+        btn_font_dec.setFixedWidth(42)
         btn_font_dec.clicked.connect(self.decrease_font)
         b_layout.addWidget(btn_font_dec)
 
@@ -154,7 +155,7 @@ class TeleprompterWidget(QFrame):
         btn_font_inc = QPushButton("A+")
         btn_font_inc.setToolTip("Aumentar tamanho da fonte")
         btn_font_inc.setCursor(Qt.PointingHandCursor)
-        btn_font_inc.setFixedWidth(28)
+        btn_font_inc.setFixedWidth(42)
         btn_font_inc.clicked.connect(self.increase_font)
         b_layout.addWidget(btn_font_inc)
 
@@ -214,10 +215,10 @@ class TeleprompterWidget(QFrame):
     def _update_font_style(self):
         apply_style(self.text_edit, f"""
             QTextEdit {{
-                background-color: @surface_alt@;
-                border: 1px solid @border_strong@;
+                background-color: transparent;
+                border: none;
                 border-radius: 8px;
-                color: @on_primary@;
+                color: @text@;
                 font-size: {self.font_size}px;
                 line-height: 1.6;
                 padding: 8px 12px;

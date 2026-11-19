@@ -55,3 +55,9 @@ Menus, listas, tabelas, abas, progressos, sliders, diálogos e seletores Qt comp
 ## Landing
 
 Implementação em `frontend/src/landing.tsx` e `landing.css`, sem fontes remotas ou rastreadores adicionados. HTML semântico com skip link, landmarks, títulos, tabela com cabeçalhos e FAQ via `details/summary`. Imagens reais otimizadas, dimensões explícitas e lazy loading abaixo da dobra. Âncoras conduzem a seções reais; nenhuma ação de compra/download simula disponibilidade.
+
+## Refino visual de 19/11/2026
+
+Estilos sem seletor são restritos ao widget alvo por `slidecastStyle`, evitando que bordas dos painéis desenhem molduras nos labels, radios e campos filhos. As bordas decorativas passaram a 1 px; foco de teclado e seleção permanecem distintos. Botões comuns têm alvo de aproximadamente 44 px e ações da home 48 px, com largura apropriada ao rótulo. Cartões da home não esticam seus botões em barras finas. Teleprompter recebeu mais espaço, leitura sem contorno interno e controles maiores. Blocos da timeline usam preenchimento suave e borda discreta.
+
+Capturas revisadas: `docs/evidencias/refino-claro` e `refino-escuro`. O teste `test_panel_border_does_not_frame_child_labels` verifica o resultado renderizado do escopo das bordas.

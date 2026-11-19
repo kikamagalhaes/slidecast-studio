@@ -370,7 +370,7 @@ class RecordPodcastView(QWidget):
         self.lbl_cover_preview = QLabel("A prévia da capa final\naparece aqui")
         self.lbl_cover_preview.setAlignment(Qt.AlignCenter)
         self.lbl_cover_preview.setFixedSize(168, 168)
-        apply_style(self.lbl_cover_preview, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 8px; color: @primary@; font-size: 12px;")
+        apply_style(self.lbl_cover_preview, "background-color: @surface@; border: 1px solid @border@; border-radius: 8px; color: @primary@; font-size: 12px;")
         row_final.addWidget(self.lbl_cover_preview)
 
         col_textos = QVBoxLayout()
@@ -614,7 +614,7 @@ class RecordPodcastView(QWidget):
         for i, btn in enumerate(self.step_buttons):
             if i == idx:
                 apply_style(btn, "background: @warning@; color: @muted@; font-weight: 700; "
-                    "border: 1.5px solid @focus@; padding: 8px 14px; border-radius: 8px;")
+                    "border: 1px solid @border@; padding: 8px 14px; border-radius: 8px;")
             else:
                 apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
                     "border: 1px solid @border_strong@; padding: 8px 14px; border-radius: 8px;")
@@ -660,7 +660,7 @@ class RecordPodcastView(QWidget):
 
         # Center Display: Cover Image + Audio Visualizer
         self.cover_display_frame = QFrame()
-        apply_style(self.cover_display_frame, "background-color: @surface@; border: 1.5px solid @border_strong@; border-radius: 10px;")
+        apply_style(self.cover_display_frame, "background-color: @surface@; border: 1px solid @border@; border-radius: 10px;")
         cdf_layout = QVBoxLayout(self.cover_display_frame)
         cdf_layout.setContentsMargins(12, 12, 12, 12)
         cdf_layout.setAlignment(Qt.AlignCenter)

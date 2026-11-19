@@ -4,6 +4,15 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish packages after all platform checks pass
+        type: boolean
+        default: false
+      tag_name:
+        description: Release tag matching the app version and release notes
+        type: string
+        default: v1.2.0
 
 jobs:
   build:
@@ -33,14 +42,33 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libgl1 libegl1 libxkbcommon0 libdbus-1-3 libpulse0 libasound2t64
+          sudo apt-get install -y --no-install-recommends libgl1 libegl1 libxkbcommon0 libdbus-1-3 libpulse0 libasound2t64 ffmpeg
+
+      - name: Install ffprobe (Windows, verified archive)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "ffmpeg-9.0.2.zip"
+          Invoke-WebRequest "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip" -OutFile $archive
+          $expected = "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw "FFmpeg archive checksum mismatch" }
+          $destination = Join-Path $env:RUNNER_TEMP "ffmpeg-tools"
+          Expand-Archive $archive -DestinationPath $destination
+          $probe = Get-ChildItem $destination -Recurse -Filter ffprobe.exe | Select-Object -First 1
+          if (-not $probe) { throw "ffprobe.exe missing from verified archive" }
+          "FFPROBE_PATH=$($probe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install ffprobe (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if ! command -v ffprobe >/dev/null; then brew install ffmpeg; fi
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-desktop-ai.txt -r requirements-packaging.txt
 
-      - name: Stage static ffmpeg
+      - name: Stage FFmpeg and ffprobe
         run: python scripts/fetch_ffmpeg.py
 
       - name: Build bundle
@@ -49,7 +77,7 @@ jobs:
       - name: Bundle self-test
         env:
           QT_QPA_PLATFORM: offscreen
-        run: ${{ matrix.exe }} --self-test
+        run: python scripts/verify_bundle.py "${{ matrix.exe }}" --report "${{ matrix.asset }}-self-test.json"
 
       - name: Package (linux)
         if: runner.os == 'Linux'
@@ -65,6 +93,9 @@ jobs:
         if: runner.os == 'Windows'
         run: Compress-Archive -Path dist/SlideCastStudio -DestinationPath ${{ matrix.asset }}.zip
 
+      - name: Package checksums
+        run: python scripts/release_checksums.py "${{ matrix.asset }}"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -73,15 +104,18 @@ jobs:
             ${{ matrix.asset }}.tar.gz
             ${{ matrix.asset }}.dmg
             ${{ matrix.asset }}.zip
+            ${{ matrix.asset }}.sha256
+            ${{ matrix.asset }}-self-test.json
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -89,4 +123,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*/*
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          body_path: docs/releases/${{ github.ref_type == 'tag' && github.ref_name || inputs.tag_name }}.md
           generate_release_notes: true

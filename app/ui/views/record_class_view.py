@@ -187,11 +187,11 @@ class RecordClassView(QWidget):
         if not hasattr(self, "card_pres_live") or not hasattr(self, "card_pres_clone"):
             return
         if self.radio_pres_live.isChecked():
-            apply_style(self.card_pres_live, "QFrame#cardPresLive { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
-            apply_style(self.card_pres_clone, "QFrame#cardPresClone { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
+            apply_style(self.card_pres_live, "QFrame#cardPresLive { background-color: @primary_soft@; border: 1px solid @primary@; border-radius: 10px; }")
+            apply_style(self.card_pres_clone, "QFrame#cardPresClone { background-color: @surface_alt@; border: 1px solid @border@; border-radius: 10px; }")
         else:
-            apply_style(self.card_pres_live, "QFrame#cardPresLive { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
-            apply_style(self.card_pres_clone, "QFrame#cardPresClone { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
+            apply_style(self.card_pres_live, "QFrame#cardPresLive { background-color: @surface_alt@; border: 1px solid @border@; border-radius: 10px; }")
+            apply_style(self.card_pres_clone, "QFrame#cardPresClone { background-color: @primary_soft@; border: 1px solid @primary@; border-radius: 10px; }")
 
     def _update_format_cards_style(self):
         items = [
@@ -202,9 +202,9 @@ class RecordClassView(QWidget):
         for card, radio in items:
             if card and radio:
                 if radio.isChecked():
-                    apply_style(card, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
+                    apply_style(card, "QFrame { background-color: @primary_soft@; border: 1px solid @primary@; border-radius: 10px; }")
                 else:
-                    apply_style(card, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
+                    apply_style(card, "QFrame { background-color: @surface_alt@; border: 1px solid @border@; border-radius: 10px; }")
 
     def _on_video_format_changed(self):
         if self.radio_fmt_yt.isChecked():
@@ -288,7 +288,7 @@ class RecordClassView(QWidget):
         for i, btn in enumerate(self.step_buttons):
             if i == idx:
                 apply_style(btn, "background: @primary@; color: @on_primary@; font-weight: 700; "
-                    "border: 1.5px solid @focus@; padding: 8px 12px; border-radius: 8px; font-size: 12px;")
+                    "border: 1px solid @border@; padding: 8px 12px; border-radius: 8px; font-size: 12px;")
             else:
                 apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
                     "border: 1px solid @border_strong@; padding: 8px 12px; border-radius: 8px; font-size: 12px;")

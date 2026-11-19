@@ -5,7 +5,7 @@ import weakref
 from pathlib import Path
 from PySide6.QtCore import QObject, QSettings, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QPushButton
 from shiboken6 import isValid
 
 LIGHT = {
@@ -65,6 +65,19 @@ def apply_style(widget, template: str):
             block = block.replace("color: @on_primary@", "color: @text@")
         return block
     template = re.sub(r"[^{}]+", pair, template)
+    # A bare stylesheet applied to a panel also matches its descendants in Qt.
+    # Scope it explicitly: a card border must never outline every child label.
+    if "{" not in template:
+        scope = str(id(widget))
+        widget.setProperty("slidecastStyle", scope)
+        selector = f'*[slidecastStyle="{scope}"]'
+        template = f"{selector} {{ {template} }}"
+        if isinstance(widget, QPushButton):
+            widget.setMinimumHeight(max(44, widget.minimumHeight()))
+            template += f"""
+{selector}:disabled {{ background: @surface_alt@; color: @disabled@; border: 1px solid transparent; }}
+{selector}:focus {{ border: 2px solid @focus@; }}
+"""
     # A QFrame selector should style its panel, not every QLabel underneath.
     if "QFrame {" in template:
         widget.setProperty("themePanel", str(id(widget)))
@@ -91,27 +104,28 @@ QLabel[class="badge"], QLabel[class="badge-success"], QLabel[class="badge-warnin
 QLabel[class="badge"] { background: @primary_soft@; color: @text@; }
 QLabel[class="badge-success"] { background: @success_soft@; color: @success@; }
 QLabel[class="badge-warning"] { background: @warning_soft@; color: @warning@; }
-QPushButton, QToolButton { background: @surface@; color: @text@; border: 1px solid @border_strong@;
-    border-radius: 7px; padding: 7px 12px; min-height: 18px; font-weight: 600; }
+QPushButton, QToolButton { background: @surface@; color: @text@; border: 1px solid @border@;
+    border-radius: 10px; padding: 9px 16px; min-height: 24px; font-weight: 600; }
+QToolButton { padding: 7px 10px; min-height: 22px; }
 QPushButton:hover, QToolButton:hover { background: @surface_alt@; border-color: @primary@; }
-QPushButton:checked { background: @primary_soft@; color: @text@; border: 2px solid @primary@; }
-QPushButton[class="primary"] { background: @primary@; color: @on_primary@; border-color: @primary@; }
+QPushButton:checked { background: @primary_soft@; color: @text@; border: 1px solid @primary@; }
+QPushButton[class="primary"] { background: @primary@; color: @on_primary@; border-color: @primary@; min-height: 28px; }
 QPushButton[class="primary"]:hover { background: @primary_hover@; }
 QPushButton[class="danger"] { background: @danger_soft@; color: @danger@; border-color: @danger@; }
 QPushButton:disabled, QToolButton:disabled { background: @surface_alt@; color: @disabled@; border-color: @border@; }
 QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QAbstractSpinBox {
-    background: @field@; color: @text@; border: 1px solid @border_strong@; border-radius: 6px;
-    padding: 6px 8px; min-height: 18px; selection-background-color: @primary@; selection-color: @on_primary@; placeholder-text-color: @muted@;
+    background: @field@; color: @text@; border: 1px solid @border@; border-radius: 8px;
+    padding: 8px 10px; min-height: 24px; selection-background-color: @primary@; selection-color: @on_primary@; placeholder-text-color: @muted@;
 }
 QLineEdit:disabled, QTextEdit:disabled, QComboBox:disabled, QAbstractSpinBox:disabled { color: @disabled@; background: @surface_alt@; }
 QPushButton:focus, QToolButton:focus, QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus,
 QComboBox:focus, QAbstractSpinBox:focus, QAbstractItemView:focus { border: 2px solid @focus@; }
-QCheckBox, QRadioButton { spacing: 7px; padding: 3px; background: transparent; }
+QCheckBox, QRadioButton { spacing: 9px; padding: 6px 0; background: transparent; border: none; min-height: 24px; }
 QCheckBox:focus, QRadioButton:focus { background: @primary_soft@; outline: 2px solid @focus@; }
 QCheckBox::indicator, QRadioButton::indicator { width: 17px; height: 17px; background: @field@; border: 1px solid @border_strong@; }
 QCheckBox::indicator { border-radius: 3px; }
 QRadioButton::indicator { border-radius: 9px; }
-QCheckBox::indicator:checked, QRadioButton::indicator:checked { background: @primary@; border: 3px solid @border_strong@; }
+QCheckBox::indicator:checked, QRadioButton::indicator:checked { background: @primary@; border: 1px solid @primary@; }
 QCheckBox::indicator:hover, QRadioButton::indicator:hover { border-color: @focus@; }
 QCheckBox::indicator:checked { image: url("@check@"); }
 QComboBox::drop-down { border: none; width: 22px; }

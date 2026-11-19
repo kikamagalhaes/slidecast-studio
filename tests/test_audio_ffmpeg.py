@@ -93,3 +93,18 @@ def test_run_process_cancellable_aborts_on_cancel():
         assert time.monotonic() - start < 10
     finally:
         thread.join()
+
+
+def test_frozen_media_tools_prefer_bundle_over_host(tmp_path, monkeypatch):
+    suffix = ".exe" if sys.platform == "win32" else ""
+    for tool in ("ffmpeg", "ffprobe"):
+        p = tmp_path / (tool + suffix)
+        p.write_bytes(b"bundle")
+        p.chmod(0o755)
+        monkeypatch.delenv(tool.upper() + "_PATH", raising=False)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.setattr(shutil, "which", lambda name: "/host/older/" + name)
+    assert get_ffmpeg_paths() == tuple(str(tmp_path / (name + suffix)) for name in ("ffmpeg", "ffprobe"))
+    monkeypatch.setenv("FFPROBE_PATH", "/explicit/ffprobe")
+    assert get_ffmpeg_paths()[1] == "/explicit/ffprobe"

@@ -76,7 +76,7 @@ class CloneEngineSelectionDialog(QDialog):
         # OPTION 1: CLOUD NEURAL (REPLICATE)
         # ----------------------------------------------------
         self.card_cloud = QFrame()
-        apply_style(self.card_cloud, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; padding: 4px; }")
+        apply_style(self.card_cloud, "QFrame { background-color: @primary_soft@; border: 1px solid @primary@; border-radius: 10px; padding: 4px; }")
         cc_layout = QVBoxLayout(self.card_cloud)
         cc_layout.setContentsMargins(16, 14, 16, 14)
         cc_layout.setSpacing(10)
@@ -168,7 +168,7 @@ class CloneEngineSelectionDialog(QDialog):
         # OPTION 2: LOCAL SMART CADENCE (100% OFFLINE & FREE)
         # ----------------------------------------------------
         self.card_local = QFrame()
-        apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; padding: 4px; }")
+        apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 1px solid @border@; border-radius: 10px; padding: 4px; }")
         cl_layout = QVBoxLayout(self.card_local)
         cl_layout.setContentsMargins(16, 14, 16, 14)
         cl_layout.setSpacing(10)
@@ -246,12 +246,12 @@ class CloneEngineSelectionDialog(QDialog):
 
     def _update_cards_style(self):
         if self.radio_cloud.isChecked():
-            apply_style(self.card_cloud, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
-            apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
+            apply_style(self.card_cloud, "QFrame { background-color: @primary_soft@; border: 1px solid @primary@; border-radius: 10px; }")
+            apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 1px solid @border@; border-radius: 10px; }")
             self.token_box.show()
         else:
-            apply_style(self.card_cloud, "QFrame { background-color: @surface_alt@; border: 1.5px solid @border_strong@; border-radius: 10px; }")
-            apply_style(self.card_local, "QFrame { background-color: @surface_alt@; border: 2px solid @focus@; border-radius: 10px; }")
+            apply_style(self.card_cloud, "QFrame { background-color: @surface_alt@; border: 1px solid @border@; border-radius: 10px; }")
+            apply_style(self.card_local, "QFrame { background-color: @primary_soft@; border: 1px solid @primary@; border-radius: 10px; }")
             self.token_box.hide()
 
     def _open_replicate_guide(self):

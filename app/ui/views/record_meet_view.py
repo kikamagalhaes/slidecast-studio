@@ -523,7 +523,7 @@ class RecordMeetView(QWidget):
         for i, btn in enumerate(self.step_buttons):
             if i == idx:
                 apply_style(btn, "background: @success@; color: @on_primary@; font-weight: 700; "
-                    "border: 1.5px solid @focus@; padding: 8px 14px; border-radius: 8px;")
+                    "border: 1px solid @border@; padding: 8px 14px; border-radius: 8px;")
             else:
                 apply_style(btn, "background: @surface_alt@; color: @muted@; font-weight: 600; "
                     "border: 1px solid @border_strong@; padding: 8px 14px; border-radius: 8px;")

@@ -9,7 +9,6 @@ Build (after installing requirements + requirements-packaging.txt):
 CI builds this per OS on release tags; see .github/workflows/release.yml.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -18,18 +17,22 @@ from PyInstaller.utils.hooks import copy_metadata
 ROOT = Path(SPECPATH)
 APP_NAME = "SlideCastStudio"
 
-# Data files: linux xcb helper + staged static ffmpeg (build/stage/).
-# ffmpeg lands at the bundle root, where app.core.ffmpeg_utils looks.
+# Data files and media executables. Classify binaries so their shared libraries
+# are collected too; ffprobe must work on machines without a system FFmpeg.
 datas = [(str(ROOT / "app" / "ui" / "assets"), "app/ui/assets")]
 libs_dir = ROOT / "libs"
 if libs_dir.is_dir():
     for child in libs_dir.iterdir():
         datas.append((str(child), "libs"))
 stage_dir = ROOT / "build" / "stage"
-if stage_dir.is_dir():
-    for child in sorted(stage_dir.iterdir()):
-        if child.is_file() and not child.name.startswith("."):
-            datas.append((str(child), "."))
+suffix = ".exe" if sys.platform == "win32" else ""
+binaries = []
+for tool in ("ffmpeg", "ffprobe"):
+    executable = stage_dir / (tool + suffix)
+    if not executable.is_file():
+        raise FileNotFoundError(f"Missing {executable}; run scripts/fetch_ffmpeg.py first")
+    binaries.append((str(executable), "."))
+datas.append((str(stage_dir / "media-tools.json"), "."))
 # replicate reads its own version via importlib.metadata at import time.
 datas += copy_metadata("replicate")
 
@@ -39,7 +42,7 @@ block_cipher = None
 a = Analysis(  # noqa: F821 (PyInstaller spec globals)
     ["main.py"],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=[],
     hookspath=[],

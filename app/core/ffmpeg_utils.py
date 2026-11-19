@@ -10,39 +10,24 @@ logger = logging.getLogger(__name__)
 
 
 def get_ffmpeg_paths() -> Tuple[Optional[str], Optional[str]]:
-    """
-    Locates ffmpeg and ffprobe executables across platforms (Linux, Windows, macOS).
-    Checks:
-    1. PATH environment variable
-    2. Application directory / bundled directory
-    3. Custom environment variables FFMPEG_PATH / FFPROBE_PATH
-    """
-    ffmpeg_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
-    ffprobe_name = "ffprobe.exe" if sys.platform == "win32" else "ffprobe"
-
-    ffmpeg_path = os.environ.get("FFMPEG_PATH") or shutil.which(ffmpeg_name)
-    ffprobe_path = os.environ.get("FFPROBE_PATH") or shutil.which(ffprobe_name)
-
-    # If not in PATH, search in application directory and bin subfolder
+    """Honor explicit overrides, prefer packaged tools in frozen apps, then PATH."""
+    suffix = ".exe" if sys.platform == "win32" else ""
     app_dir = Path(__file__).resolve().parent.parent.parent
-    candidate_dirs = [
-        app_dir,
-        app_dir / "bin",
-        app_dir / "ffmpeg",
-    ]
+    bundle_dir = Path(getattr(sys, "_MEIPASS", app_dir))
+    candidates = [bundle_dir, app_dir, app_dir / "bin", app_dir / "ffmpeg"]
 
-    for c_dir in candidate_dirs:
-        if not ffmpeg_path:
-            candidate_ffmpeg = c_dir / ffmpeg_name
-            if candidate_ffmpeg.is_file() and os.access(candidate_ffmpeg, os.X_OK):
-                ffmpeg_path = str(candidate_ffmpeg)
+    def locate(name: str) -> Optional[str]:
+        override = os.environ.get(name.upper() + "_PATH")
+        if override:
+            return override
+        executable = name + suffix
+        packaged = next((str(folder / executable) for folder in candidates
+                         if (folder / executable).is_file() and os.access(folder / executable, os.X_OK)), None)
+        if getattr(sys, "frozen", False):
+            return packaged or shutil.which(executable)
+        return shutil.which(executable) or packaged
 
-        if not ffprobe_path:
-            candidate_ffprobe = c_dir / ffprobe_name
-            if candidate_ffprobe.is_file() and os.access(candidate_ffprobe, os.X_OK):
-                ffprobe_path = str(candidate_ffprobe)
-
-    return ffmpeg_path, ffprobe_path
+    return locate("ffmpeg"), locate("ffprobe")
 
 
 def run_process_cancellable(
