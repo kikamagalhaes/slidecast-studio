@@ -6,6 +6,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 ARG VITE_BASE=/
+ARG VITE_LANDING_BASE=/static/landing/
 # vite.config.ts escreve em ../app/web/static/studio relativo ao frontend/
 RUN mkdir -p /app/web/static/studio && npm run build
 
@@ -20,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements-web.txt
 COPY app/ ./app/
 COPY entrypoint.sh run_worker.sh ./
 COPY --from=frontend /app/web/static/studio ./app/web/static/studio
+COPY --from=frontend /app/web/static/landing ./app/web/static/landing
 RUN mkdir -p /app/storage && chmod +x /app/entrypoint.sh
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

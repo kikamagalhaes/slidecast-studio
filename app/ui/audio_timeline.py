@@ -1,5 +1,4 @@
 """Precisely scaled audio blocks. No generated or decorative waveforms."""
-import math
 from PySide6.QtCore import Qt, QRectF, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget, QSizePolicy
@@ -31,7 +30,7 @@ class AudioTimeline(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.fillRect(self.rect(), QColor(c['surface']))
-        total = max(.1, self.project.calculate_total_duration())
+        total = max(1, self.project.calculate_total_duration())
         width = max(1, self.width()-32)
         p.setPen(QColor(c['muted']))
         ticks = max(2, min(12, width // 110))

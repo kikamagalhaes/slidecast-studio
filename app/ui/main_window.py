@@ -22,7 +22,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("SlideCast Studio")
         self.resize(1360, 920)
-        self.setMinimumSize(860, 620)
+        self.setMinimumSize(760, 520)
         self.theme_manager = theme_manager()
         self._build_ui()
         self._check_ffmpeg()

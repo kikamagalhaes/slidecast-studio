@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import json
 from pathlib import Path
 import tempfile
 
@@ -11,15 +12,16 @@ from PySide6.QtGui import QColor, QPainter, QPixmap, QDesktopServices
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
-    QWidget, QFrame, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QPushButton,
+    QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QFileDialog, QMessageBox,
     QScrollArea, QSplitter, QStackedWidget, QSlider, QProgressBar, QSizePolicy,
+    QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMenu,
 )
 
 from app.core.multitrack import MultimediaProject, probe_audio_track, MAX_AUDIO_TRACKS, SUPPORTED_AUDIO_EXTENSIONS
-from app.core.pdf_processor import inspect_pdf, render_thumbnail
+from app.core.pdf_processor import render_thumbnail
 from app.core.ffmpeg_utils import format_duration, get_ffmpeg_paths
-from app.worker import MultimediaRenderWorker
+from app.worker import MultimediaRenderWorker, AISyncWorker
 from app.ui.audio_track_widget import AudioTrackItemWidget
 from app.ui.audio_timeline import AudioTimeline
 from app.ui.styles import apply_style
@@ -82,7 +84,16 @@ class ImportWorker(QThread):
             if self.operation in ("pdf", "video"):
                 project.set_visual_source(self.operation, self.path)
             elif self.operation == "open":
+                raw = json.loads(Path(self.path).read_text(encoding="utf-8"))
+                if int(raw.get("schema_version", 1)) > 2 or len(raw.get("tracks", [])) > MAX_AUDIO_TRACKS:
+                    raise ValueError("Versão de projeto não suportada sem perda de informações")
+                if int(raw.get("schema_version", 1)) == 1 and raw.get("audio_path") and not Path(raw["audio_path"]).is_file():
+                    raise ValueError("Localize o áudio original antes de abrir o projeto antigo")
                 project = MultimediaProject.load_from_file(self.path)
+                if int(raw.get("schema_version", 1)) == 1 and isinstance(raw.get("export_settings"), dict):
+                    project.export_settings.update(raw["export_settings"])
+                if any(not t.duration > 0 for t in project.tracks):
+                    raise ValueError("Metadados de áudio inválidos")
                 # Reject unreadable sources without destroying the currently open project.
                 if project.visual_source_path and Path(project.visual_source_path).is_file():
                     durations = list(project.slide_durations)
@@ -115,6 +126,7 @@ class CreateVideoView(QWidget):
         self.dirty = False
         self.worker = None
         self.import_worker = None
+        self.ai_worker = None
         self.preview_path = None
         self.result_path = None
         self._preview_mode = False
@@ -127,7 +139,7 @@ class CreateVideoView(QWidget):
 
     @property
     def busy(self):
-        return bool((self.worker and self.worker.isRunning()) or (self.import_worker and self.import_worker.isRunning()))
+        return bool((self.worker and self.worker.isRunning()) or (self.import_worker and self.import_worker.isRunning()) or (self.ai_worker and self.ai_worker.isRunning()))
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -233,6 +245,12 @@ class CreateVideoView(QWidget):
         info.addWidget(self.pdf_controls)
         self.balance_button = button("Dividir páginas pelo áudio da faixa 1", self.balance_pages)
         info.addWidget(self.balance_button)
+        self.more_button = QPushButton("Tempos e opções do PDF")
+        menu = QMenu(self.more_button)
+        menu.addAction("Ver todas as páginas e tempos", self.page_times_dialog)
+        menu.addAction("Sincronizar páginas com IA (opcional)", self.start_ai_sync)
+        self.more_button.setMenu(menu)
+        info.addWidget(self.more_button)
         export_row = QHBoxLayout()
         self.resolution = QComboBox()
         self.resolution.setAccessibleName("Resolução de saída")
@@ -254,6 +272,7 @@ class CreateVideoView(QWidget):
         top.addWidget(inspector)
         top.setStretchFactor(0, 1)
         top.setSizes([700, 330])
+        top.setMaximumHeight(310)
         content.addWidget(top)
 
         audio_header = QHBoxLayout()
@@ -290,10 +309,16 @@ class CreateVideoView(QWidget):
         self.timeline_scroll.setWidgetResizable(True)
         self.timeline_scroll.setWidget(self.timeline)
         self.timeline_scroll.setMinimumWidth(220)
+        self.timeline_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         lanes.addWidget(self.timeline_scroll)
         lanes.setSizes([520, 660])
-        content.addWidget(lanes)
-        layout.addWidget(self.editing)
+        self.lanes_scroll = QScrollArea()
+        self.lanes_scroll.setWidgetResizable(True)
+        self.lanes_scroll.setWidget(lanes)
+        self.lanes_scroll.setMinimumHeight(170)
+        self.lanes_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        content.addWidget(self.lanes_scroll, 1)
+        layout.addWidget(self.editing, 1)
         self.feedback = label("")
         self.feedback.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self.feedback)
@@ -318,7 +343,6 @@ class CreateVideoView(QWidget):
         bottom.addWidget(self.cancel_button)
         bottom.addWidget(self.export_button)
         layout.addLayout(bottom)
-        layout.addStretch()
 
     def _message(self, text, kind="muted"):
         self.feedback.setText(text)
@@ -329,6 +353,7 @@ class CreateVideoView(QWidget):
         for w in (self.open_button, self.save_button, self.title_edit, self.preview_button, self.export_button):
             w.setEnabled(not busy)
         self.cancel_button.setVisible(busy and bool(self.worker and self.worker.isRunning()))
+        self.cancel_button.setEnabled(True)
         self.progress.setVisible(busy)
         if not busy:
             self.refresh_validation()
@@ -443,6 +468,7 @@ class CreateVideoView(QWidget):
             self.track_widgets.append(row)
         self.timeline.project = self.project
         self.timeline.refresh()
+        self.timeline_scroll.setMinimumHeight(self.timeline.height()+16)
         self.track_count.setText(f"{len(self.project.tracks)} de 4")
         full = len(self.project.tracks) == MAX_AUDIO_TRACKS
         self.add_audio_button.setEnabled(not full)
@@ -457,6 +483,8 @@ class CreateVideoView(QWidget):
         self.video_button.setChecked(not is_pdf and bool(p.visual_source_path))
         self.pdf_controls.setVisible(is_pdf and bool(p.slide_durations))
         self.balance_button.setVisible(is_pdf)
+        self.more_button.setVisible(is_pdf)
+        self.more_button.setEnabled(bool(p.slide_durations))
         self.balance_button.setEnabled(bool(p.tracks and p.slide_durations))
         self.page_spin.setRange(1, max(1, len(p.slide_durations)))
         self.source_label.setText(Path(p.visual_source_path).name if p.visual_source_path else "Nenhuma fonte selecionada")
@@ -483,7 +511,7 @@ class CreateVideoView(QWidget):
         p = self.project
         if self.preview_path:
             return
-        self.preview_caption.setText("PRÉVIA DA IMAGEM · gere uma prévia para conferir a mistura de áudio")
+        self.preview_caption.setText("PRÉVIA DA IMAGEM · para conferir o som, use Gerar prévia com áudio")
         if p.visual_source_type == "pdf":
             self.preview_stack.setCurrentWidget(self.image_preview)
             index = self.page_spin.value()-1
@@ -528,6 +556,68 @@ class CreateVideoView(QWidget):
             self._message("\n".join(messages), "warning" if valid else "danger")
         elif self.project.visual_source_path and not self.project.tracks:
             self._message("Sem faixas de áudio: o vídeo será exportado sem som.", "warning")
+
+    def page_times_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Tempos das páginas")
+        dialog.resize(470, 490)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(label("Cada tempo define por quantos segundos a página aparece no vídeo."))
+        table = QTableWidget(len(self.project.slide_durations), 2)
+        table.setHorizontalHeaderLabels(["Página", "Duração"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        for i, duration in enumerate(self.project.slide_durations):
+            item = QTableWidgetItem(f"Página {i+1}")
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            table.setItem(i, 0, item)
+            spin = QDoubleSpinBox()
+            spin.setRange(.1, 7200)
+            spin.setDecimals(2)
+            spin.setValue(duration)
+            spin.setSuffix(" s")
+            spin.setAccessibleName(f"Duração da página {i+1}")
+            spin.valueChanged.connect(lambda value, index=i: self._set_page_duration(index, value))
+            table.setCellWidget(i, 1, spin)
+        layout.addWidget(table)
+        layout.addWidget(button("Concluir", dialog.accept, "primary"))
+        dialog.exec()
+
+    def _set_page_duration(self, index, value):
+        self.project.slide_durations[index] = value
+        self._changed()
+
+    def start_ai_sync(self):
+        from app.core.config_manager import get_gemini_api_key
+        if self.busy or not self.project.tracks:
+            self._message("Adicione a narração na faixa 1 antes de sincronizar.", "warning")
+            return
+        key = get_gemini_api_key()
+        if not key:
+            self._message("Configure sua chave em Início → Configurar IA opcional. Você também pode ajustar os tempos manualmente.", "warning")
+            return
+        if QMessageBox.question(self, "Sincronização online opcional", "A apresentação e o áudio da faixa 1 serão enviados ao Google Gemini para analisar os tempos. Continuar?", QMessageBox.Yes | QMessageBox.No) != QMessageBox.Yes:
+            return
+        track = self.project.tracks[0]
+        self.ai_worker = AISyncWorker(self.project.visual_source_path, track.file_path, track.duration, key, self)
+        self.ai_worker.status_changed.connect(self._message)
+        self.ai_worker.sync_finished.connect(self._ai_synced)
+        self.ai_worker.sync_error.connect(lambda _: self._message("Não foi possível sincronizar com o serviço online. Os tempos anteriores foram mantidos.", "danger"))
+        self.ai_worker.finished.connect(self._ai_finished)
+        self.progress.setRange(0, 0)
+        self.ai_worker.start()
+        self._set_busy(True)
+
+    def _ai_synced(self, durations):
+        if len(durations) == len(self.project.slide_durations) and all(d > 0 for d in durations):
+            self.project.slide_durations = durations
+            self._changed()
+            self.show_page()
+            self._message("Tempos sugeridos pela IA aplicados. Confira cada página antes de exportar.", "success")
+
+    def _ai_finished(self):
+        worker, self.ai_worker = self.ai_worker, None
+        worker.deleteLater()
+        self._set_busy(False)
 
     def balance_pages(self):
         if self.project.tracks and self.project.slide_durations:

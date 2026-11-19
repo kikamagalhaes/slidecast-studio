@@ -1,4 +1,6 @@
 import json
+import html
+from urllib.parse import urlparse
 import logging
 import os
 import secrets
@@ -10,7 +12,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Header
-from fastapi.responses import HTMLResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
@@ -179,12 +181,29 @@ async def _save_upload_capped(upload: UploadFile, dest: Path, max_bytes: int) ->
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    # Web product is the no-AI studio build; the legacy Jinja page (Gemini
-    # key modal + AI sync button, routes removed) must not be served.
+    public_url = os.environ.get("PUBLIC_SITE_URL", "").strip()
+    if public_url and request.url.hostname != urlparse(public_url).hostname:
+        return RedirectResponse(public_url, status_code=307)
+    landing_index = static_dir / "landing" / "index.html"
+    if landing_index.exists():
+        content = landing_index.read_text(encoding="utf-8")
+        if public_url:
+            escaped = html.escape(public_url, quote=True)
+            content = content.replace("</head>", f'<link rel="canonical" href="{escaped}" /><meta property="og:url" content="{escaped}" /></head>')
+        return HTMLResponse(content)
+    return HTMLResponse("<html lang='pt-BR'><title>SlideCast Studio</title><h1>SlideCast Studio Desktop</h1><p>Página de apresentação em preparação.</p></html>")
+
+
+@app.get("/studio", response_class=HTMLResponse)
+async def legacy_studio(request: Request):
+    """Reversible legacy access; API authorization and customer data are unchanged."""
+    enabled = os.environ.get("ENABLE_WEB_STUDIO", "false").lower() in ("true", "1", "yes")
+    if not enabled:
+        raise HTTPException(status_code=404, detail="O estúdio desktop é o produto principal.")
     studio_index = static_dir / "studio" / "index.html"
-    if studio_index.exists():
-        return FileResponse(str(studio_index), media_type="text/html")
-    return templates.TemplateResponse(request=request, name="index.html", context={})
+    if not studio_index.is_file():
+        raise HTTPException(status_code=503, detail="Build do estúdio legado indisponível.")
+    return FileResponse(str(studio_index), media_type="text/html")
 
 
 def _disk_free_mb(path: Path) -> int:

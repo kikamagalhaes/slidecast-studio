@@ -6,7 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
-.venv/
+.venv
 build/
 develop-eggs/
 dist/
@@ -47,3 +47,7 @@ storage/
 .env
 .env.*
 !.env.example
+
+# Reproducible UI QA samples and local dependency links
+frontend/node_modules
+docs/evidencias/**/amostras/

@@ -1,19 +1,19 @@
 # SlideCast Studio 🎬📊
 
-> **Web (produto atual) é sem IA**: sem Gemini/chaves de IA, sem PySide6 no runtime web — ver [docs/deploy-local-e-vps.md](docs/deploy-local-e-vps.md). As seções abaixo sobre Gemini, avatar/clone, e-book com IA e 4K descrevem o **desktop legado**, não a web; 4K/VPS não foram medidos nesta entrega.
+O produto principal é o **desktop PySide6**, com temas claro/escuro, editor PDF ou MP4 e até quatro faixas de áudio. O site apresenta o desktop; o estúdio web histórico permanece disponível apenas com `ENABLE_WEB_STUDIO=true`. Contas, APIs e dados existentes foram preservados.
 
-Estúdio de produção de vídeos: sincroniza apresentações de slides em **PDF** com **áudio/narração**, grava aulas, reuniões e podcasts, gera materiais didáticos (capas, fundos, apostilas/e-books) e avatares/clones digitais — com sincronização inteligente por IA (**Google Gemini**).
+- Site: https://kikamagalhaes.com.br/slidecast/
+- [Auditoria e decisões de interface](docs/slidecast-ux-auditoria.md)
+- [Sistema de design](docs/slidecast-design-system.md)
+- [Testes, evidências e limites](docs/slidecast-ux-validacao.md)
 
-Duas frentes:
-
-- **Desktop** (Linux/Windows): app PySide6 (Qt) completo.
-- **Web** (FastAPI + Docker): API/serviço de upload → sincronização IA → renderização em fila.
+A edição e a exportação locais não exigem IA. Recursos opcionais de IA dependem da configuração do serviço correspondente. A distribuição dos instaladores desta versão e o modelo de licença ainda estão em preparação.
 
 ---
 
 ## ✨ Funcionalidades
 
-- **Criar Vídeo (PDF + áudio)**: durações por slide com auto-sincronização por IA, divisão uniforme ou ajuste manual; exportação MP4/H.264 em 720p, 1080p, 4K ou quadrado.
+- **Criar Vídeo (PDF/MP4 + até 4 áudios)**: durações por slide com auto-sincronização por IA, divisão uniforme ou ajuste manual; exportação MP4/H.264 em 720p, 1080p, 4K ou quadrado.
 - **Gravar Aula**: estúdio com teleprompter, slides, câmera/PIP, vinhetas de abertura/encerramento, BGM com ducking e legendas queimadas (PT + traduções).
 - **Clone Digital / Avatar**: calibração por vídeo curto, voz clonada (ElevenLabs) ou TTS neural (Edge), sincronia labial local ou em nuvem (Replicate).
 - **Gravar Reunião**: captura de tela + câmera, transcrição, resumo executivo e e-book da aula.
@@ -28,7 +28,7 @@ Duas frentes:
 ### Pré-requisitos
 
 - **Python 3.10+** (recomendado 3.12)
-- **FFmpeg** no PATH (`sudo apt install ffmpeg` no Ubuntu/Debian; no Windows, baixe em [ffmpeg.org](https://ffmpeg.org/download.html) ou coloque `ffmpeg.exe` na pasta do projeto)
+- **FFmpeg e ffprobe** no PATH (`sudo apt install ffmpeg` no Ubuntu/Debian; no Windows, baixe em [ffmpeg.org](https://ffmpeg.org/download.html) ou coloque `ffmpeg.exe` na pasta do projeto)
 - Chave gratuita do **Google Gemini** ([AI Studio](https://aistudio.google.com/)) para os recursos de IA
 
 ```bash
@@ -40,7 +40,9 @@ python3 main.py                    # ou ./run.sh (Linux) / run.bat (Windows)
 
 Chaves de API podem ir em variáveis de ambiente (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `REPLICATE_API_TOKEN`) ou no botão 🔑 dentro do app (salvas em `~/.config/slidecast/config.json` no Linux / `%APPDATA%\slidecast` no Windows).
 
-### Instaladores desktop (Releases)
+### Pacotes históricos (Releases)
+
+As releases existentes antecedem o editor e os temas de novembro de 2026. **Não são instaladores desta nova interface.** Antes de publicar outro bundle, o staging deve incluir ffprobe e passar pelos testes de empacotamento nas plataformas alvo.
 
 Na página [Releases](https://github.com/kikamagalhaes/slidecast-studio/releases) há pacotes prontos, gerados automaticamente a cada tag `v*`:
 
@@ -48,7 +50,7 @@ Na página [Releases](https://github.com/kikamagalhaes/slidecast-studio/releases
 - **Windows**: `SlideCastStudio-windows-x64.zip` — extraia e rode `SlideCastStudio.exe` (o SmartScreen pode avisar por ser app não assinado; clique em "Mais informações → Executar assim mesmo").
 - **macOS (Apple Silicon)**: `SlideCastStudio-macos-arm64.dmg` — arraste para Aplicativos (não assinado: no primeiro uso, clique com botão direito → Abrir).
 
-Os pacotes já incluem ffmpeg próprio — não precisa instalar nada. Para diagnosticar qualquer instalação: `./SlideCastStudio --self-test` (código de saída 0 = tudo certo).
+Os pacotes históricos incluem FFmpeg. O novo editor MP4 também precisa de ffprobe; o script histórico ainda não o inclui. Para diagnosticar qualquer instalação: `./SlideCastStudio --self-test` (código de saída 0 = tudo certo).
 
 > Build local: `pip install -r requirements.txt -r requirements-packaging.txt`, `python scripts/fetch_ffmpeg.py`, `pyinstaller slidecast.spec`.
 
@@ -59,14 +61,16 @@ pip install -r requirements-web.txt
 ./run_web.sh   # http://localhost:8000
 ```
 
+Para desenvolver a landing: `npm ci --prefix frontend` e `npm run dev --prefix frontend` (porta 5173). O build `npm run build --prefix frontend` gera landing e estúdio legado em diretórios separados.
+
 ### Produção (Docker + Traefik)
 
 ```bash
-cp .env.example .env   # preencha GEMINI_API_KEY e ADMIN_TOKEN!
-docker compose -f compose.production.yml up -d --build
+cp .env.example .env   # configure domínio e variáveis conforme a documentação
+docker compose --env-file .env -p slidecast -f compose.production.yml up -d --build
 ```
 
-> ⚠️ **Segurança**: em produção, defina `ADMIN_TOKEN` — sem ele, o endpoint `POST /api/config/key` fica aberto.
+> A web não usa chaves de IA. Consulte [deploy-local-e-vps.md](docs/deploy-local-e-vps.md) e o [registro desta publicação](docs/slidecast-deploy-2026-11-18.md).
 
 ### Fila de renderização: memória vs Redis
 

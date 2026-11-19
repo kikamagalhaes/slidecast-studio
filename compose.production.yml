@@ -8,11 +8,14 @@ services:
       context: .
       args:
         VITE_BASE: /slidecast/
+        VITE_LANDING_BASE: /slidecast/static/landing/
     restart: unless-stopped
     expose:
       - "8000"
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?defina APP_DOMAIN no .env}
+      PUBLIC_SITE_URL: https://kikamagalhaes.com.br/slidecast/
+      ENABLE_WEB_STUDIO: ${ENABLE_WEB_STUDIO:-false}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       QUEUE_BACKEND: ${QUEUE_BACKEND:-redis}
       REDIS_URL: redis://redis:6379/0

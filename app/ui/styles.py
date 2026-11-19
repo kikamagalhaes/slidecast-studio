@@ -2,6 +2,7 @@
 from __future__ import annotations
 import re
 import weakref
+from pathlib import Path
 from PySide6.QtCore import QObject, QSettings, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
@@ -11,7 +12,7 @@ LIGHT = {
     "bg": "#F3EEE2", "surface": "#FFFDF7", "surface_alt": "#EAE5D9",
     "field": "#FFFFFF", "elevated": "#FFFDF7", "border": "#CCC6B8",
     "border_strong": "#807F72", "text": "#1B2A28", "secondary": "#43564F",
-    "muted": "#59665F", "disabled": "#65706A", "primary": "#0E4A4A",
+    "muted": "#59665F", "disabled": "#546059", "primary": "#0E4A4A",
     "primary_hover": "#0A3838", "primary_soft": "#DFE9DE", "on_primary": "#FFFFFF",
     "success": "#226336", "success_soft": "#E2EFDF", "warning": "#85421D",
     "warning_soft": "#FFF0D4", "danger": "#A52222", "danger_soft": "#FCE8E5",
@@ -29,6 +30,9 @@ DARK = {
     "focus": "#F5C783", "stage": "#10201E", "stage_text": "#F5F2E8",
     "track1": "#A0DCD0", "track2": "#CEBAF0", "track3": "#F2C590", "track4": "#ACCBF4",
 }
+for _name, _palette in (("light", LIGHT), ("dark", DARK)):
+    for _icon in ("check", "chevron_down", "chevron_up"):
+        _palette[_icon] = (Path(__file__).parent / "assets" / f"{_icon}-{_name}.svg").as_posix()
 COLORS = LIGHT
 FONT_FAMILY = '"Segoe UI", "Noto Sans", "DejaVu Sans", sans-serif'
 RADIUS = {"sm": 6, "md": 8, "lg": 12, "xl": 16}
@@ -47,6 +51,24 @@ def resolve(template: str) -> str:
 
 def apply_style(widget, template: str):
     """Keep layout/state styles live when changing the application theme."""
+    # Legacy panels occasionally coupled a surface to inverse text, or used
+    # an accent as both background and foreground. Normalize semantic pairs.
+    def pair(match):
+        block = match[0]
+        solid = re.search(r"(?<![-\w])background(?:-color)?\s*:\s*@(primary|success|warning|danger)@", block)
+        if solid or "qlineargradient" in block:
+            if re.search(r"(?<![-\w])color\s*:", block):
+                block = re.sub(r"(?<![-\w])color\s*:[^;]+;", "color: @on_primary@;", block)
+            else:
+                block += " color: @on_primary@;"
+        elif re.search(r"background(?:-color)?\s*:\s*@(surface|surface_alt|field|bg)@", block):
+            block = block.replace("color: @on_primary@", "color: @text@")
+        return block
+    template = re.sub(r"[^{}]+", pair, template)
+    # A QFrame selector should style its panel, not every QLabel underneath.
+    if "QFrame {" in template:
+        widget.setProperty("themePanel", str(id(widget)))
+        template = template.replace("QFrame {", f'QFrame[themePanel="{id(widget)}"] {{')
     _styles[widget] = template
     widget.setStyleSheet(resolve(template))
 
@@ -79,18 +101,28 @@ QPushButton[class="danger"] { background: @danger_soft@; color: @danger@; border
 QPushButton:disabled, QToolButton:disabled { background: @surface_alt@; color: @disabled@; border-color: @border@; }
 QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QAbstractSpinBox {
     background: @field@; color: @text@; border: 1px solid @border_strong@; border-radius: 6px;
-    padding: 6px 8px; min-height: 18px; selection-background-color: @primary@; selection-color: @on_primary@;
+    padding: 6px 8px; min-height: 18px; selection-background-color: @primary@; selection-color: @on_primary@; placeholder-text-color: @muted@;
 }
 QLineEdit:disabled, QTextEdit:disabled, QComboBox:disabled, QAbstractSpinBox:disabled { color: @disabled@; background: @surface_alt@; }
 QPushButton:focus, QToolButton:focus, QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus,
 QComboBox:focus, QAbstractSpinBox:focus, QAbstractItemView:focus { border: 2px solid @focus@; }
 QCheckBox, QRadioButton { spacing: 7px; padding: 3px; background: transparent; }
 QCheckBox:focus, QRadioButton:focus { background: @primary_soft@; outline: 2px solid @focus@; }
-QCheckBox::indicator, QRadioButton::indicator { width: 17px; height: 17px; }
+QCheckBox::indicator, QRadioButton::indicator { width: 17px; height: 17px; background: @field@; border: 1px solid @border_strong@; }
+QCheckBox::indicator { border-radius: 3px; }
+QRadioButton::indicator { border-radius: 9px; }
+QCheckBox::indicator:checked, QRadioButton::indicator:checked { background: @primary@; border: 3px solid @border_strong@; }
+QCheckBox::indicator:hover, QRadioButton::indicator:hover { border-color: @focus@; }
+QCheckBox::indicator:checked { image: url("@check@"); }
+QComboBox::drop-down { border: none; width: 22px; }
+QComboBox::down-arrow { image: url("@chevron_down@"); width: 12px; height: 12px; }
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow { image: url("@chevron_up@"); width: 10px; height: 10px; }
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow { image: url("@chevron_down@"); width: 10px; height: 10px; }
+QAbstractSpinBox::up-button, QAbstractSpinBox::down-button { width: 18px; border: none; }
 QCheckBox:disabled, QRadioButton:disabled { color: @disabled@; }
 QAbstractItemView, QComboBox QAbstractItemView { background: @field@; color: @text@;
     alternate-background-color: @surface_alt@; border: 1px solid @border@;
-    selection-background-color: @primary@; selection-color: @on_primary@; }
+    selection-background-color: @primary@; selection-color: @on_primary@; placeholder-text-color: @muted@; }
 QHeaderView::section { background: @surface_alt@; color: @text@; padding: 8px; border: 1px solid @border@; }
 QTableCornerButton::section { background: @surface_alt@; }
 QScrollArea, QStackedWidget { border: none; background: transparent; }

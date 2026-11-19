@@ -20,7 +20,7 @@ APP_NAME = "SlideCastStudio"
 
 # Data files: linux xcb helper + staged static ffmpeg (build/stage/).
 # ffmpeg lands at the bundle root, where app.core.ffmpeg_utils looks.
-datas = []
+datas = [(str(ROOT / "app" / "ui" / "assets"), "app/ui/assets")]
 libs_dir = ROOT / "libs"
 if libs_dir.is_dir():
     for child in libs_dir.iterdir():

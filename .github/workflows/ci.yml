@@ -56,4 +56,4 @@ jobs:
       - name: Desktop smoke (offscreen Qt)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest -q tests/test_desktop_smoke.py -rs
+        run: pytest -q tests/test_desktop_smoke.py tests/test_desktop_ux.py -rs

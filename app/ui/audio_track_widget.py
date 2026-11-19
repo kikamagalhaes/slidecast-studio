@@ -1,6 +1,6 @@
 """Controls edit the engine AudioTrack directly; colors never carry meaning alone."""
 from pathlib import Path
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QDoubleSpinBox, QCheckBox, QPushButton
 from app.ui.styles import apply_style
 from app.core.ffmpeg_utils import format_duration
@@ -88,7 +88,7 @@ class AudioTrackItemWidget(QFrame):
         text = f"{Path(t.file_path).name} · {format_duration(t.duration)} · {message}"
         self.file_label.setToolTip(f"{t.file_path}\n{text}")
         # An elided label cannot force the editor past the notebook width.
-        self.file_label.setText(self.file_label.fontMetrics().elidedText(text, __import__('PySide6.QtCore', fromlist=['Qt']).Qt.ElideMiddle, max(300, self.width()-24)))
+        self.file_label.setText(self.file_label.fontMetrics().elidedText(text, Qt.ElideMiddle, max(300, self.width()-24)))
         apply_style(self.file_label, f"font-size: 11px; color: @{color}@;")
 
     def resizeEvent(self, event):

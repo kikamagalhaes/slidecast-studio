@@ -1,0 +1,92 @@
+[
+  {
+    "width": 1440,
+    "status": 200,
+    "title": "SlideCast Studio — seu estúdio para criar e gravar aulas",
+    "h1": "Dê vida ao que\nvocê ensina.",
+    "overflow": false,
+    "faqOpen": true,
+    "canonical": "https://kikamagalhaes.com.br/slidecast/",
+    "images": [
+      {
+        "loaded": true,
+        "url": "https://kikamagalhaes.com.br/slidecast/static/landing/assets/desktop-editor-L5z6PHEZ.png"
+      },
+      {
+        "loaded": true,
+        "url": "https://kikamagalhaes.com.br/slidecast/static/landing/assets/desktop-studio-kqUvmJmx.png"
+      }
+    ],
+    "errors": [],
+    "bad": [],
+    "anchor": "#disponibilidade"
+  },
+  {
+    "width": 768,
+    "status": 200,
+    "title": "SlideCast Studio — seu estúdio para criar e gravar aulas",
+    "h1": "Dê vida ao que\nvocê ensina.",
+    "overflow": false,
+    "faqOpen": true,
+    "canonical": "https://kikamagalhaes.com.br/slidecast/",
+    "images": [
+      {
+        "loaded": true,
+        "url": "https://kikamagalhaes.com.br/slidecast/static/landing/assets/desktop-editor-L5z6PHEZ.png"
+      },
+      {
+        "loaded": true,
+        "url": "https://kikamagalhaes.com.br/slidecast/static/landing/assets/desktop-studio-kqUvmJmx.png"
+      }
+    ],
+    "errors": [],
+    "bad": [],
+    "anchor": "#disponibilidade"
+  },
+  {
+    "width": 390,
+    "status": 200,
+    "title": "SlideCast Studio — seu estúdio para criar e gravar aulas",
+    "h1": "Dê vida ao que\nvocê ensina.",
+    "overflow": false,
+    "faqOpen": true,
+    "canonical": "https://kikamagalhaes.com.br/slidecast/",
+    "images": [
+      {
+        "loaded": true,
+        "url": "https://kikamagalhaes.com.br/slidecast/static/landing/assets/desktop-editor-L5z6PHEZ.png"
+      },
+      {
+        "loaded": true,
+        "url": "https://kikamagalhaes.com.br/slidecast/static/landing/assets/desktop-studio-kqUvmJmx.png"
+      }
+    ],
+    "errors": [],
+    "bad": [],
+    "anchor": "#disponibilidade"
+  },
+  {
+    "endpoint": "api/health",
+    "status": 200,
+    "health": {
+      "status": "healthy",
+      "service": "slidecast-web",
+      "ffmpeg": true,
+      "disk_free_mb": 19277,
+      "pending_jobs": 0,
+      "reasons": []
+    }
+  },
+  {
+    "endpoint": "studio",
+    "status": 404
+  },
+  {
+    "endpoint": "api/auth/me",
+    "status": 401
+  },
+  {
+    "legacyStatus": 307,
+    "redirect": "https://kikamagalhaes.com.br/slidecast/"
+  }
+]
