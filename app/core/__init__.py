@@ -22,6 +22,12 @@ from app.core.dual_region_recorder import (
     DualRegionSession,
     DualRegionRecordingProcess,
     compose_dual_region_video,
+    PresentationInterval,
+    format_ms_to_time,
+    parse_time_to_ms,
+    normalize_and_validate_intervals,
+    detect_slide_intervals_heuristic,
+    probe_video_dimensions,
 )
 
 __all__ = [
@@ -48,4 +54,10 @@ __all__ = [
     "DualRegionSession",
     "DualRegionRecordingProcess",
     "compose_dual_region_video",
+    "PresentationInterval",
+    "format_ms_to_time",
+    "parse_time_to_ms",
+    "normalize_and_validate_intervals",
+    "detect_slide_intervals_heuristic",
+    "probe_video_dimensions",
 ]
