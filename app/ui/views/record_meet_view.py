@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, List
 
-from PySide6.QtCore import Qt, QTimer, Signal, QThread
+from PySide6.QtCore import Qt, QTimer, Signal, QThread, QRect
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -27,9 +27,12 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QButtonGroup,
     QRadioButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
 )
 
-from app.core.ffmpeg_utils import format_duration
+from app.core.ffmpeg_utils import format_duration, get_video_duration
 from app.core.pdf_processor import inspect_pdf, render_thumbnail
 from app.core.subtitles_generator import generate_subtitles_with_gemini, SUPPORTED_LANGUAGES
 from app.core.meeting_recorder import ScreenRecordingProcess, extract_audio_from_video, generate_meeting_notes
@@ -39,10 +42,17 @@ from app.core.dual_region_recorder import (
     CompositionConfig,
     DualRegionSession,
     DualRegionRecordingProcess,
+    PresentationInterval,
+    format_ms_to_time,
+    parse_time_to_ms,
+    normalize_and_validate_intervals,
+    detect_slide_intervals_heuristic,
+    probe_video_dimensions,
 )
 from app.worker import DualRegionRenderWorker
 from app.ui.screen_region_selector import ScreenRegionSelector
 from app.ui.floating_camera_widget import FloatingCameraWidget
+from app.ui.class_timeline_widget import ClassTimelineWidget
 from PySide6.QtMultimedia import QMediaDevices, QCameraDevice
 
 logger = logging.getLogger(__name__)
@@ -169,6 +179,12 @@ class RecordMeetView(QWidget):
         self.selected_pdf_path: Optional[str] = None
         self.results_data: dict = {}
         self.floating_camera: Optional[FloatingCameraWidget] = None
+
+        # Classroom Timeline Direction State
+        self.session_intervals: List[PresentationInterval] = []
+        self.live_marker_start_ms: Optional[int] = None
+        self.live_markers_log: List[dict] = []
+        self.total_recorded_duration_ms: int = 0
 
         self.timer = QTimer(self)
         self.timer.setInterval(250)
@@ -713,6 +729,39 @@ class RecordMeetView(QWidget):
         apply_style(lbl_info, "color: @muted@; font-size: 13px; line-height: 1.5;")
         lbl_info.setAlignment(Qt.AlignCenter)
 
+        # Live Marker Controls (Method B)
+        self.box_live_markers = QFrame()
+        apply_style(self.box_live_markers, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px; padding: 12px;")
+        blm_lay = QVBoxLayout(self.box_live_markers)
+        blm_lay.setSpacing(8)
+
+        lbl_markers_title = QLabel("⏱️ Direção ao Vivo da Aula (Marcar Intervalos de Slides):")
+        apply_style(lbl_markers_title, "font-size: 13px; font-weight: 700; color: @primary@;")
+        blm_lay.addWidget(lbl_markers_title)
+
+        m_btns_row = QHBoxLayout()
+        m_btns_row.setSpacing(12)
+
+        self.btn_mark_pres_start = QPushButton("▶ Apresentação Começou")
+        self.btn_mark_pres_start.setCursor(Qt.PointingHandCursor)
+        apply_style(self.btn_mark_pres_start, "background-color: #10b981; color: #ffffff; font-weight: 700; padding: 8px 18px; border-radius: 6px;")
+        self.btn_mark_pres_start.clicked.connect(self._on_mark_presentation_start)
+
+        self.btn_mark_pres_end = QPushButton("⏹ Apresentação Terminou")
+        self.btn_mark_pres_end.setCursor(Qt.PointingHandCursor)
+        self.btn_mark_pres_end.setEnabled(False)
+        apply_style(self.btn_mark_pres_end, "background-color: #6366f1; color: #ffffff; font-weight: 700; padding: 8px 18px; border-radius: 6px;")
+        self.btn_mark_pres_end.clicked.connect(self._on_mark_presentation_end)
+
+        m_btns_row.addWidget(self.btn_mark_pres_start)
+        m_btns_row.addWidget(self.btn_mark_pres_end)
+        m_btns_row.addStretch()
+        blm_lay.addLayout(m_btns_row)
+
+        self.lbl_marker_status = QLabel("Nenhum marcador registrado (toda a aula será direcionada ou configurada ao final)")
+        apply_style(self.lbl_marker_status, "color: @muted@; font-size: 12px;")
+        blm_lay.addWidget(self.lbl_marker_status)
+
         btn_row = QHBoxLayout()
         btn_row.setSpacing(16)
         btn_row.setAlignment(Qt.AlignCenter)
@@ -735,6 +784,7 @@ class RecordMeetView(QWidget):
         c_layout.addWidget(self.lbl_rec_pulse)
         c_layout.addWidget(self.lbl_rec_time)
         c_layout.addWidget(lbl_info)
+        c_layout.addWidget(self.box_live_markers)
         c_layout.addLayout(btn_row)
 
         layout.addWidget(card)
@@ -801,27 +851,106 @@ class RecordMeetView(QWidget):
         tv_layout.addWidget(self.lbl_video_info)
         tv_layout.addLayout(btn_v_row)
 
-        # Dual-Region Re-composition Section (Change layout without re-recording)
+        # Dual-Region Timeline Direction & Re-composition Section
         self.box_dual_recompose = QFrame()
         self.box_dual_recompose.setProperty("class", "card")
         apply_style(self.box_dual_recompose, "background-color: @surface_alt@; border: 1px solid @border_strong@; border-radius: 8px;")
         bdr_layout = QVBoxLayout(self.box_dual_recompose)
-        bdr_layout.setContentsMargins(14, 12, 14, 12)
+        bdr_layout.setContentsMargins(16, 14, 16, 14)
         bdr_layout.setSpacing(10)
 
-        lbl_recomp_title = QLabel("🎨 Reorganizar Layout da Aula Gravada (Sem Regravar)")
-        apply_style(lbl_recomp_title, "font-size: 14px; font-weight: 700; color: @primary@;")
+        lbl_recomp_title = QLabel("🎬 Direção da Aula & Linha do Tempo (Composição Sem Regravar)")
+        apply_style(lbl_recomp_title, "font-size: 15px; font-weight: 700; color: @primary@;")
         lbl_recomp_desc = QLabel(
-            "Alterne entre o layout com Professor na Lateral ou Sobreposto (PiP), "
-            "ou mude a posição do professor e re-renderize o vídeo instantaneamente a partir das gravações originais."
+            "Alterne automaticamente entre o Professor em Destaque (abertura, intervalos e encerramento) "
+            "e os Slides Grandes com Professor na Lateral (~80% / ~20%) durante a apresentação. "
+            "Você pode editar os intervalos, títulos e posições e re-renderizar sem regravar nada."
         )
         lbl_recomp_desc.setWordWrap(True)
-        apply_style(lbl_recomp_desc, "color: @muted@; font-size: 12px;")
+        apply_style(lbl_recomp_desc, "color: @muted@; font-size: 12px; line-height: 1.4;")
 
+        # Title and Subtitle inputs
+        title_row = QHBoxLayout()
+        title_row.setSpacing(10)
+        lbl_dt = QLabel("Título da Aula:")
+        apply_style(lbl_dt, "font-weight: 600; font-size: 12px;")
+        self.edit_timeline_title = QLineEdit()
+        self.edit_timeline_title.setPlaceholderText("Ex: Aula Magna - Direito Constitucional")
+        lbl_ds = QLabel("Subtítulo:")
+        apply_style(lbl_ds, "font-weight: 600; font-size: 12px;")
+        self.edit_timeline_subtitle = QLineEdit()
+        self.edit_timeline_subtitle.setPlaceholderText("Ex: Prof. Kika Magalhães · Módulo I")
+        title_row.addWidget(lbl_dt)
+        title_row.addWidget(self.edit_timeline_title, stretch=2)
+        title_row.addWidget(lbl_ds)
+        title_row.addWidget(self.edit_timeline_subtitle, stretch=2)
+
+        # Quality inspection badge (Honest scaling policy)
+        self.lbl_prof_quality_badge = QLabel("Inspecionando resolução da câmera do professor...")
+        apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1px solid @border@; border-radius: 6px; padding: 6px 12px; font-size: 12px; color: @track2@;")
+
+        # Visual Timeline Widget
+        self.timeline_widget = ClassTimelineWidget()
+        self.timeline_widget.time_selected.connect(self._on_timeline_time_selected)
+
+        # Needle position layout indicator
+        self.lbl_needle_layout = QLabel("Layout no cursor (00:00): Professor em Destaque (Centralizado)")
+        apply_style(self.lbl_needle_layout, "color: @primary@; font-weight: 600; font-size: 12px;")
+
+        # Manual Interval adder (Method A) & Presets
+        int_ctrl_row = QHBoxLayout()
+        int_ctrl_row.setSpacing(8)
+
+        lbl_add_int = QLabel("Novo Intervalo de Slides:")
+        apply_style(lbl_add_int, "font-weight: 600; font-size: 12px;")
+        self.edit_int_start = QLineEdit()
+        self.edit_int_start.setPlaceholderText("Início (02:00)")
+        self.edit_int_start.setFixedWidth(100)
+        self.edit_int_end = QLineEdit()
+        self.edit_int_end.setPlaceholderText("Fim (36:00)")
+        self.edit_int_end.setFixedWidth(100)
+
+        self.btn_add_interval = QPushButton("➕ Adicionar Intervalo")
+        self.btn_add_interval.setCursor(Qt.PointingHandCursor)
+        apply_style(self.btn_add_interval, "background-color: @primary@; color: @on_primary@; font-weight: 700; padding: 6px 12px; border-radius: 6px;")
+        self.btn_add_interval.clicked.connect(self._on_add_manual_interval)
+
+        self.btn_preset_all_prof = QPushButton("👤 100% Professor")
+        self.btn_preset_all_prof.setCursor(Qt.PointingHandCursor)
+        self.btn_preset_all_prof.clicked.connect(self._on_preset_all_prof)
+
+        self.btn_preset_all_slides = QPushButton("🖥️ 100% Slides")
+        self.btn_preset_all_slides.setCursor(Qt.PointingHandCursor)
+        self.btn_preset_all_slides.clicked.connect(self._on_preset_all_slides)
+
+        self.btn_preset_heuristic = QPushButton("✨ Sugerir com Heurística Local")
+        self.btn_preset_heuristic.setCursor(Qt.PointingHandCursor)
+        self.btn_preset_heuristic.clicked.connect(self._on_preset_heuristic)
+
+        int_ctrl_row.addWidget(lbl_add_int)
+        int_ctrl_row.addWidget(self.edit_int_start)
+        int_ctrl_row.addWidget(self.edit_int_end)
+        int_ctrl_row.addWidget(self.btn_add_interval)
+        int_ctrl_row.addSpacing(10)
+        int_ctrl_row.addWidget(self.btn_preset_all_prof)
+        int_ctrl_row.addWidget(self.btn_preset_all_slides)
+        int_ctrl_row.addWidget(self.btn_preset_heuristic)
+        int_ctrl_row.addStretch()
+
+        # Intervals table
+        self.table_intervals = QTableWidget(0, 6)
+        self.table_intervals.setHorizontalHeaderLabels(["#", "Início", "Fim", "Duração", "Origem", "Ações"])
+        self.table_intervals.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_intervals.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.table_intervals.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.table_intervals.setMaximumHeight(130)
+        self.table_intervals.setSelectionBehavior(QTableWidget.SelectRows)
+
+        # Recompose options row
         recomp_ctrl_row = QHBoxLayout()
         recomp_ctrl_row.setSpacing(10)
 
-        lbl_rl = QLabel("Layout:")
+        lbl_rl = QLabel("Layout dos Slides:")
         self.combo_recomp_layout = QComboBox()
         self.combo_recomp_layout.addItem("Professor na Lateral (~80% / ~20%)", "sidebar")
         self.combo_recomp_layout.addItem("Professor Sobreposto (PiP)", "overlay_pip")
@@ -836,7 +965,7 @@ class RecordMeetView(QWidget):
         self.combo_recomp_res.addItem("1920x1080 (Full HD 16:9)", "1920x1080")
         self.combo_recomp_res.addItem("1280x720 (HD 16:9)", "1280x720")
 
-        self.btn_recompose = QPushButton("🔄 Re-renderizar Novo Layout")
+        self.btn_recompose = QPushButton("🎬 Renderizar Vídeo com Direção de Linha do Tempo")
         self.btn_recompose.setProperty("class", "primary")
         self.btn_recompose.setCursor(Qt.PointingHandCursor)
         self.btn_recompose.clicked.connect(self._on_recompose_clicked)
@@ -852,6 +981,12 @@ class RecordMeetView(QWidget):
 
         bdr_layout.addWidget(lbl_recomp_title)
         bdr_layout.addWidget(lbl_recomp_desc)
+        bdr_layout.addLayout(title_row)
+        bdr_layout.addWidget(self.lbl_prof_quality_badge)
+        bdr_layout.addWidget(self.timeline_widget)
+        bdr_layout.addWidget(self.lbl_needle_layout)
+        bdr_layout.addLayout(int_ctrl_row)
+        bdr_layout.addWidget(self.table_intervals)
         bdr_layout.addLayout(recomp_ctrl_row)
 
         tv_layout.addWidget(self.box_dual_recompose)
@@ -1115,6 +1250,209 @@ class RecordMeetView(QWidget):
         layout_type = self.combo_recomp_layout.currentData() or "sidebar"
         self._populate_recomp_positions(layout_type)
 
+    def _get_current_elapsed_seconds(self) -> float:
+        if self.radio_cap_dual.isChecked() and self.dual_recorder_process:
+            return self.dual_recorder_process.get_elapsed_seconds()
+        elif self.recorder_process:
+            return self.recorder_process.get_elapsed_seconds()
+        return 0.0
+
+    def _on_mark_presentation_start(self):
+        elapsed_sec = self._get_current_elapsed_seconds()
+        elapsed_ms = int(elapsed_sec * 1000)
+        self.live_marker_start_ms = elapsed_ms
+        self.live_markers_log.append({
+            "event": "start",
+            "time_ms": elapsed_ms,
+            "time_str": format_ms_to_time(elapsed_ms),
+        })
+        self.btn_mark_pres_start.setEnabled(False)
+        self.btn_mark_pres_end.setEnabled(True)
+        self.lbl_marker_status.setText(f"🟢 Slides ativos desde {format_ms_to_time(elapsed_ms)}...")
+        apply_style(self.lbl_marker_status, "color: @success@; font-weight: 600; font-size: 12px;")
+
+    def _on_mark_presentation_end(self):
+        if self.live_marker_start_ms is None:
+            return
+        elapsed_sec = self._get_current_elapsed_seconds()
+        elapsed_ms = int(elapsed_sec * 1000)
+        if elapsed_ms <= self.live_marker_start_ms:
+            elapsed_ms = self.live_marker_start_ms + 1000
+        new_int = PresentationInterval(
+            start_ms=self.live_marker_start_ms,
+            end_ms=elapsed_ms,
+            origin="live_marker",
+        )
+        self.session_intervals.append(new_int)
+        self.live_markers_log.append({
+            "event": "end",
+            "time_ms": elapsed_ms,
+            "time_str": format_ms_to_time(elapsed_ms),
+        })
+        self.live_marker_start_ms = None
+        self.btn_mark_pres_start.setEnabled(True)
+        self.btn_mark_pres_end.setEnabled(False)
+        self.lbl_marker_status.setText(f"✓ {len(self.session_intervals)} intervalo(s) de apresentação registrado(s)")
+        apply_style(self.lbl_marker_status, "color: @primary@; font-weight: 600; font-size: 12px;")
+
+    def _on_timeline_time_selected(self, ms: int):
+        label = self.timeline_widget.get_layout_label_at_ms(ms)
+        self.lbl_needle_layout.setText(f"Layout no cursor ({format_ms_to_time(ms)}): {label}")
+
+    def _on_add_manual_interval(self):
+        s_txt = self.edit_int_start.text().strip()
+        e_txt = self.edit_int_end.text().strip()
+        if not s_txt or not e_txt:
+            QMessageBox.warning(self, "Campos Obrigatórios", "Informe o tempo de início e fim no formato mm:ss (ex: 02:00 e 36:00).")
+            return
+        try:
+            start_ms = parse_time_to_ms(s_txt)
+            end_ms = parse_time_to_ms(e_txt)
+        except ValueError as e:
+            QMessageBox.warning(self, "Formato Inválido", f"Erro no formato de tempo:\n{e}")
+            return
+
+        if end_ms <= start_ms:
+            QMessageBox.warning(self, "Intervalo Inválido", "O tempo final deve ser maior que o tempo inicial.")
+            return
+
+        # Check overlap
+        for existing in self.session_intervals:
+            if max(start_ms, existing.start_ms) < min(end_ms, existing.end_ms):
+                QMessageBox.warning(
+                    self,
+                    "Intervalo Sobreposto",
+                    f"O intervalo {s_txt} - {e_txt} sobrepõe o intervalo existente "
+                    f"{existing.start_time_str} - {existing.end_time_str}.\n"
+                    "Intervalos de slides não podem se sobrepor."
+                )
+                return
+
+        new_interval = PresentationInterval(
+            start_ms=start_ms,
+            end_ms=end_ms,
+            origin="manual",
+        )
+        self.session_intervals.append(new_interval)
+        self._refresh_intervals_ui()
+        self.edit_int_start.clear()
+        self.edit_int_end.clear()
+
+    def _on_remove_interval(self, idx: int):
+        if 0 <= idx < len(self.session_intervals):
+            self.session_intervals.pop(idx)
+            self._refresh_intervals_ui()
+
+    def _on_preset_all_prof(self):
+        self.session_intervals.clear()
+        self._refresh_intervals_ui()
+
+    def _on_preset_all_slides(self):
+        dur = self.total_recorded_duration_ms or 60000
+        self.session_intervals = [
+            PresentationInterval(start_ms=0, end_ms=dur, origin="manual")
+        ]
+        self._refresh_intervals_ui()
+
+    def _on_preset_heuristic(self):
+        if not self.pres_raw_path or not Path(self.pres_raw_path).exists():
+            QMessageBox.warning(self, "Aviso", "Gravação bruta da apresentação indisponível para análise.")
+            return
+
+        suggested = detect_slide_intervals_heuristic(self.pres_raw_path)
+        if not suggested:
+            QMessageBox.information(
+                self,
+                "Heurística Local",
+                "Nenhum intervalo evidente de slides foi detectado de forma automática.\n"
+                "Você pode adicionar os intervalos manualmente usando os campos acima."
+            )
+            return
+
+        msg_lines = [f"• {format_ms_to_time(i.start_ms)} até {format_ms_to_time(i.end_ms)}" for i in suggested]
+        reply = QMessageBox.question(
+            self,
+            "Aplicar Intervalos Sugeridos?",
+            f"A heurística detectou {len(suggested)} intervalo(s) candidato(s):\n\n" +
+            "\n".join(msg_lines) +
+            "\n\nDeseja substituir os intervalos atuais por estas sugestões?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            self.session_intervals = suggested
+            self._refresh_intervals_ui()
+
+    def _refresh_intervals_ui(self):
+        # Sort intervals chronologically
+        self.session_intervals = sorted(self.session_intervals, key=lambda x: x.start_ms)
+        self.timeline_widget.set_intervals(self.session_intervals)
+
+        self.table_intervals.setRowCount(len(self.session_intervals))
+        for idx, interval in enumerate(self.session_intervals):
+            item_idx = QTableWidgetItem(f"#{idx + 1}")
+            item_idx.setTextAlignment(Qt.AlignCenter)
+            self.table_intervals.setItem(idx, 0, item_idx)
+
+            item_start = QTableWidgetItem(format_ms_to_time(interval.start_ms))
+            item_start.setTextAlignment(Qt.AlignCenter)
+            self.table_intervals.setItem(idx, 1, item_start)
+
+            item_end = QTableWidgetItem(format_ms_to_time(interval.end_ms))
+            item_end.setTextAlignment(Qt.AlignCenter)
+            self.table_intervals.setItem(idx, 2, item_end)
+
+            item_dur = QTableWidgetItem(format_ms_to_time(interval.duration_ms))
+            item_dur.setTextAlignment(Qt.AlignCenter)
+            self.table_intervals.setItem(idx, 3, item_dur)
+
+            origin_label = "Manual"
+            if interval.origin == "live_marker":
+                origin_label = "Marcador Ao Vivo"
+            elif interval.origin == "auto_suggestion":
+                origin_label = "Heurística IA"
+            item_origin = QTableWidgetItem(origin_label)
+            item_origin.setTextAlignment(Qt.AlignCenter)
+            self.table_intervals.setItem(idx, 4, item_origin)
+
+            btn_remove = QPushButton("🗑️ Remover")
+            btn_remove.setCursor(Qt.PointingHandCursor)
+            apply_style(btn_remove, "background-color: @danger@; color: #ffffff; padding: 2px 8px; border-radius: 4px; font-size: 11px;")
+            btn_remove.clicked.connect(lambda _, i=idx: self._on_remove_interval(i))
+            self.table_intervals.setCellWidget(idx, 5, btn_remove)
+
+    def _update_timeline_ui(self):
+        if not self.pres_raw_path or not Path(self.pres_raw_path).exists():
+            return
+
+        try:
+            dur_sec = get_video_duration(self.pres_raw_path)
+            if dur_sec and dur_sec > 0:
+                self.total_recorded_duration_ms = int(dur_sec * 1000)
+        except Exception:
+            pass
+
+        self.timeline_widget.set_duration_ms(self.total_recorded_duration_ms)
+
+        curr_title = getattr(self.comp_config, "lesson_title", "") or (self.edit_title.text().strip() if hasattr(self, "edit_title") else "") or "Aula Magna"
+        curr_subtitle = getattr(self.comp_config, "lesson_subtitle", "") or (self.edit_teacher.text().strip() if hasattr(self, "edit_teacher") else "") or "SlideCast Studio"
+        self.edit_timeline_title.setText(curr_title)
+        self.edit_timeline_subtitle.setText(curr_subtitle)
+
+        prof_w, prof_h = probe_video_dimensions(self.prof_raw_path)
+        if prof_w <= 480:
+            self.lbl_prof_quality_badge.setText(
+                f"📐 Câmera do Professor: {prof_w}×{prof_h} px · Política de Nitidez: "
+                "Ampliação contida em até 1.5× no palco #10201E (sem esticar ou pixelar)"
+            )
+            apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1.5px solid @warning@; color: @warning@; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 12px;")
+        else:
+            self.lbl_prof_quality_badge.setText(
+                f"📐 Câmera do Professor: {prof_w}×{prof_h} px (Alta Definição) · Palco Broadcast #10201E Ativo"
+            )
+            apply_style(self.lbl_prof_quality_badge, "background-color: @surface@; border: 1.5px solid @success@; color: @success@; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 12px;")
+
+        self._refresh_intervals_ui()
+
     def _on_recompose_clicked(self):
         if not self.pres_raw_path or not self.prof_raw_path or not Path(self.pres_raw_path).exists() or not Path(self.prof_raw_path).exists():
             QMessageBox.warning(
@@ -1127,10 +1465,16 @@ class RecordMeetView(QWidget):
         layout_type = self.combo_recomp_layout.currentData() or "sidebar"
         pos = self.combo_recomp_pos.currentData() or "center"
         res = self.combo_recomp_res.currentData() or "1920x1080"
+        title = self.edit_timeline_title.text().strip() or (self.edit_title.text().strip() if hasattr(self, "edit_title") else "") or "Aula Magna"
+        subtitle = self.edit_timeline_subtitle.text().strip() or (self.edit_teacher.text().strip() if hasattr(self, "edit_teacher") else "") or "SlideCast Studio"
+
         self.comp_config = CompositionConfig(
             layout=layout_type,
             presenter_position=pos,
-            output_resolution=res
+            output_resolution=res,
+            lesson_title=title,
+            lesson_subtitle=subtitle,
+            presentation_intervals=list(self.session_intervals),
         )
 
         dest_dir = Path(self.pres_raw_path).parent
@@ -1161,6 +1505,18 @@ class RecordMeetView(QWidget):
         self.lbl_proc_status.setText("✓ Novo layout renderizado com sucesso!")
         apply_style(self.lbl_proc_status, "color: @success@; font-weight: 700;")
         self.proc_progress.setValue(100)
+
+        if self.dual_session:
+            self.dual_session.output_video = new_output_path
+            self.dual_session.config = self.comp_config
+            self.dual_session.lesson_title = self.comp_config.lesson_title
+            self.dual_session.lesson_subtitle = self.comp_config.lesson_subtitle
+            session_file = Path(new_output_path).with_suffix(".session.json")
+            try:
+                self.dual_session.save(str(session_file))
+            except Exception:
+                pass
+
         QMessageBox.information(
             self,
             "Layout Re-renderizado",
@@ -1174,6 +1530,15 @@ class RecordMeetView(QWidget):
         QMessageBox.critical(self, "Erro na Renderização", f"Falha ao re-renderizar o vídeo:\n{err}")
 
     def _prepare_and_start_recording(self):
+        # Reset timeline and live marker state
+        self.session_intervals = []
+        self.live_marker_start_ms = None
+        self.live_markers_log = []
+        self.btn_mark_pres_start.setEnabled(True)
+        self.btn_mark_pres_end.setEnabled(False)
+        self.lbl_marker_status.setText("Nenhum marcador registrado (toda a aula será direcionada ou configurada ao final)")
+        apply_style(self.lbl_marker_status, "color: @muted@; font-size: 12px;")
+
         if self.radio_cap_dual.isChecked():
             if not self.presentation_region or not self.presenter_region:
                 QMessageBox.warning(
@@ -1200,10 +1565,16 @@ class RecordMeetView(QWidget):
             layout_type = self.combo_dual_layout.currentData() or "sidebar"
             pos = self.combo_dual_pos.currentData() or "center"
             res = self.combo_dual_res.currentData() or "1920x1080"
+            lesson_title = self.edit_title.text().strip() or "Aula Magna"
+            lesson_subtitle = self.edit_teacher.text().strip() or "SlideCast Studio"
+
             self.comp_config = CompositionConfig(
                 layout=layout_type,
                 presenter_position=pos,
-                output_resolution=res
+                output_resolution=res,
+                lesson_title=lesson_title,
+                lesson_subtitle=lesson_subtitle,
+                presentation_intervals=list(self.session_intervals),
             )
 
             self.dual_session = DualRegionSession(
@@ -1214,6 +1585,9 @@ class RecordMeetView(QWidget):
                 raw_presenter_video=self.prof_raw_path,
                 output_video=self.recorded_video_path,
                 config=self.comp_config,
+                lesson_title=lesson_title,
+                lesson_subtitle=lesson_subtitle,
+                live_markers=list(self.live_markers_log),
             )
 
             # 3-second countdown dialog to switch to Google Meet tab
@@ -1239,11 +1613,13 @@ class RecordMeetView(QWidget):
             self.dual_recorder_process.start()
 
             self.lbl_rec_pulse.setText("🔴 GRAVANDO APRESENTAÇÃO + PROFESSOR (2 ÁREAS)")
+            self.box_live_markers.show()
             self.timer.start()
             self.stack.setCurrentIndex(1)
             return
 
         # Full-screen mode (existing preserved flow)
+        self.box_live_markers.hide()
         cam_dev_str = None
         cam_pos_str = "bottom_right"
 
@@ -1335,21 +1711,61 @@ class RecordMeetView(QWidget):
 
         self.timer.stop()
 
+        elapsed_sec = self._get_current_elapsed_seconds()
+        self.total_recorded_duration_ms = int(elapsed_sec * 1000)
+
+        # Auto-close open live marker if any
+        if self.live_marker_start_ms is not None:
+            end_ms = max(self.live_marker_start_ms + 1000, self.total_recorded_duration_ms)
+            self.session_intervals.append(
+                PresentationInterval(
+                    start_ms=self.live_marker_start_ms,
+                    end_ms=end_ms,
+                    origin="live_marker",
+                )
+            )
+            self.live_markers_log.append({
+                "event": "end",
+                "time_ms": end_ms,
+                "time_str": format_ms_to_time(end_ms),
+            })
+            self.live_marker_start_ms = None
+
+        if self.session_intervals and self.total_recorded_duration_ms > 0:
+            try:
+                self.session_intervals = normalize_and_validate_intervals(
+                    self.session_intervals,
+                    total_duration_ms=self.total_recorded_duration_ms,
+                )
+            except Exception as e:
+                logger.warning("Interval normalization warning: %s", e)
+
         if self.radio_cap_dual.isChecked() and self.dual_recorder_process:
             self.dual_recorder_process.stop()
             self.stack.setCurrentIndex(2)
             self.proc_progress.setValue(10)
-            self.lbl_proc_status.setText("Compondo vídeo da aula (Apresentação ~80% + Professor ~20%)...")
+            self.lbl_proc_status.setText("Compondo vídeo da aula com direção de linha do tempo...")
             self.tab_widget.hide()
 
             layout_type = self.combo_dual_layout.currentData() or "sidebar"
             pos = self.combo_dual_pos.currentData() or "center"
             res = self.combo_dual_res.currentData() or "1920x1080"
+            lesson_title = self.edit_title.text().strip() or "Aula Magna"
+            lesson_subtitle = self.edit_teacher.text().strip() or "SlideCast Studio"
+
             self.comp_config = CompositionConfig(
                 layout=layout_type,
                 presenter_position=pos,
-                output_resolution=res
+                output_resolution=res,
+                lesson_title=lesson_title,
+                lesson_subtitle=lesson_subtitle,
+                presentation_intervals=list(self.session_intervals),
             )
+            if self.dual_session:
+                self.dual_session.config = self.comp_config
+                self.dual_session.lesson_title = lesson_title
+                self.dual_session.lesson_subtitle = lesson_subtitle
+                self.dual_session.live_markers = list(self.live_markers_log)
 
             self.render_worker = DualRegionRenderWorker(
                 presentation_video_path=self.pres_raw_path,
@@ -1393,6 +1809,8 @@ class RecordMeetView(QWidget):
         if self.dual_session:
             self.dual_session.output_video = output_path
             self.dual_session.config = self.comp_config
+            self.dual_session.lesson_title = self.comp_config.lesson_title
+            self.dual_session.lesson_subtitle = self.comp_config.lesson_subtitle
             session_file = Path(output_path).with_suffix(".session.json")
             try:
                 self.dual_session.save(str(session_file))
@@ -1433,6 +1851,7 @@ class RecordMeetView(QWidget):
         # Show recomposition box if dual raw sources exist
         if self.pres_raw_path and self.prof_raw_path and Path(self.pres_raw_path).exists() and Path(self.prof_raw_path).exists():
             self.box_dual_recompose.show()
+            self._update_timeline_ui()
         else:
             self.box_dual_recompose.hide()
 
