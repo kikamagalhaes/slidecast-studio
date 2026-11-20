@@ -18,7 +18,7 @@ const questions = [
   ['Quais arquivos posso usar?', 'No editor, escolha um PDF ou um vídeo MP4 como fonte visual. Adicione até quatro áudios em MP3, WAV, M4A, AAC, OGG, FLAC ou WebM. A leitura de cada arquivo é validada antes de ele entrar no projeto.'],
   ['O som do MP4 original aparece no vídeo final?', 'O áudio original do vídeo é ignorado. Você escolhe os arquivos de áudio que farão parte do resultado e ajusta o volume, o silêncio e o momento de início de cada faixa.'],
   ['Consigo continuar um projeto depois?', 'Sim. Salve seu projeto em um arquivo .slidecast para reabrir suas fontes, faixas e ajustes. Mantenha os arquivos originais nas mesmas pastas: o projeto referencia as mídias do seu computador.'],
-  ['Já posso baixar ou comprar?', downloadsReady ? 'Os pacotes desktop já estão disponíveis para download. Extraia o arquivo completo antes de abrir o aplicativo. A compra e a ativação de licença desktop ainda estão em preparação; o modelo comercial não foi anunciado. A assinatura antiga do estúdio web não representa uma licença desktop.' : 'Os pacotes estão passando pelas verificações finais. Os downloads serão liberados aqui quando a publicação estiver concluída. Compra e licença desktop ainda estão em preparação.'],
+  ['Já posso baixar ou comprar?', downloadsReady ? 'Os pacotes desktop atualizados (v1.2.1) já estão disponíveis para download direto para Windows e Linux. Extraia o arquivo completo antes de abrir o aplicativo. Para ativar os recursos profissionais, basta inserir seu serial (SCST-XXXX-XXXX-XXXX-XXXX) no menu Licença.' : 'Os pacotes estão passando pelas verificações finais. Os downloads serão liberados aqui quando a publicação estiver concluída.'],
   ['Como vão funcionar as atualizações e o suporte?', 'Os canais de suporte e a política de atualizações serão divulgados junto ao lançamento comercial. Ainda não há uma oferta de licença ou prazo de atualização anunciado.'],
 ]
 function Landing() {
@@ -79,7 +79,7 @@ function Landing() {
           </article>
         </div>
         <div className="download-details"><p>Pacotes sem assinatura comercial de código. Consulte as instruções e a compatibilidade antes de instalar.</p>{downloadsReady && <a href={release.release_url}>Notas da versão, requisitos e macOS Apple Silicon <Arrow/></a>}</div>
-        <div className="license-note"><b>Compra e licença</b><p>Modelo comercial ainda não anunciado. Não há compra de licença desktop disponível nesta página.</p></div>
+        <div className="license-note"><b>Ativação por Serial e Licença</b><p>O SlideCast Studio Desktop conta com ativação segura por serial (<code>SCST-XXXX-XXXX-XXXX-XXXX</code>) e modo offline. Ao adquirir sua licença, digite sua chave no menu Licença para liberar todos os recursos profissionais.</p></div>
       </div></section>
       <section className="section-wrap faq" id="perguntas" aria-labelledby="faq-title"><div><p className="eyebrow">ANTES DE COMEÇAR</p><h2 id="faq-title">Boas perguntas.<br/>{' '}Respostas claras.</h2></div><div className="faq-list">{questions.map(([q,a])=><details key={q}><summary>{q}<span aria-hidden="true">+</span></summary><p>{a}</p></details>)}</div></section>
     </main>

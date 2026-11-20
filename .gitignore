@@ -39,6 +39,7 @@ tmp_slides/
 
 # Local web storage (uploaded projects and rendered outputs)
 storage/
+app/web/static/downloads/
 *.db
 *.db-shm
 *.db-wal

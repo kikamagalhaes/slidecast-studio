@@ -92,6 +92,50 @@ CREATE TABLE IF NOT EXISTS automations (
 CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_user ON durable_jobs(user_id, status);
 """),
+    (2, """
+CREATE TABLE IF NOT EXISTS desktop_licenses (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  license_key TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'active',
+  plan_type TEXT NOT NULL DEFAULT 'standard',
+  seats_limit INTEGER NOT NULL DEFAULT 2,
+  expires_at TEXT,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  stripe_checkout_session_id TEXT,
+  metadata TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS desktop_activations (
+  id TEXT PRIMARY KEY,
+  license_id TEXT NOT NULL REFERENCES desktop_licenses(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  device_name TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  app_version TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  lease_expires_at TEXT NOT NULL,
+  last_validated_at TEXT NOT NULL,
+  activated_at TEXT NOT NULL,
+  deactivated_at TEXT,
+  UNIQUE(license_id, device_id)
+);
+CREATE TABLE IF NOT EXISTS desktop_license_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  license_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT NOT NULL DEFAULT '{}',
+  ip_address TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_licenses_user ON desktop_licenses(user_id);
+CREATE INDEX IF NOT EXISTS idx_licenses_key ON desktop_licenses(license_key);
+CREATE INDEX IF NOT EXISTS idx_activations_lic ON desktop_activations(license_id, status);
+CREATE INDEX IF NOT EXISTS idx_activations_dev ON desktop_activations(device_id);
+"""),
 ]
 
 JOB_STATUSES = ("aguardando", "processando", "concluido", "falhou", "cancelando", "cancelado")

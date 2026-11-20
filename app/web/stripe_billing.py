@@ -25,6 +25,7 @@ from fastapi import HTTPException
 from stripe._error import SignatureVerificationError
 
 from app.web import billing as billing_module
+from app.web import db as db_module
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,31 @@ def _handle_checkout_completed(obj: dict, db_path: DbPath = None) -> None:
     if not user_id:
         logger.warning("checkout.session.completed without client_reference_id")
         return
+
+    metadata = obj.get("metadata") or {}
+    if metadata.get("type") == "desktop_license":
+        from app.web import desktop_licensing
+        plan_type = metadata.get("plan_type", "standard")
+        try:
+            seats_limit = int(metadata.get("seats_limit", 2))
+        except (ValueError, TypeError):
+            seats_limit = 2
+        cust_id = _sid(obj.get("customer"))
+        sub_id = _sid(obj.get("subscription"))
+        session_id = obj.get("id")
+        desktop_licensing.create_license(
+            user_id=user_id,
+            plan_type=plan_type,
+            seats_limit=seats_limit,
+            stripe_customer_id=cust_id,
+            stripe_subscription_id=sub_id,
+            stripe_checkout_session_id=session_id,
+            metadata=metadata,
+            db_path=db_path,
+        )
+        logger.info("Created desktop license for user %s via session %s", user_id, session_id)
+        return
+
     customer_id = _sid(obj.get("customer"))
     sub_ref = obj.get("subscription")
     status: Optional[str] = None
@@ -177,6 +203,22 @@ def _handle_subscription_changed(obj: dict, deleted: bool) -> None:
         sub_id, status=status, period_end=period_end
     ):
         logger.warning("Webhook for unknown subscription %s", sub_id)
+
+
+def _handle_charge_refunded(obj: dict, db_path: DbPath = None) -> None:
+    cust_id = _sid(obj.get("customer"))
+    if not cust_id:
+        return
+    conn = db_module.connect(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE desktop_licenses SET status = 'revoked', updated_at = ? WHERE stripe_customer_id = ?",
+                (db_module.utcnow_iso(), cust_id),
+            )
+            logger.info("Revoked desktop licenses for refunded customer %s", cust_id)
+    finally:
+        conn.close()
 
 
 def _handle_payment_failed(obj: dict) -> None:
@@ -232,6 +274,8 @@ def handle_webhook(payload: bytes, signature: Optional[str]) -> str:
         _handle_payment_failed(obj)
     elif event_type == "invoice.payment_succeeded":
         _handle_payment_succeeded(obj)
+    elif event_type == "charge.refunded":
+        _handle_charge_refunded(obj)
     else:
         logger.info("Ignoring Stripe event %s", event_type)
     return event_type

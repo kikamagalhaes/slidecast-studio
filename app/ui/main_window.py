@@ -27,6 +27,7 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._check_ffmpeg()
         self._check_gemini_status()
+        self._check_license_status()
         shortcut = QShortcut(QKeySequence.Save, self)
         shortcut.activated.connect(self._save_active)
         shortcut_open = QShortcut(QKeySequence.Open, self)
@@ -115,6 +116,12 @@ class MainWindow(QMainWindow):
         footer = QHBoxLayout()
         self.lbl_ffmpeg_status = QLabel()
         footer.addWidget(self.lbl_ffmpeg_status)
+        footer.addSpacing(16)
+        self.lbl_license_status = QLabel()
+        footer.addWidget(self.lbl_license_status)
+        self.btn_license = QPushButton("Licença")
+        self.btn_license.clicked.connect(self._open_license_dialog)
+        footer.addWidget(self.btn_license)
         footer.addStretch()
         self.lbl_gemini_status = QLabel()
         self.lbl_gemini_status.setProperty("class", "muted")
@@ -124,6 +131,27 @@ class MainWindow(QMainWindow):
         footer.addWidget(self.btn_gemini_key)
         layout.addLayout(footer)
         return widget
+
+    def _check_license_status(self):
+        from app.core.license_manager import get_license_manager
+        from app.core.license_models import LicenseStatus
+        mgr = get_license_manager()
+        status = mgr.status
+        if status == LicenseStatus.ACTIVE:
+            self.lbl_license_status.setText("✓ Licença ativa")
+            self.lbl_license_status.setProperty("class", "badge-success")
+        elif status == LicenseStatus.NO_CONNECTION:
+            self.lbl_license_status.setText("✓ Licença offline")
+            self.lbl_license_status.setProperty("class", "badge-neutral")
+        else:
+            self.lbl_license_status.setText("Modo gratuito")
+            self.lbl_license_status.setProperty("class", "badge-warning")
+
+    def _open_license_dialog(self):
+        from app.ui.dialogs.license_dialog import LicenseDialog
+        dlg = LicenseDialog(self)
+        dlg.license_updated.connect(self._check_license_status)
+        dlg.exec_()
 
     def _check_ffmpeg(self):
         ready = bool(get_ffmpeg_paths()[0])

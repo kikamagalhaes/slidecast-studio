@@ -137,7 +137,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("SlideCast Studio")
     app.setOrganizationName("SlideCast")
-    app.setApplicationVersion("1.2.0")
+    app.setApplicationVersion("1.2.1")
 
     # Restore the operator theme before building any screens.
     theme_manager()

@@ -60,16 +60,22 @@ app = FastAPI(
 # Static and Templates
 static_dir = BASE_DIR / "static"
 static_dir.mkdir(exist_ok=True)
+downloads_dir = static_dir / "downloads"
+downloads_dir.mkdir(exist_ok=True)
 templates_dir = BASE_DIR / "templates"
 templates_dir.mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+app.mount("/downloads", StaticFiles(directory=str(downloads_dir)), name="downloads")
 # Studio build (Vite base /slidecast/ em produção) referencia /assets/*;
 # após o StripPrefix do Traefik isso chega como /assets/* neste app.
 _studio_assets = static_dir / "studio" / "assets"
 if _studio_assets.is_dir():
     app.mount("/assets", StaticFiles(directory=str(_studio_assets)), name="studio-assets")
 templates = Jinja2Templates(directory=str(templates_dir))
+
+from app.web.desktop_license_routes import router as desktop_license_router
+app.include_router(desktop_license_router)
 
 
 def _admin_token_configured() -> str:
