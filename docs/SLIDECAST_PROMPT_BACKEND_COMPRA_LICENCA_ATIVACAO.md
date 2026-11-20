@@ -8,11 +8,11 @@ O produto principal é o desktop para Windows e Linux. A web é apresentação c
 
 - Repositório: `https://github.com/kikamagalhaes/slidecast-studio`.
 - Checkout canônico local: `/home/kika-magalhaes/Plataformas/slidecast/slidecast-studio`.
-- Site público: `https://kikamagalhaes.com.br/slidecast/`.
+- Site público: `https://kikamagalhaes.com.br/slidecast/`, atualizado com downloads reais no commit `21e49fa` e conferido em desktop/tablet/celular.
 - Desktop: `main.py`, `app/ui/`, `app/core/`.
 - Landing: `frontend/src/landing.tsx`, `frontend/src/landing.css`.
 - Distribuição: `.github/workflows/release.yml`, `slidecast.spec`, `scripts/fetch_ffmpeg.py`, `scripts/verify_bundle.py`.
-- A release 1.2.0 introduz o novo desktop e FFmpeg/ffprobe empacotados. Confirme a release e seus artefatos no GitHub e em `docs/slidecast-distribuicao-validacao.md`; não reutilize links históricos como se fossem a versão nova.
+- A [release 1.2.0](https://github.com/kikamagalhaes/slidecast-studio/releases/tag/v1.2.0) foi publicada em 19/11/2026 com os três pacotes e FFmpeg/ffprobe completos. Windows, Linux e macOS passaram no self-test do bundle; o download público Linux também foi extraído e executado com sucesso. Fonte desktop: `143cef1`. Consulte `docs/slidecast-distribuicao-validacao.md` e os relatórios/SHAs em `docs/evidencias/distribuicao/`. Não reutilize links históricos como se fossem a versão nova.
 - Os downloads são pacotes portáteis/aplicativo empacotado; não anuncie MSI, DEB ou RPM inexistentes.
 
 A cobrança atual **não é uma licença desktop**. Ela controla uma assinatura do estúdio web, com trial/cotas de renderização. Não trate a cota mensal ou o trial histórico como uma decisão comercial sobre o aplicativo local.

@@ -1,0 +1,29 @@
+{
+  "failures": [],
+  "media_tools": {
+    "ffmpeg": "ffmpeg version 9.0.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+    "ffprobe": "ffprobe version 9.0.2-essentials_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers"
+  },
+  "renders": {
+    "pdf": {
+      "duration": 2.0,
+      "width": 320,
+      "height": 180,
+      "audio": true
+    },
+    "mp4": {
+      "duration": 2.0,
+      "width": 320,
+      "height": 180,
+      "audio": true
+    }
+  },
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "capture_inputs": [
+    "dshow",
+    "gdigrab"
+  ]
+}
