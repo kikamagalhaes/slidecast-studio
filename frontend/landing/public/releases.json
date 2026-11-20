@@ -8,12 +8,12 @@
       "name": "Windows 10/11 x64",
       "arch": "x64",
       "format": "zip",
-      "size_bytes": 182756566,
-      "sha256": "1cee67ee08d5295f5b1eb5102e7da0a0623145fdce449e437b3df7f5ee3bb37a",
+      "size_bytes": 182783031,
+      "sha256": "00e524e57cfabe6d5f9fb1053494e8c155a42ff02c929cbe0448fc86d02540f1",
       "url": "https://kikamagalhaes.com.br/slidecast/downloads/SlideCastStudio-windows-x64.zip",
-      "fallback_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-windows-x64.zip",
+      "fallback_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.1/SlideCastStudio-windows-x64.zip",
       "checksum_url": "https://kikamagalhaes.com.br/slidecast/downloads/SlideCastStudio-windows-x64.sha256",
-      "self_test_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-windows-x64-self-test.json"
+      "self_test_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.1/SlideCastStudio-windows-x64-self-test.json"
     },
     "linux": {
       "name": "Ubuntu 24.04 x64",
@@ -22,9 +22,9 @@
       "size_bytes": 226703002,
       "sha256": "0a16f91ec835a48f331ed6a7f21a0672afbdf468d092c135915fab52a162f9cf",
       "url": "https://kikamagalhaes.com.br/slidecast/downloads/SlideCastStudio-linux-x64.tar.gz",
-      "fallback_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-linux-x64.tar.gz",
+      "fallback_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.1/SlideCastStudio-linux-x64.tar.gz",
       "checksum_url": "https://kikamagalhaes.com.br/slidecast/downloads/SlideCastStudio-linux-x64.sha256",
-      "self_test_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-linux-x64-self-test.json"
+      "self_test_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.1/SlideCastStudio-linux-x64-self-test.json"
     },
     "macos": {
       "name": "macOS 15 Apple Silicon",
