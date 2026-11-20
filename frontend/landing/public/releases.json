@@ -1,32 +1,38 @@
 {
   "version": "1.2.0",
+  "status": "published",
   "release_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/tag/v1.2.0",
-  "published_at": null,
+  "published_at": "2026-11-19T20:34:19Z",
   "platforms": {
     "windows": {
       "name": "Windows 10/11 x64",
       "arch": "x64",
       "format": "zip",
-      "size_bytes": 0,
+      "size_bytes": 182756566,
+      "sha256": "1cee67ee08d5295f5b1eb5102e7da0a0623145fdce449e437b3df7f5ee3bb37a",
       "url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-windows-x64.zip",
-      "checksum_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-windows-x64.sha256"
+      "checksum_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-windows-x64.sha256",
+      "self_test_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-windows-x64-self-test.json"
     },
     "linux": {
       "name": "Ubuntu 24.04 x64",
       "arch": "x64",
       "format": "tar.gz",
-      "size_bytes": 0,
+      "size_bytes": 233132205,
+      "sha256": "71dd69965a024bbe5bb8889fd5c04fd22502d88b9be49ac8bd45bf218fbe36de",
       "url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-linux-x64.tar.gz",
-      "checksum_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-linux-x64.sha256"
+      "checksum_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-linux-x64.sha256",
+      "self_test_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-linux-x64-self-test.json"
     },
     "macos": {
-      "name": "macOS Apple Silicon",
+      "name": "macOS 15 Apple Silicon",
       "arch": "arm64",
       "format": "dmg",
-      "size_bytes": 0,
+      "size_bytes": 118215924,
+      "sha256": "782d6121acb93bb8fbefdab5f2bccc5048f55d2ed4f7500c896c7f0e6596d4f7",
       "url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-macos-arm64.dmg",
-      "checksum_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-macos-arm64.sha256"
+      "checksum_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-macos-arm64.sha256",
+      "self_test_url": "https://github.com/kikamagalhaes/slidecast-studio/releases/download/v1.2.0/SlideCastStudio-macos-arm64-self-test.json"
     }
-  },
-  "status": "preparing"
+  }
 }
